@@ -8,8 +8,10 @@
     "node": ">=20"
   },
   "scripts": {
+    "setup:config": "node src/init-config.mjs",
     "check": "node src/cli.mjs check",
     "mcp": "node src/server.mjs",
+    "preui": "node src/init-config.mjs",
     "ui": "node src/ui-server.mjs",
     "test": "node --test test/*.test.mjs",
     "test:mcp": "node test/mcp-smoke.mjs",

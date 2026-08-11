@@ -9,9 +9,11 @@ import { startUiServer } from "../src/ui-server.mjs";
 async function createUiFixture(t) {
   const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-ui-test-"));
   const docsRoot = path.join(temporaryRoot, "allowed docs");
+  const exactFile = path.join(temporaryRoot, "dropped exact file.txt");
   const configPath = path.join(temporaryRoot, "search.config.json");
   await fs.mkdir(docsRoot, { recursive: true });
   await fs.writeFile(path.join(docsRoot, "workflow.json"), '{"description":"UI shell search target"}\n', "utf8");
+  await fs.writeFile(exactFile, "Dropped exact file fixture.\n", "utf8");
 
   const config = {
     version: 1,
@@ -48,7 +50,7 @@ async function createUiFixture(t) {
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
   });
 
-  return { config, configPath, docsRoot, ui };
+  return { config, configPath, docsRoot, exactFile, ui };
 }
 
 function apiHeaders(ui, json = false) {
@@ -64,7 +66,9 @@ test("configuration UI serves locally and protects its API", async (t) => {
 
   const page = await fetch(fixture.ui.url);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /Choose what your AI agent can read/);
+  const pageText = await page.text();
+  assert.match(pageText, /Choose what your AI agent can read/);
+  assert.match(pageText, /Drop files or folders here/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -74,6 +78,26 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(payload.ok, true);
   assert.equal(payload.config.sources.local.extensions, "**.json;**.ai.md");
   assert.deepEqual(payload.check.sources.local.extensions, [".json", ".ai.md"]);
+});
+
+test("configuration UI classifies dropped files and folders", async (t) => {
+  const fixture = await createUiFixture(t);
+  const response = await fetch(new URL("api/classify-dropped-paths", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      paths: [fixture.docsRoot, fixture.exactFile, fixture.exactFile, "relative-file.txt"]
+    })
+  });
+  const payload = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.items.map((item) => item.type), ["directory", "file"]);
+  assert.equal(path.basename(payload.items[0].path), path.basename(fixture.docsRoot));
+  assert.equal(path.basename(payload.items[1].path), path.basename(fixture.exactFile));
+  assert.equal(payload.errors.length, 1);
+  assert.equal(payload.errors[0].code, "PATH_NOT_ABSOLUTE");
 });
 
 test("configuration UI validates, saves, backs up, and searches", async (t) => {

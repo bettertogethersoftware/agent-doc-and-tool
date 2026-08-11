@@ -20,7 +20,7 @@ The `search` result contains grounded lines rather than guessed instructions:
   "ok": true,
   "results": [
     {
-      "path": "C:\\Users\\jerry\\source\\repos\\...\\README.md",
+      "path": "C:\\path\\to\\local\\documentation\\README.md",
       "lineNumber": 37,
       "lineText": "The local MiniMax H3 workflow uses ...",
       "matchType": "all_terms_line"
@@ -33,7 +33,7 @@ The agent reviews the paths and line text, prefers the machine-specific workflow
 
 ```json
 {
-  "path": "C:\\Users\\jerry\\source\\repos\\...\\README.md",
+  "path": "C:\\path\\to\\local\\documentation\\README.md",
   "source": "local"
 }
 ```

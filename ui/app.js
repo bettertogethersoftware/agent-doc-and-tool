@@ -13,6 +13,9 @@ const elements = {
   filesEmpty: document.querySelector("#files-empty"),
   rootTemplate: document.querySelector("#root-row-template"),
   fileTemplate: document.querySelector("#file-row-template"),
+  dropZone: document.querySelector("#drop-zone"),
+  dropHelp: document.querySelector("#drop-help"),
+  openDropBox: document.querySelector("#open-drop-box"),
   addFolder: document.querySelector("#add-folder"),
   pickFolder: document.querySelector("#pick-folder"),
   addFile: document.querySelector("#add-file"),
@@ -137,6 +140,26 @@ function friendlyPathName(filePath, fallback) {
     .replace(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase() || fallback;
+}
+
+function comparableLocalPath(value) {
+  const normalized = value.trim().replaceAll("/", "\\").replace(/[\\]+$/, "");
+  return runtime.nativePickers ? normalized.toLowerCase() : normalized;
+}
+
+function uniqueRootName(baseName) {
+  const existing = new Set([...elements.rootsList.querySelectorAll('[data-field="name"]')]
+    .map((input) => input.value.trim().toLowerCase()));
+  if (!existing.has(baseName.toLowerCase())) {
+    return baseName;
+  }
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${baseName}-${suffix}`;
+    if (!existing.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+  return `${baseName}-${Date.now()}`;
 }
 
 function attachConfigurationInput(input) {
@@ -358,6 +381,130 @@ async function pickPath(kind) {
   }
 }
 
+function addDroppedItems(items, errors = []) {
+  const existingFolders = new Set([...elements.rootsList.querySelectorAll('[data-field="path"]')]
+    .map((input) => comparableLocalPath(input.value)));
+  const existingFiles = new Set([...elements.filesList.querySelectorAll('[data-field="path"]')]
+    .map((input) => comparableLocalPath(input.value)));
+  let added = 0;
+  let duplicates = 0;
+
+  for (const item of items) {
+    const comparable = comparableLocalPath(item.path);
+    if (item.type === "directory") {
+      if (existingFolders.has(comparable)) {
+        duplicates += 1;
+        continue;
+      }
+      const rootName = uniqueRootName(friendlyPathName(item.path, "allowed-folder"));
+      appendRoot({ name: rootName, path: item.path, priority: 100 });
+      existingFolders.add(comparable);
+      added += 1;
+    } else if (item.type === "file") {
+      if (existingFiles.has(comparable)) {
+        duplicates += 1;
+        continue;
+      }
+      appendFile(item.path);
+      existingFiles.add(comparable);
+      added += 1;
+    }
+  }
+
+  if (added > 0) {
+    markDirty();
+  }
+  const details = [
+    `${added} item${added === 1 ? "" : "s"} added`,
+    ...(duplicates > 0 ? [`${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped`] : []),
+    ...(errors.length > 0 ? [`${errors.length} unavailable item${errors.length === 1 ? "" : "s"} skipped`] : [])
+  ];
+  showToast(`${details.join(" · ")}.${added > 0 ? " Save configuration to apply." : ""}`, added > 0 || duplicates > 0 ? "success" : "error");
+}
+
+function fileUrlPath(value) {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "file:") {
+      return null;
+    }
+    let decoded = decodeURIComponent(parsed.pathname);
+    if (/^\/[A-Za-z]:\//.test(decoded)) {
+      decoded = decoded.slice(1);
+    }
+    return runtime.nativePickers ? decoded.replaceAll("/", "\\") : decoded;
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeAbsolutePath(value) {
+  return /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value) || (!runtime.nativePickers && value.startsWith("/"));
+}
+
+function droppedAbsolutePaths(dataTransfer) {
+  const candidates = [];
+  for (const file of dataTransfer?.files ?? []) {
+    const exposedPath = typeof file.path === "string" ? file.path : typeof file.fullPath === "string" ? file.fullPath : "";
+    if (looksLikeAbsolutePath(exposedPath)) {
+      candidates.push(exposedPath);
+    }
+  }
+
+  for (const type of ["text/uri-list", "text/plain"]) {
+    const text = dataTransfer?.getData(type) ?? "";
+    for (const line of text.split(/\r?\n/).map((entry) => entry.trim()).filter((entry) => entry && !entry.startsWith("#"))) {
+      const fromUrl = line.startsWith("file:") ? fileUrlPath(line) : null;
+      const candidate = fromUrl ?? line.replace(/^"|"$/g, "");
+      if (candidate && looksLikeAbsolutePath(candidate)) {
+        candidates.push(candidate);
+      }
+    }
+  }
+
+  return [...new Map(candidates.map((candidate) => [comparableLocalPath(candidate), candidate])).values()];
+}
+
+async function classifyAndAddDroppedPaths(paths) {
+  const payload = await api("/api/classify-dropped-paths", { method: "POST", body: { paths } });
+  addDroppedItems(payload.items, payload.errors);
+}
+
+async function openNativeDropBox() {
+  setBusy(elements.openDropBox, true, "Waiting for drop…");
+  try {
+    const payload = await api("/api/native-drop", { method: "POST", body: {} });
+    if (!payload.cancelled) {
+      addDroppedItems(payload.items, payload.errors);
+    }
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setBusy(elements.openDropBox, false);
+  }
+}
+
+async function handleBrowserDrop(event) {
+  event.preventDefault();
+  elements.dropZone.classList.remove("is-dragging");
+  const paths = droppedAbsolutePaths(event.dataTransfer);
+  if (paths.length > 0) {
+    try {
+      await classifyAndAddDroppedPaths(paths);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+    return;
+  }
+
+  if (runtime.nativePickers) {
+    showToast("This browser hides complete local paths. Drop the same items into the Windows drop box that is opening.");
+    await openNativeDropBox();
+  } else {
+    showToast("This browser does not expose complete local paths. Use the folder or file browse buttons.", "error");
+  }
+}
+
 async function runSearch(event) {
   event.preventDefault();
   if (state.dirty) {
@@ -435,6 +582,23 @@ elements.addFile.addEventListener("click", () => {
 });
 elements.pickFolder.addEventListener("click", () => pickPath("directory"));
 elements.pickFile.addEventListener("click", () => pickPath("file"));
+elements.openDropBox.addEventListener("click", openNativeDropBox);
+elements.dropZone.addEventListener("dragenter", (event) => {
+  event.preventDefault();
+  elements.dropZone.classList.add("is-dragging");
+});
+elements.dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+});
+elements.dropZone.addEventListener("dragleave", (event) => {
+  if (!elements.dropZone.contains(event.relatedTarget)) {
+    elements.dropZone.classList.remove("is-dragging");
+  }
+});
+elements.dropZone.addEventListener("drop", handleBrowserDrop);
 elements.reloadConfig.addEventListener("click", () => {
   if (!state.dirty || window.confirm("Discard unsaved changes and reload the saved configuration?")) {
     loadConfig();
@@ -446,6 +610,8 @@ elements.searchForm.addEventListener("submit", runSearch);
 if (!runtime.nativePickers) {
   elements.pickFolder.hidden = true;
   elements.pickFile.hidden = true;
+  elements.openDropBox.hidden = true;
+  elements.dropHelp.textContent = "Drop files or folders directly when your browser exposes complete local paths.";
 }
 
 window.addEventListener("beforeunload", (event) => {

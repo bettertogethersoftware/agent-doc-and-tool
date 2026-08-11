@@ -42,10 +42,28 @@
       </div>
     </div>
 
+    <section class="panel drop-panel">
+      <div class="panel-heading compact">
+        <div>
+          <p class="step">01</p>
+          <h2>Add files or folders</h2>
+          <p>Add several locations at once. Files become exact grants; folders become recursive search roots.</p>
+        </div>
+      </div>
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-symbol" aria-hidden="true">↓</div>
+        <div>
+          <strong>Drop files or folders here</strong>
+          <p id="drop-help">Drop directly when supported, or open the Windows drop box to preserve complete local paths.</p>
+        </div>
+        <button id="open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <p class="step">01</p>
+          <p class="step">02</p>
           <h2>Allowed folders</h2>
           <p>Every matching document below these folders can be searched recursively.</p>
         </div>
@@ -67,7 +85,7 @@
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <p class="step">02</p>
+          <p class="step">03</p>
           <h2>Exact files</h2>
           <p>Exact files are allowed even when they are outside a folder or do not match a suffix pattern.</p>
         </div>
@@ -83,7 +101,7 @@
     <section class="panel">
       <div class="panel-heading compact">
         <div>
-          <p class="step">03</p>
+          <p class="step">04</p>
           <h2>Matching rules</h2>
           <p>Use semicolons between suffix patterns. Glob-style forms are normalized safely.</p>
         </div>
@@ -113,7 +131,7 @@
     <details class="panel advanced">
       <summary>
         <span>
-          <span class="step">04</span>
+          <span class="step">05</span>
           <strong>Safety and limits</strong>
         </span>
         <small>Advanced</small>
@@ -142,7 +160,7 @@
     <section class="panel test-panel">
       <div class="panel-heading compact">
         <div>
-          <p class="step">05</p>
+          <p class="step">06</p>
           <h2>Test the saved configuration</h2>
           <p>Run the same local search exposed to the AI agent.</p>
         </div>

@@ -13,6 +13,7 @@ Requires Node.js 20 or newer.
 
 ```powershell
 npm install
+npm run setup:config
 npm test
 npm run test:mcp
 npm run test:mcp:live
@@ -35,11 +36,13 @@ Start the local UI:
 npm run ui
 ```
 
-It binds only to `127.0.0.1`, opens the default browser, and edits the active [config/search.config.json](config/search.config.json). From the UI you can:
+It binds only to `127.0.0.1`, opens the default browser, and edits the local `config/search.config.json`. The active file is ignored by Git because it can contain personal paths. If it is missing, `npm run ui` creates it from the safe [config/search.config.example.json](config/search.config.example.json) without overwriting an existing configuration.
 
-- Browse for or paste recursively searched folders.
-- Browse for or paste exact files outside those folders.
-- Enter suffix patterns such as `**.json;**.ai.md`.
+From the UI you can:
+
+- Drop several files or folders at once. On Windows, use the native drop box when the browser hides full local paths.
+- Browse for or paste recursively searched folders and exact files.
+- Enter suffix patterns such as `.json;.ai.md;.md;.txt`.
 - Edit exact filenames, ignore rules, and safety limits.
 - Save only after full schema validation; the previous file is retained as `search.config.json.bak`.
 - Run a local test search using the saved configuration.
@@ -48,7 +51,7 @@ Keep the terminal running while using the UI. Stop it with <kbd>Ctrl</kbd>+<kbd>
 
 ## Manual configuration
 
-Edit [config/search.config.json](config/search.config.json) to define named sources, directories, allowed suffixes, exact filenames, or individual files. Paths support `${ENV_NAME}`, `%ENV_NAME%`, `~`, absolute paths, and paths relative to the config file.
+Edit the local `config/search.config.json` to define named sources, directories, allowed suffixes, exact filenames, or individual files. Run `npm run setup:config` once to create it when needed. Paths support `${ENV_NAME}`, `%ENV_NAME%`, `~`, absolute paths, and paths relative to the config file.
 
 ```json
 {
@@ -56,16 +59,15 @@ Edit [config/search.config.json](config/search.config.json) to define named sour
     "local": {
       "roots": [
         {
-          "name": "yt-ad-skipper",
-          "path": "${USERPROFILE}\\Documents\\Jerry\\yt-ad-skipper (1)\\yt-ad-skipper",
-          "priority": 150
+          "name": "my-documentation",
+          "path": "C:\\path\\to\\documentation",
+          "priority": 100
         }
       ],
-      "extensions": "**.json;**.ai.md",
+      "extensions": ".json;.ai.md;.md;.txt",
       "fileNames": ["README.md"],
       "files": [
-        "${USERPROFILE}\\source\\repos\\bettertogethersoftware\\motion-studio\\agent_tool_minimaxh3\\README.md",
-        "${USERPROFILE}\\Documents\\workspace.terminal.json"
+        "C:\\path\\to\\one\\exact-file.json"
       ]
     }
   }
@@ -74,7 +76,7 @@ Edit [config/search.config.json](config/search.config.json) to define named sour
 
 `roots` are searched recursively. `files` are exact grants and do not need to match an extension or filename rule. `extensions` accepts either an array of suffixes or a semicolon-separated string; `.json`, `*.json`, `**.json`, and `**/*.json` all normalize to the same `.json` suffix rule. `fileNames` contains exact names matched anywhere beneath a root.
 
-The committed configuration includes the three paths above and also searches this machine's source repositories and Codex skills. Edit [config/.agent-searchignore](config/.agent-searchignore) using Git-ignore syntax to exclude generated or irrelevant directories. Negated `!patterns` are supported.
+Git tracks only the empty [configuration example](config/search.config.example.json), never the active configuration or its backup. Edit [config/.agent-searchignore](config/.agent-searchignore) using Git-ignore syntax to exclude generated or irrelevant directories. Negated `!patterns` are supported.
 
 `fetch` is intentionally allowlisted: it only reads eligible files beneath configured roots or exact files listed by the human. It rejects relative paths, links, known credential locations and secret file types, binary files, ignored files, and oversized files.
 
@@ -89,7 +91,8 @@ node .\src\server.mjs
 Register it with a local Codex client:
 
 ```powershell
-codex mcp add local_doc_search --env AGENT_DOC_SEARCH_CONFIG="C:\Users\jerry\source\repos\bettertogethersoftware\agent-doc-and-tool\config\search.config.json" -- node "C:\Users\jerry\source\repos\bettertogethersoftware\agent-doc-and-tool\src\server.mjs"
+$agentDocRoot = (Get-Location).Path
+codex mcp add local_doc_search --env "AGENT_DOC_SEARCH_CONFIG=$agentDocRoot\config\search.config.json" -- node "$agentDocRoot\src\server.mjs"
 ```
 
 The companion [local-doc-search skill](skills/local-doc-search/SKILL.md) teaches Codex to search before guessing, select the authoritative result, and fetch the exact document. A newly registered MCP server becomes available after starting a new Codex task or restarting the local client.

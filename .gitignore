@@ -2,5 +2,6 @@ node_modules/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+config/search.config.json
 config/*.bak
 config/*.tmp
