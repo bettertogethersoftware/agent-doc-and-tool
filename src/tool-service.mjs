@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 
 import createIgnore from "ignore";
 
-import { loadConfig } from "./config.mjs";
+import { isConfiguredSecretPath, loadConfig } from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
 import { canonicalize } from "./text.mjs";
 
@@ -57,6 +57,8 @@ function ignored(ignoreSpec, relativePath, directory = false) {
 }
 
 function createState(config) {
+  const enabledDirectories = config.tools.directories.filter((directory) => directory.enabled).length;
+  const enabledFiles = config.tools.files.filter((file) => file.enabled).length;
   return {
     config,
     deadline: Date.now() + config.limits.timeoutMs,
@@ -66,7 +68,11 @@ function createState(config) {
     warnings: [],
     stats: {
       directoriesConfigured: config.tools.directories.length,
+      directoriesEnabled: enabledDirectories,
+      directoriesDisabled: config.tools.directories.length - enabledDirectories,
       exactFilesConfigured: config.tools.files.length,
+      exactFilesEnabled: enabledFiles,
+      exactFilesDisabled: config.tools.files.length - enabledFiles,
       directoriesScanned: 0,
       filesConsidered: 0,
       eligibleFiles: 0,
@@ -129,7 +135,7 @@ async function verifyToolFile(filePath, state, realRoot = undefined) {
       state.stats.skippedLinks += 1;
       return null;
     }
-    if (isProtectedPath(realPath)) {
+    if (isProtectedPath(realPath) || isConfiguredSecretPath(realPath, state.config)) {
       state.stats.skippedIgnored += 1;
       return null;
     }
@@ -209,7 +215,7 @@ async function *enumerateToolDirectory(directory, state, seenPaths) {
         pending.push({ fullPath, relativePath });
         continue;
       }
-      if (!entry.isFile() || ignored(ignoreSpec, relativePath) || isProtectedPath(fullPath)) {
+      if (!entry.isFile() || ignored(ignoreSpec, relativePath) || isProtectedPath(fullPath) || isConfiguredSecretPath(fullPath, state.config)) {
         if (entry.isFile()) {
           state.stats.skippedIgnored += 1;
         }
@@ -245,6 +251,9 @@ async function *enumerateToolDirectory(directory, state, seenPaths) {
 
 async function *enumerateExactToolFiles(state, seenPaths) {
   for (const configuredFile of state.config.tools.files) {
+    if (!configuredFile.enabled) {
+      continue;
+    }
     if (shouldStop(state)) {
       return;
     }
@@ -342,8 +351,8 @@ function invocationFor(filePath) {
 function documentationEnabledFor(filePath, config) {
   const source = config.sources[config.defaultSource];
   const documentationRoots = [
-    ...(source?.roots ?? []),
-    ...config.tools.directories.filter((directory) => directory.includeDocs)
+    ...(source?.roots ?? []).filter((directory) => directory.enabled),
+    ...config.tools.directories.filter((directory) => directory.enabled && directory.includeDocs)
   ];
   return documentationRoots.some((directory) => isWithin(path.resolve(filePath), path.resolve(directory.path)));
 }
@@ -370,7 +379,7 @@ export async function findTools({ query, maxResults = undefined }, options = {})
   for await (const candidate of enumerateExactToolFiles(state, seenPaths)) {
     candidates.push(candidate);
   }
-  for (const directory of config.tools.directories) {
+  for (const directory of config.tools.directories.filter((entry) => entry.enabled)) {
     if (state.stopped) {
       break;
     }

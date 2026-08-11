@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Read-only local documentation and tool discovery MCP server for AI agents",
+  "description": "Read-only local documentation, tool discovery, and exact secret-file MCP server for AI agents",
   "engines": {
     "node": ">=20"
   },

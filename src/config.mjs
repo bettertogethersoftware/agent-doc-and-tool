@@ -22,13 +22,23 @@ const DEFAULT_LIMITS = {
 };
 
 export const DEFAULT_TOOL_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"];
+export const DEFAULT_SECRET_MAX_FILE_BYTES = 256_000;
 
 const RootEntrySchema = z.union([
   z.string().trim().min(1),
   z.object({
     name: z.string().trim().min(1).optional(),
     path: z.string().trim().min(1),
-    priority: z.number().int().min(-10_000).max(10_000).default(0)
+    priority: z.number().int().min(-10_000).max(10_000).default(0),
+    enabled: z.boolean().default(true)
+  }).strict()
+]);
+
+const DocumentFileEntrySchema = z.union([
+  z.string().trim().min(1),
+  z.object({
+    path: z.string().trim().min(1),
+    enabled: z.boolean().default(true)
   }).strict()
 ]);
 
@@ -41,7 +51,7 @@ const SourceSchema = z.object({
   roots: z.array(RootEntrySchema).default([]),
   extensions: ExtensionListSchema.default([".ai.md"]),
   fileNames: z.array(z.string().trim().min(1)).default(["README.md"]),
-  files: z.array(z.string().trim().min(1)).default([])
+  files: z.array(DocumentFileEntrySchema).default([])
 }).strict();
 
 const ToolDirectoryEntrySchema = z.union([
@@ -51,7 +61,8 @@ const ToolDirectoryEntrySchema = z.union([
     path: z.string().trim().min(1),
     priority: z.number().int().min(-10_000).max(10_000).default(0),
     recursive: z.boolean().default(true),
-    includeDocs: z.boolean().default(true)
+    includeDocs: z.boolean().default(true),
+    enabled: z.boolean().default(true)
   }).strict()
 ]);
 
@@ -60,7 +71,8 @@ const ToolFileEntrySchema = z.union([
   z.object({
     name: z.string().trim().min(1).optional(),
     path: z.string().trim().min(1),
-    priority: z.number().int().min(-10_000).max(10_000).default(0)
+    priority: z.number().int().min(-10_000).max(10_000).default(0),
+    enabled: z.boolean().default(true)
   }).strict()
 ]);
 
@@ -72,6 +84,24 @@ const ToolsSchema = z.object({
   directories: [],
   files: [],
   extensions: DEFAULT_TOOL_EXTENSIONS
+});
+
+const SecretFileEntrySchema = z.union([
+  z.string().trim().min(1),
+  z.object({
+    name: z.string().trim().min(1).optional(),
+    path: z.string().trim().min(1),
+    format: z.enum(["auto", "env", "opaque"]).default("auto"),
+    enabled: z.boolean().default(true)
+  }).strict()
+]);
+
+const SecretsSchema = z.object({
+  files: z.array(SecretFileEntrySchema).default([]),
+  maxFileBytes: z.number().int().min(1).max(1_000_000).default(DEFAULT_SECRET_MAX_FILE_BYTES)
+}).strict().default({
+  files: [],
+  maxFileBytes: DEFAULT_SECRET_MAX_FILE_BYTES
 });
 
 const LimitsSchema = z.object({
@@ -93,6 +123,7 @@ const ConfigSchema = z.object({
   caseSensitive: z.boolean().default(false),
   followLinks: z.literal(false).default(false),
   tools: ToolsSchema,
+  secrets: SecretsSchema,
   limits: LimitsSchema
 }).strict();
 
@@ -181,16 +212,30 @@ function normalizeSource(name, rawSource, configDirectory) {
     return {
       name: root.name ?? `${name}-root-${index + 1}`,
       path: resolveConfiguredPath(root.path, configDirectory),
-      priority: root.priority ?? 0
+      priority: root.priority ?? 0,
+      enabled: root.enabled !== false
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
+
+  const files = [];
+  const seenFiles = new Set();
+  for (const entry of rawSource.files) {
+    const file = typeof entry === "string" ? { path: entry, enabled: true } : entry;
+    const resolvedPath = resolveConfiguredPath(file.path, configDirectory);
+    const comparablePath = process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
+    if (seenFiles.has(comparablePath)) {
+      continue;
+    }
+    seenFiles.add(comparablePath);
+    files.push({ path: resolvedPath, enabled: file.enabled !== false });
+  }
 
   return {
     name,
     roots,
     extensions: normalizeExtensionPatterns(rawSource.extensions),
     fileNames: [...new Set(rawSource.fileNames.map((fileName) => fileName.trim()))],
-    files: [...new Set(rawSource.files.map((file) => resolveConfiguredPath(file, configDirectory)))]
+    files
   };
 }
 
@@ -204,7 +249,8 @@ function normalizeTools(rawTools, configDirectory) {
       path: resolveConfiguredPath(directory.path, configDirectory),
       priority: directory.priority ?? 0,
       recursive: directory.recursive !== false,
-      includeDocs: directory.includeDocs !== false
+      includeDocs: directory.includeDocs !== false,
+      enabled: directory.enabled !== false
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
@@ -214,7 +260,8 @@ function normalizeTools(rawTools, configDirectory) {
     return {
       name: file.name ?? (path.basename(resolvedPath) || `tool-file-${index + 1}`),
       path: resolvedPath,
-      priority: file.priority ?? 0
+      priority: file.priority ?? 0,
+      enabled: file.enabled !== false
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
@@ -222,6 +269,39 @@ function normalizeTools(rawTools, configDirectory) {
     directories,
     files,
     extensions: normalizeExtensionPatterns(rawTools.extensions)
+  };
+}
+
+function normalizeSecrets(rawSecrets, configDirectory) {
+  const names = new Set();
+  const paths = new Set();
+  const files = rawSecrets.files.map((entry, index) => {
+    const file = typeof entry === "string" ? { path: entry, format: "auto" } : entry;
+    const resolvedPath = resolveConfiguredPath(file.path, configDirectory);
+    const name = file.name ?? (path.basename(resolvedPath) || `secret-file-${index + 1}`);
+    const comparableName = name.toLowerCase();
+    const comparablePath = process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
+
+    if (names.has(comparableName)) {
+      throw new AgentDocError("CONFIG_SECRET_NAME_DUPLICATE", `Secret name '${name}' is configured more than once.`);
+    }
+    if (paths.has(comparablePath)) {
+      throw new AgentDocError("CONFIG_SECRET_PATH_DUPLICATE", `Secret file is configured more than once: ${resolvedPath}`);
+    }
+    names.add(comparableName);
+    paths.add(comparablePath);
+
+    return {
+      name,
+      path: resolvedPath,
+      format: file.format ?? "auto",
+      enabled: file.enabled !== false
+    };
+  }).sort((left, right) => left.name.localeCompare(right.name));
+
+  return {
+    files,
+    maxFileBytes: rawSecrets.maxFileBytes
   };
 }
 
@@ -271,6 +351,7 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
     caseSensitive: parsed.data.caseSensitive,
     followLinks: parsed.data.followLinks,
     tools: normalizeTools(parsed.data.tools, configDirectory),
+    secrets: normalizeSecrets(parsed.data.secrets, configDirectory),
     limits: parsed.data.limits
   };
 }
@@ -308,15 +389,20 @@ export function getSource(config, sourceInput = undefined) {
       availableSources: Object.keys(config.sources)
     });
   }
+  const enabledSource = {
+    ...source,
+    roots: source.roots.filter((root) => root.enabled),
+    files: source.files.filter((file) => file.enabled).map((file) => file.path)
+  };
   if (sourceName !== config.defaultSource) {
-    return source;
+    return enabledSource;
   }
 
-  const configuredRootPaths = new Set(source.roots.map((root) => (
+  const configuredRootPaths = new Set(enabledSource.roots.map((root) => (
     process.platform === "win32" ? root.path.toLowerCase() : root.path
   )));
   const documentationRoots = config.tools.directories
-    .filter((directory) => directory.includeDocs)
+    .filter((directory) => directory.enabled && directory.includeDocs)
     .filter((directory) => {
       const comparable = process.platform === "win32" ? directory.path.toLowerCase() : directory.path;
       if (configuredRootPaths.has(comparable)) {
@@ -332,10 +418,10 @@ export function getSource(config, sourceInput = undefined) {
     }));
 
   return documentationRoots.length === 0
-    ? source
+    ? enabledSource
     : {
-        ...source,
-        roots: [...source.roots, ...documentationRoots]
+        ...enabledSource,
+        roots: [...enabledSource.roots, ...documentationRoots]
           .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
       };
 }
@@ -353,4 +439,13 @@ export function matchesConfiguredDocument(filePath, source, caseSensitive) {
   return source.extensions.some((extension) => (
     candidate.endsWith(caseSensitive ? extension : extension.toLowerCase())
   ));
+}
+
+export function isConfiguredSecretPath(filePath, config) {
+  const resolvedPath = path.resolve(filePath);
+  const comparable = process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
+  return config.secrets.files.some((secret) => {
+    const configured = process.platform === "win32" ? secret.path.toLowerCase() : secret.path;
+    return comparable === configured;
+  });
 }

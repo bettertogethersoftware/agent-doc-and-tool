@@ -13,6 +13,7 @@ const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-mcp-smo
 const docsRoot = path.join(temporaryRoot, "docs");
 const readmePath = path.join(docsRoot, "README.md");
 const toolPath = path.join(docsRoot, "generate_music_stable_audio3.py");
+const secretPath = path.join(docsRoot, "credentials.env");
 const configPath = path.join(temporaryRoot, "search.config.json");
 let client;
 
@@ -20,13 +21,14 @@ try {
   await fs.mkdir(docsRoot, { recursive: true });
   await fs.writeFile(readmePath, "# MCP fixture\nMiniMax H3 local video workflow.\n", "utf8");
   await fs.writeFile(toolPath, "print('MCP fixture')\n", "utf8");
+  await fs.writeFile(secretPath, "hostname=ftp.example.test\npassword=mcp-fixture-password\n", "utf8");
   await fs.writeFile(configPath, JSON.stringify({
     version: 1,
     defaultSource: "local",
     sources: {
       local: {
         roots: [{ name: "smoke", path: docsRoot, priority: 100 }],
-        extensions: [".ai.md"],
+        extensions: [".ai.md", ".env"],
         fileNames: ["README.md"],
         files: []
       }
@@ -37,7 +39,11 @@ try {
     tools: {
       directories: [{ name: "smoke-tools", path: docsRoot, priority: 100, recursive: true, includeDocs: true }],
       files: [],
-      extensions: ".exe;.py"
+      extensions: ".exe;.py;.env"
+    },
+    secrets: {
+      files: [{ name: "smoke-ftp", path: secretPath, format: "auto" }],
+      maxFileBytes: 100000
     },
     limits: {
       maxResults: 20,
@@ -59,7 +65,7 @@ try {
   await client.connect(transport);
 
   const listed = await client.listTools();
-  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_tool", "search"]);
+  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_secret", "find_tool", "read_secret", "search"]);
 
   const searchCall = await client.callTool({
     name: "search",
@@ -88,6 +94,33 @@ try {
   assert.equal(toolPayload.results[0].path, toolPath);
   assert.equal(toolPayload.results[0].type, "python-script");
 
+  const secretFindCall = await client.callTool({
+    name: "find_secret",
+    arguments: { query: "password" }
+  });
+  const secretFindPayload = JSON.parse(secretFindCall.content[0].text);
+  assert.equal(secretFindPayload.ok, true);
+  assert.equal(secretFindPayload.results[0].name, "smoke-ftp");
+  assert.deepEqual(secretFindPayload.results[0].fields, ["hostname", "password"]);
+  assert.doesNotMatch(JSON.stringify(secretFindPayload), /mcp-fixture-password/);
+
+  const secretReadCall = await client.callTool({
+    name: "read_secret",
+    arguments: { secret: "smoke-ftp", keys: ["hostname", "password"] }
+  });
+  const secretReadPayload = JSON.parse(secretReadCall.content[0].text);
+  assert.equal(secretReadPayload.ok, true);
+  assert.equal(secretReadPayload.sensitive, true);
+  assert.equal(secretReadPayload.values.hostname, "ftp.example.test");
+  assert.equal(secretReadPayload.values.password, "mcp-fixture-password");
+
+  const secretSearchCall = await client.callTool({
+    name: "search",
+    arguments: { query: "mcp fixture password", source: "local" }
+  });
+  const secretSearchPayload = JSON.parse(secretSearchCall.content[0].text);
+  assert.equal(secretSearchPayload.results.length, 0);
+
   process.stdout.write(`${JSON.stringify({
     ok: true,
     tools: listed.tools.map((tool) => tool.name).sort(),
@@ -100,6 +133,15 @@ try {
       path: toolPayload.results[0].path,
       type: toolPayload.results[0].type,
       executed: toolPayload.meta.executed
+    },
+    secretHit: {
+      path: secretFindPayload.results[0].path,
+      fields: secretFindPayload.results[0].fields,
+      sensitiveValuesReturned: secretFindPayload.meta.sensitiveValuesReturned
+    },
+    secretRead: {
+      sensitive: secretReadPayload.sensitive,
+      returnedKeys: Object.keys(secretReadPayload.values)
     },
     fetchSha256: fetchPayload.sha256
   }, null, 2)}\n`);

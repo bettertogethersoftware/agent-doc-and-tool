@@ -15,6 +15,11 @@
         <small>Local configuration console</small>
       </span>
     </a>
+    <nav class="tabs" role="tablist" aria-label="Configuration sections">
+      <button id="documents-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="documents-panel">Documents</button>
+      <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
+      <button id="secrets-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="secrets-panel" tabindex="-1">Secrets</button>
+    </nav>
     <div class="runtime-state">
       <span class="status-dot" aria-hidden="true"></span>
       <span>Loopback only</span>
@@ -22,30 +27,7 @@
   </header>
 
   <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">LOCAL ACCESS</p>
-        <h1>Choose what your AI agent can find.</h1>
-        <p class="hero-copy">Allow local documentation and discoverable tools without publishing personal paths or automatically executing anything.</p>
-      </div>
-      <div class="config-chip">
-        <span>ACTIVE CONFIG</span>
-        <code id="config-path">Loading…</code>
-      </div>
-    </section>
-
-    <div id="page-status" class="notice is-loading" role="status">
-      <span class="notice-icon" aria-hidden="true">···</span>
-      <div>
-        <strong>Loading configuration</strong>
-        <p>Reading the current allowlist and checking each path.</p>
-      </div>
-    </div>
-
-    <nav class="tabs" role="tablist" aria-label="Configuration sections">
-      <button id="documents-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="documents-panel">Documents</button>
-      <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
-    </nav>
+    <h1 class="sr-only">Agent Docs &amp; Tools configuration</h1>
 
     <div id="documents-panel" class="tab-panel" role="tabpanel" aria-labelledby="documents-tab">
 
@@ -72,7 +54,7 @@
         <div>
           <p class="step">02</p>
           <h2>Allowed folders</h2>
-          <p>Every matching document below these folders can be searched recursively.</p>
+          <p>Every matching document below enabled folders can be searched recursively. Disable a folder to keep it saved without scanning it.</p>
         </div>
         <div class="button-row">
           <button id="pick-folder" class="button secondary" type="button">Browse folder</button>
@@ -83,6 +65,7 @@
         <span>Name</span>
         <span>Folder path</span>
         <span>Priority</span>
+        <span>Status</span>
         <span></span>
       </div>
       <div id="roots-list" class="entry-list"></div>
@@ -94,12 +77,17 @@
         <div>
           <p class="step">03</p>
           <h2>Exact files</h2>
-          <p>Exact files are allowed even when they are outside a folder or do not match a suffix pattern.</p>
+          <p>Enabled exact files are allowed even when they are outside a folder or do not match a suffix pattern.</p>
         </div>
         <div class="button-row">
           <button id="pick-file" class="button secondary" type="button">Browse file</button>
           <button id="add-file" class="button secondary" type="button">Add manually</button>
         </div>
+      </div>
+      <div class="table-head file-grid" aria-hidden="true">
+        <span>Exact file path</span>
+        <span>Status</span>
+        <span></span>
       </div>
       <div id="files-list" class="entry-list"></div>
       <p id="files-empty" class="empty-state" hidden>No exact files are allowed yet.</p>
@@ -222,7 +210,7 @@
           <div>
             <p class="step">02</p>
             <h2>Tool folders</h2>
-            <p>Matching executables and scripts are discovered throughout each folder tree by default. Global ignore rules still skip caches such as <code>__pycache__</code>.</p>
+            <p>Matching executables and scripts are discovered throughout each enabled folder tree by default. Global ignore rules still skip caches such as <code>__pycache__</code>.</p>
           </div>
           <div class="button-row">
             <button id="pick-tool-folder" class="button secondary" type="button">Browse folder</button>
@@ -234,6 +222,7 @@
           <span>Folder path</span>
           <span>Priority</span>
           <span>Options</span>
+          <span>Status</span>
           <span></span>
         </div>
         <div id="tool-directories-list" class="entry-list"></div>
@@ -256,6 +245,7 @@
           <span>Name or alias</span>
           <span>File path</span>
           <span>Priority</span>
+          <span>Status</span>
           <span></span>
         </div>
         <div id="tool-files-list" class="entry-list"></div>
@@ -296,16 +286,105 @@
         <div id="tool-search-results" class="results"></div>
       </section>
     </div>
+
+    <div id="secrets-panel" class="tab-panel" role="tabpanel" aria-labelledby="secrets-tab" hidden>
+      <section class="panel secret-intro">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">SECRET ACCESS</p>
+            <h2>Register exact credential files</h2>
+            <p>Each grant is one file, never a folder. The UI detects key names such as <code>hostname</code> and <code>password</code>, but it never displays or stores their values.</p>
+          </div>
+        </div>
+        <div class="safety-note secret-note">
+          <strong>Explicit access only</strong>
+          <span>Secret files are excluded from document search, fetch, and tool discovery. <code>find_secret</code> returns metadata; <code>read_secret</code> releases only explicitly requested fields. Prefer giving a program the file path whenever it supports an environment-file or key-file option.</span>
+        </div>
+      </section>
+
+      <section class="panel drop-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">01</p>
+            <h2>Add secret files</h2>
+            <p>Add one or several exact files. Folders and links are rejected.</p>
+          </div>
+        </div>
+        <div id="secret-drop-zone" class="drop-zone">
+          <div class="drop-symbol" aria-hidden="true">↓</div>
+          <div>
+            <strong>Drag and drop with the Windows drop box</strong>
+            <p id="secret-drop-help">Click the button, then drop exact secret files from File Explorer. Their values are inspected locally but never shown in this page.</p>
+          </div>
+          <button id="secret-open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">02</p>
+            <h2>Exact secret files</h2>
+            <p><strong>Auto detect</strong> recognizes strict <code>NAME=value</code> files; everything else is treated as one opaque token, password, or key value.</p>
+          </div>
+          <div class="button-row">
+            <button id="pick-secret-file" class="button secondary" type="button">Browse file</button>
+            <button id="add-secret-file" class="button secondary" type="button">Add manually</button>
+          </div>
+        </div>
+        <div class="table-head secret-file-grid" aria-hidden="true">
+          <span>Name or alias</span>
+          <span>Exact file path</span>
+          <span>Format</span>
+          <span>Status</span>
+          <span></span>
+        </div>
+        <div id="secret-files-list" class="entry-list"></div>
+        <p id="secret-files-empty" class="empty-state" hidden>No secret files are registered yet.</p>
+      </section>
+
+      <section class="panel test-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">03</p>
+            <h2>Test secret discovery</h2>
+            <p>Verify the alias, path, detected format, and field names. This test never returns values.</p>
+          </div>
+        </div>
+        <form id="secret-search-form" class="search-form">
+          <label class="field grow">
+            <span>Secret alias, service, or field</span>
+            <input id="secret-search-query" type="search" value="hostname" maxlength="500" required>
+          </label>
+          <button id="run-secret-search" class="button primary" type="submit">Find secret</button>
+        </form>
+        <div id="secret-search-summary" class="search-summary" hidden></div>
+        <div id="secret-search-results" class="results"></div>
+      </section>
+    </div>
   </main>
 
   <footer class="actionbar">
-    <div>
-      <strong id="dirty-state">No unsaved changes</strong>
-      <span>Saving validates the complete configuration first.</span>
-    </div>
-    <div class="button-row">
-      <button id="reload-config" class="button ghost" type="button">Reload</button>
-      <button id="save-config" class="button primary" type="button">Save configuration</button>
+    <div class="actionbar-inner">
+      <div id="page-status" class="actionbar-status is-loading" role="status">
+        <span class="actionbar-status-icon" aria-hidden="true">···</span>
+        <div>
+          <strong>Loading configuration</strong>
+          <p>Reading the current allowlist and checking each path.</p>
+        </div>
+      </div>
+      <div class="actionbar-config">
+        <span class="actionbar-label">Active config</span>
+        <code id="config-path">Loading…</code>
+      </div>
+      <div class="actionbar-dirty">
+        <strong id="dirty-state">No unsaved changes</strong>
+        <span>Saving validates first.</span>
+      </div>
+      <div class="button-row">
+        <button id="reload-config" class="button ghost" type="button">Reload</button>
+        <button id="save-config" class="button primary" type="button">Save configuration</button>
+      </div>
     </div>
   </footer>
 
@@ -314,6 +393,7 @@
       <label><span class="sr-only">Folder name</span><input data-field="name" type="text" placeholder="my-tools" required></label>
       <label><span class="sr-only">Folder path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\folder" required></label>
       <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable document folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove folder">×</button>
       <div class="path-state" data-role="state"></div>
     </div>
@@ -322,6 +402,7 @@
   <template id="file-row-template">
     <div class="entry-row file-grid">
       <label><span class="sr-only">Exact file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\file.json" required></label>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable exact document file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove file">×</button>
       <div class="path-state" data-role="state"></div>
     </div>
@@ -336,6 +417,7 @@
         <label class="mini-check"><input data-field="recursive" type="checkbox" checked><span>Include subfolders</span></label>
         <label class="mini-check"><input data-field="includeDocs" type="checkbox" checked><span>Include documentation</span></label>
       </div>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool folder">×</button>
       <div class="path-state" data-role="state"></div>
     </div>
@@ -346,8 +428,27 @@
       <label><span class="sr-only">Tool name or alias</span><input data-field="name" type="text" placeholder="music-generator" required></label>
       <label><span class="sr-only">Exact tool file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\tool.py" required></label>
       <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable exact tool file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove exact tool file">×</button>
       <div class="path-state" data-role="state"></div>
+    </div>
+  </template>
+
+  <template id="secret-file-row-template">
+    <div class="entry-row secret-file-grid">
+      <label><span class="sr-only">Secret name or alias</span><input data-field="name" type="text" placeholder="iiecsoft-ftp" required></label>
+      <label><span class="sr-only">Exact secret file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\credentials.env" required></label>
+      <label>
+        <span class="sr-only">Secret format</span>
+        <select data-field="format" aria-label="Secret format">
+          <option value="auto">Auto detect</option>
+          <option value="env">NAME=value</option>
+          <option value="opaque">Opaque value</option>
+        </select>
+      </label>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable secret file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
+      <button class="icon-button" data-action="remove" type="button" aria-label="Remove secret file">×</button>
+      <div class="path-state secret-state" data-role="state"></div>
     </div>
   </template>
 

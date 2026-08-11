@@ -9,8 +9,10 @@ const elements = {
   pageStatus: document.querySelector("#page-status"),
   documentsTab: document.querySelector("#documents-tab"),
   toolsTab: document.querySelector("#tools-tab"),
+  secretsTab: document.querySelector("#secrets-tab"),
   documentsPanel: document.querySelector("#documents-panel"),
   toolsPanel: document.querySelector("#tools-panel"),
+  secretsPanel: document.querySelector("#secrets-panel"),
   rootsList: document.querySelector("#roots-list"),
   rootsEmpty: document.querySelector("#roots-empty"),
   filesList: document.querySelector("#files-list"),
@@ -61,6 +63,19 @@ const elements = {
   runToolSearch: document.querySelector("#run-tool-search"),
   toolSearchSummary: document.querySelector("#tool-search-summary"),
   toolSearchResults: document.querySelector("#tool-search-results"),
+  secretFilesList: document.querySelector("#secret-files-list"),
+  secretFilesEmpty: document.querySelector("#secret-files-empty"),
+  secretFileTemplate: document.querySelector("#secret-file-row-template"),
+  secretDropZone: document.querySelector("#secret-drop-zone"),
+  secretDropHelp: document.querySelector("#secret-drop-help"),
+  secretOpenDropBox: document.querySelector("#secret-open-drop-box"),
+  addSecretFile: document.querySelector("#add-secret-file"),
+  pickSecretFile: document.querySelector("#pick-secret-file"),
+  secretSearchForm: document.querySelector("#secret-search-form"),
+  secretSearchQuery: document.querySelector("#secret-search-query"),
+  runSecretSearch: document.querySelector("#run-secret-search"),
+  secretSearchSummary: document.querySelector("#secret-search-summary"),
+  secretSearchResults: document.querySelector("#secret-search-results"),
   toast: document.querySelector("#toast")
 };
 
@@ -117,8 +132,8 @@ function showToast(message, kind = "success") {
 }
 
 function setPageStatus(kind, title, description) {
-  elements.pageStatus.className = `notice is-${kind}`;
-  elements.pageStatus.querySelector(".notice-icon").textContent = kind === "error" ? "!" : kind === "warning" ? "△" : "✓";
+  elements.pageStatus.className = `actionbar-status is-${kind}`;
+  elements.pageStatus.querySelector(".actionbar-status-icon").textContent = kind === "error" ? "!" : kind === "warning" ? "△" : "✓";
   elements.pageStatus.querySelector("strong").textContent = title;
   elements.pageStatus.querySelector("p").textContent = description;
 }
@@ -198,9 +213,50 @@ function uniqueToolFileName(baseName) {
   return uniqueNameInList(elements.toolFilesList, baseName);
 }
 
+function uniqueSecretName(baseName) {
+  return uniqueNameInList(elements.secretFilesList, baseName);
+}
+
 function attachConfigurationInput(input) {
   input.addEventListener("input", markDirty);
   input.addEventListener("change", markDirty);
+}
+
+function entryEnabled(entry) {
+  return typeof entry === "string" || entry?.enabled !== false;
+}
+
+function refreshEntryEnabledState(row, pathState) {
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  const enabled = enabledInput?.checked !== false;
+  const enabledLabel = row.querySelector('[data-role="enabled-label"]');
+  row.classList.toggle("is-disabled", !enabled);
+  if (enabledLabel) {
+    enabledLabel.textContent = enabled ? "Enabled" : "Disabled";
+  }
+  if (pathState) {
+    pathState.textContent = enabled
+      ? (pathState.dataset.activeText ?? "")
+      : "Disabled · this saved grant is inactive";
+    row.classList.toggle("has-path-state", pathState.textContent.length > 0);
+    pathState.classList.toggle(
+      "is-missing",
+      enabled && pathState.dataset.activeMissing === "true"
+    );
+  }
+}
+
+function setEntryPathState(row, pathState, text = "", missing = false) {
+  pathState.dataset.activeText = text;
+  pathState.dataset.activeMissing = missing ? "true" : "false";
+  refreshEntryEnabledState(row, pathState);
+}
+
+function initializeEntryToggle(row, pathState, enabled) {
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  enabledInput.checked = enabled;
+  enabledInput.addEventListener("change", () => refreshEntryEnabledState(row, pathState));
+  refreshEntryEnabledState(row, pathState);
 }
 
 function appendRoot(root = {}, availability = undefined) {
@@ -216,9 +272,9 @@ function appendRoot(root = {}, availability = undefined) {
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
   if (availability && availability.available === false) {
-    pathState.textContent = availability.error ? "Unavailable" : "Not a directory";
-    pathState.classList.add("is-missing");
+    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a directory", true);
   }
+  initializeEntryToggle(row, pathState, entryEnabled(normalized));
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -234,18 +290,21 @@ function appendRoot(root = {}, availability = undefined) {
   return row;
 }
 
-function appendFile(filePath = "", availability = undefined) {
+function appendFile(file = "", availability = undefined) {
   const fragment = elements.fileTemplate.content.cloneNode(true);
   const row = fragment.querySelector(".entry-row");
   const pathInput = row.querySelector('[data-field="path"]');
   const pathState = row.querySelector('[data-role="state"]');
-  pathInput.value = filePath;
+  const normalized = typeof file === "string" ? { path: file, enabled: true } : file;
+  pathInput.value = normalized.path ?? "";
   if (availability && availability.available === false) {
-    pathState.textContent = availability.error ? "Unavailable" : "Not a regular file";
-    pathState.classList.add("is-missing");
+    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular file", true);
   }
+  initializeEntryToggle(row, pathState, entryEnabled(normalized));
 
-  attachConfigurationInput(pathInput);
+  for (const input of row.querySelectorAll("input")) {
+    attachConfigurationInput(input);
+  }
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
     row.remove();
     updateEmptyStates();
@@ -276,9 +335,9 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   recursiveInput.checked = normalized.recursive !== false;
   includeDocsInput.checked = normalized.includeDocs !== false;
   if (availability && availability.available === false) {
-    pathState.textContent = availability.error ? "Unavailable" : "Not a regular folder";
-    pathState.classList.add("is-missing");
+    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular folder", true);
   }
+  initializeEntryToggle(row, pathState, entryEnabled(normalized));
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -307,9 +366,9 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
   if (availability && availability.available === false) {
-    pathState.textContent = availability.error ? "Unavailable" : "Not a regular file";
-    pathState.classList.add("is-missing");
+    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular file", true);
   }
+  initializeEntryToggle(row, pathState, entryEnabled(normalized));
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -325,11 +384,59 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   return row;
 }
 
+function appendSecretFile(secretFile = {}, inspection = undefined) {
+  const fragment = elements.secretFileTemplate.content.cloneNode(true);
+  const row = fragment.querySelector(".entry-row");
+  const nameInput = row.querySelector('[data-field="name"]');
+  const pathInput = row.querySelector('[data-field="path"]');
+  const formatInput = row.querySelector('[data-field="format"]');
+  const pathState = row.querySelector('[data-role="state"]');
+
+  const normalized = typeof secretFile === "string" ? { path: secretFile, format: "auto" } : secretFile;
+  nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "secret-file");
+  pathInput.value = normalized.path ?? "";
+  formatInput.value = normalized.format ?? "auto";
+
+  if (inspection?.available === false) {
+    setEntryPathState(
+      row,
+      pathState,
+      inspection.error ? `Unavailable · ${inspection.error}` : "Not a regular secret file",
+      true
+    );
+  } else if (inspection?.format === "env") {
+    const fields = inspection.fields?.length ? inspection.fields.join(", ") : "no fields detected";
+    setEntryPathState(row, pathState, `Key/value · ${fields} · values hidden`);
+  } else if (inspection?.format === "opaque") {
+    setEntryPathState(row, pathState, "Opaque token, password, or key · value hidden");
+  }
+  initializeEntryToggle(row, pathState, entryEnabled(normalized));
+
+  const markForReinspection = () => {
+    setEntryPathState(row, pathState, "Save configuration to validate and detect fields");
+  };
+  for (const input of row.querySelectorAll("input, select")) {
+    attachConfigurationInput(input);
+  }
+  pathInput.addEventListener("input", markForReinspection);
+  formatInput.addEventListener("change", markForReinspection);
+  row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    row.remove();
+    updateEmptyStates();
+    markDirty();
+  });
+
+  elements.secretFilesList.append(row);
+  updateEmptyStates();
+  return row;
+}
+
 function updateEmptyStates() {
   elements.rootsEmpty.hidden = elements.rootsList.children.length > 0;
   elements.filesEmpty.hidden = elements.filesList.children.length > 0;
   elements.toolDirectoriesEmpty.hidden = elements.toolDirectoriesList.children.length > 0;
   elements.toolFilesEmpty.hidden = elements.toolFilesList.children.length > 0;
+  elements.secretFilesEmpty.hidden = elements.secretFilesList.children.length > 0;
 }
 
 function configuredSource(config) {
@@ -351,11 +458,14 @@ function renderConfig(config, check) {
     extensions: [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"]
   };
   const checkedTools = check?.tools;
+  const secrets = config.secrets ?? { files: [], maxFileBytes: 256_000 };
+  const checkedSecrets = check?.secrets;
 
   elements.rootsList.replaceChildren();
   elements.filesList.replaceChildren();
   elements.toolDirectoriesList.replaceChildren();
   elements.toolFilesList.replaceChildren();
+  elements.secretFilesList.replaceChildren();
   for (const root of (source.roots ?? [])) {
     const rootName = typeof root === "string" ? undefined : root.name;
     const availability = rootName
@@ -363,8 +473,8 @@ function renderConfig(config, check) {
       : undefined;
     appendRoot(root, availability);
   }
-  for (const [index, filePath] of (source.files ?? []).entries()) {
-    appendFile(filePath, checkedSource?.files?.[index]);
+  for (const [index, file] of (source.files ?? []).entries()) {
+    appendFile(file, checkedSource?.files?.[index]);
   }
   for (const [index, directory] of (tools.directories ?? []).entries()) {
     const directoryName = typeof directory === "string" ? `tool-directory-${index + 1}` : directory.name;
@@ -379,6 +489,13 @@ function renderConfig(config, check) {
       : checkedTools?.files?.[index];
     appendToolFile(toolFile, availability);
   }
+  for (const [index, secretFile] of (secrets.files ?? []).entries()) {
+    const secretName = typeof secretFile === "string" ? undefined : secretFile.name;
+    const inspection = secretName
+      ? checkedSecrets?.files?.find((entry) => entry.name === secretName)
+      : checkedSecrets?.files?.[index];
+    appendSecretFile(secretFile, inspection);
+  }
 
   elements.extensions.value = extensionText(source.extensions);
   elements.fileNames.value = (source.fileNames ?? []).join(";");
@@ -392,18 +509,28 @@ function renderConfig(config, check) {
   elements.maxFileBytes.value = config.limits?.maxFileBytes ?? 2_000_000;
   elements.toolExtensions.value = extensionText(tools.extensions);
 
-  const unavailableRoots = checkedSource?.roots?.filter((entry) => !entry.available).length ?? 0;
-  const unavailableFiles = checkedSource?.files?.filter((entry) => !entry.available).length ?? 0;
-  const unavailableToolDirectories = checkedTools?.directories?.filter((entry) => !entry.available).length ?? 0;
-  const unavailableToolFiles = checkedTools?.files?.filter((entry) => !entry.available).length ?? 0;
-  const unavailableTotal = unavailableRoots + unavailableFiles + unavailableToolDirectories + unavailableToolFiles;
+  const unavailableRoots = checkedSource?.roots?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableFiles = checkedSource?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableToolDirectories = checkedTools?.directories?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableToolFiles = checkedTools?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableSecrets = checkedSecrets?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableTotal = unavailableRoots + unavailableFiles + unavailableToolDirectories + unavailableToolFiles + unavailableSecrets;
+  const configuredEntries = [
+    ...(source.roots ?? []),
+    ...(source.files ?? []),
+    ...(tools.directories ?? []),
+    ...(tools.files ?? []),
+    ...(secrets.files ?? [])
+  ];
+  const enabledTotal = configuredEntries.filter(entryEnabled).length;
+  const disabledTotal = configuredEntries.length - enabledTotal;
   if (unavailableTotal > 0) {
-    setPageStatus("warning", "Configuration loaded with unavailable paths", `${unavailableTotal} document or tool path(s) need attention.`);
+    setPageStatus("warning", "Configuration loaded with unavailable paths", `${unavailableTotal} document, tool, or secret path(s) need attention.`);
   } else {
     setPageStatus(
       "ready",
       "Configuration is valid",
-      `${source.roots?.length ?? 0} document folder(s), ${source.files?.length ?? 0} exact document(s), ${tools.directories?.length ?? 0} tool folder(s), and ${tools.files?.length ?? 0} exact tool(s) are allowed.`
+      `${enabledTotal} grant(s) enabled and ${disabledTotal} disabled across Documents, Tools, and Secrets.`
     );
   }
   updateEmptyStates();
@@ -429,7 +556,12 @@ function collectConfig() {
     if (!name || !folderPath || !Number.isInteger(priority)) {
       throw new Error(`Allowed folder ${index + 1} needs a name, path, and integer priority.`);
     }
-    return { name, path: folderPath, priority };
+    return {
+      name,
+      path: folderPath,
+      priority,
+      enabled: row.querySelector('[data-field="enabled"]').checked
+    };
   });
 
   source.files = [...elements.filesList.querySelectorAll(".entry-row")].map((row, index) => {
@@ -437,7 +569,10 @@ function collectConfig() {
     if (!filePath) {
       throw new Error(`Exact file ${index + 1} needs a path.`);
     }
-    return filePath;
+    return {
+      path: filePath,
+      enabled: row.querySelector('[data-field="enabled"]').checked
+    };
   });
 
   next.tools = {
@@ -453,7 +588,8 @@ function collectConfig() {
         path: folderPath,
         priority,
         recursive: row.querySelector('[data-field="recursive"]').checked,
-        includeDocs: row.querySelector('[data-field="includeDocs"]').checked
+        includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
+        enabled: row.querySelector('[data-field="enabled"]').checked
       };
     }),
     files: [...elements.toolFilesList.querySelectorAll(".entry-row")].map((row, index) => {
@@ -463,9 +599,32 @@ function collectConfig() {
       if (!name || !filePath || !Number.isInteger(priority)) {
         throw new Error(`Exact tool ${index + 1} needs a name, path, and integer priority.`);
       }
-      return { name, path: filePath, priority };
+      return {
+        name,
+        path: filePath,
+        priority,
+        enabled: row.querySelector('[data-field="enabled"]').checked
+      };
     }),
     extensions: elements.toolExtensions.value.trim() || []
+  };
+
+  next.secrets = {
+    files: [...elements.secretFilesList.querySelectorAll(".entry-row")].map((row, index) => {
+      const name = row.querySelector('[data-field="name"]').value.trim();
+      const filePath = row.querySelector('[data-field="path"]').value.trim();
+      const format = row.querySelector('[data-field="format"]').value;
+      if (!name || !filePath || !["auto", "env", "opaque"].includes(format)) {
+        throw new Error(`Secret file ${index + 1} needs a name, exact path, and valid format.`);
+      }
+      return {
+        name,
+        path: filePath,
+        format,
+        enabled: row.querySelector('[data-field="enabled"]').checked
+      };
+    }),
+    maxFileBytes: next.secrets?.maxFileBytes ?? 256_000
   };
 
   const patterns = elements.extensions.value.trim();
@@ -521,8 +680,27 @@ async function saveConfig() {
   }
 }
 
+async function inspectAndAppendSecretFile(filePath) {
+  const name = uniqueSecretName(friendlyPathName(filePath, "secret-file"));
+  let inspection;
+  try {
+    const payload = await api("/api/inspect-secret", {
+      method: "POST",
+      body: { name, path: filePath, format: "auto" }
+    });
+    inspection = payload.secret;
+  } catch (error) {
+    inspection = { available: false, error: error.message };
+  }
+  const row = appendSecretFile({ name, path: filePath, format: "auto" }, inspection);
+  row.querySelector('[data-field="name"]').focus();
+  return row;
+}
+
 async function pickPath(kind, target = "documents") {
-  const button = target === "tools"
+  const button = target === "secrets"
+    ? elements.pickSecretFile
+    : target === "tools"
     ? (kind === "directory" ? elements.pickToolFolder : elements.pickToolFile)
     : (kind === "directory" ? elements.pickFolder : elements.pickFile);
   setBusy(button, true, "Waiting for picker…");
@@ -531,7 +709,9 @@ async function pickPath(kind, target = "documents") {
     if (payload.cancelled) {
       return;
     }
-    if (target === "tools" && kind === "directory") {
+    if (target === "secrets") {
+      await inspectAndAppendSecretFile(payload.path);
+    } else if (target === "tools" && kind === "directory") {
       const row = appendToolDirectory({
         name: uniqueToolDirectoryName(friendlyPathName(payload.path, "tool-folder")),
         path: payload.path,
@@ -645,6 +825,39 @@ function addDroppedToolItems(items, errors = []) {
   showToast(`${details.join(" · ")}.${added > 0 ? " Save configuration to apply." : ""}`, added > 0 || duplicates > 0 ? "success" : "error");
 }
 
+async function addDroppedSecretItems(items, errors = []) {
+  const existingFiles = new Set([...elements.secretFilesList.querySelectorAll('[data-field="path"]')]
+    .map((input) => comparableLocalPath(input.value)));
+  let added = 0;
+  let duplicates = 0;
+  let rejected = errors.length;
+
+  for (const item of items) {
+    if (item.type !== "file") {
+      rejected += 1;
+      continue;
+    }
+    const comparable = comparableLocalPath(item.path);
+    if (existingFiles.has(comparable)) {
+      duplicates += 1;
+      continue;
+    }
+    await inspectAndAppendSecretFile(item.path);
+    existingFiles.add(comparable);
+    added += 1;
+  }
+
+  if (added > 0) {
+    markDirty();
+  }
+  const details = [
+    `${added} secret file${added === 1 ? "" : "s"} added`,
+    ...(duplicates > 0 ? [`${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped`] : []),
+    ...(rejected > 0 ? [`${rejected} folder, link, or unavailable item${rejected === 1 ? "" : "s"} rejected`] : [])
+  ];
+  showToast(`${details.join(" · ")}.${added > 0 ? " Save configuration to apply." : ""}`, added > 0 || duplicates > 0 ? "success" : "error");
+}
+
 function fileUrlPath(value) {
   try {
     const parsed = new URL(value);
@@ -690,7 +903,9 @@ function droppedAbsolutePaths(dataTransfer) {
 
 async function classifyAndAddDroppedPaths(paths, target = "documents") {
   const payload = await api("/api/classify-dropped-paths", { method: "POST", body: { paths } });
-  if (target === "tools") {
+  if (target === "secrets") {
+    await addDroppedSecretItems(payload.items, payload.errors);
+  } else if (target === "tools") {
     addDroppedToolItems(payload.items, payload.errors);
   } else {
     addDroppedItems(payload.items, payload.errors);
@@ -698,12 +913,16 @@ async function classifyAndAddDroppedPaths(paths, target = "documents") {
 }
 
 async function openNativeDropBox(target = "documents") {
-  const button = target === "tools" ? elements.toolOpenDropBox : elements.openDropBox;
+  const button = target === "secrets"
+    ? elements.secretOpenDropBox
+    : target === "tools" ? elements.toolOpenDropBox : elements.openDropBox;
   setBusy(button, true, "Use the open drop box…");
   try {
     const payload = await api("/api/native-drop", { method: "POST", body: {} });
     if (!payload.cancelled) {
-      if (target === "tools") {
+      if (target === "secrets") {
+        await addDroppedSecretItems(payload.items, payload.errors);
+      } else if (target === "tools") {
         addDroppedToolItems(payload.items, payload.errors);
       } else {
         addDroppedItems(payload.items, payload.errors);
@@ -718,7 +937,9 @@ async function openNativeDropBox(target = "documents") {
 
 async function handleBrowserDrop(event, target = "documents") {
   event.preventDefault();
-  const dropZone = target === "tools" ? elements.toolDropZone : elements.dropZone;
+  const dropZone = target === "secrets"
+    ? elements.secretDropZone
+    : target === "tools" ? elements.toolDropZone : elements.dropZone;
   dropZone.classList.remove("is-dragging");
   const paths = droppedAbsolutePaths(event.dataTransfer);
   if (paths.length > 0) {
@@ -734,7 +955,7 @@ async function handleBrowserDrop(event, target = "documents") {
     showToast("A separate Windows drop box is opening in front. Drop the same items there, or press Esc to cancel.");
     await openNativeDropBox(target);
   } else {
-    showToast("This browser does not expose complete local paths. Use the folder or file browse buttons.", "error");
+    showToast("This browser does not expose complete local paths. Use the browse buttons.", "error");
   }
 }
 
@@ -848,19 +1069,78 @@ async function runToolSearch(event) {
   }
 }
 
+async function runSecretSearch(event) {
+  event.preventDefault();
+  if (state.dirty) {
+    showToast("Save your configuration before testing secret discovery.", "error");
+    return;
+  }
+
+  setBusy(elements.runSecretSearch, true, "Resolving…");
+  elements.secretSearchSummary.hidden = true;
+  elements.secretSearchResults.replaceChildren();
+  try {
+    const payload = await api("/api/find-secret", {
+      method: "POST",
+      body: { query: elements.secretSearchQuery.value.trim() }
+    });
+    elements.secretSearchSummary.hidden = false;
+    elements.secretSearchSummary.textContent = `${payload.results.length} result(s) · ${payload.meta.secretFilesConfigured} exact secret file(s) · values not returned`;
+
+    if (payload.results.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "No matching configured secret was found.";
+      elements.secretSearchResults.append(empty);
+      return;
+    }
+
+    for (const result of payload.results) {
+      const article = document.createElement("article");
+      article.className = "result tool-result";
+      const badge = document.createElement("div");
+      badge.className = "result-line tool-type";
+      badge.textContent = result.format === "env" ? "ENV" : "VALUE";
+      const body = document.createElement("div");
+      const heading = document.createElement("strong");
+      heading.className = "result-name";
+      heading.textContent = result.name;
+      const resultPath = document.createElement("div");
+      resultPath.className = "result-path";
+      resultPath.textContent = result.path;
+      const resultText = document.createElement("div");
+      resultText.className = "result-text";
+      resultText.textContent = result.format === "env"
+        ? `Detected fields: ${result.fields.join(", ")} · values hidden · not searchable`
+        : "Opaque token, password, or key · value hidden · not searchable";
+      body.append(heading, resultPath, resultText);
+      article.append(badge, body);
+      elements.secretSearchResults.append(article);
+    }
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setBusy(elements.runSecretSearch, false);
+  }
+}
+
 function activateTab(tabName, focus = false) {
-  const toolsActive = tabName === "tools";
-  state.activeTab = toolsActive ? "tools" : "documents";
-  elements.documentsTab.classList.toggle("is-active", !toolsActive);
-  elements.toolsTab.classList.toggle("is-active", toolsActive);
-  elements.documentsTab.setAttribute("aria-selected", String(!toolsActive));
-  elements.toolsTab.setAttribute("aria-selected", String(toolsActive));
-  elements.documentsTab.tabIndex = toolsActive ? -1 : 0;
-  elements.toolsTab.tabIndex = toolsActive ? 0 : -1;
-  elements.documentsPanel.hidden = toolsActive;
-  elements.toolsPanel.hidden = !toolsActive;
+  const selected = ["documents", "tools", "secrets"].includes(tabName) ? tabName : "documents";
+  state.activeTab = selected;
+  const tabs = {
+    documents: { tab: elements.documentsTab, panel: elements.documentsPanel },
+    tools: { tab: elements.toolsTab, panel: elements.toolsPanel },
+    secrets: { tab: elements.secretsTab, panel: elements.secretsPanel }
+  };
+  for (const [name, item] of Object.entries(tabs)) {
+    const active = name === selected;
+    item.tab.classList.toggle("is-active", active);
+    item.tab.setAttribute("aria-selected", String(active));
+    item.tab.tabIndex = active ? 0 : -1;
+    item.panel.hidden = !active;
+  }
   if (focus) {
-    (toolsActive ? elements.toolsTab : elements.documentsTab).focus();
+    tabs[selected].tab.focus();
   }
 }
 
@@ -921,14 +1201,23 @@ elements.addToolFile.addEventListener("click", () => {
   row.querySelector('[data-field="path"]').focus();
   markDirty();
 });
+elements.addSecretFile.addEventListener("click", () => {
+  const name = uniqueSecretName(`secret-file-${elements.secretFilesList.children.length + 1}`);
+  const row = appendSecretFile({ name, path: "", format: "auto" });
+  row.querySelector('[data-field="path"]').focus();
+  markDirty();
+});
 elements.pickFolder.addEventListener("click", () => pickPath("directory"));
 elements.pickFile.addEventListener("click", () => pickPath("file"));
 elements.pickToolFolder.addEventListener("click", () => pickPath("directory", "tools"));
 elements.pickToolFile.addEventListener("click", () => pickPath("file", "tools"));
+elements.pickSecretFile.addEventListener("click", () => pickPath("secret-file", "secrets"));
 elements.openDropBox.addEventListener("click", () => openNativeDropBox("documents"));
 elements.toolOpenDropBox.addEventListener("click", () => openNativeDropBox("tools"));
+elements.secretOpenDropBox.addEventListener("click", () => openNativeDropBox("secrets"));
 wireDropZone(elements.dropZone, "documents");
 wireDropZone(elements.toolDropZone, "tools");
+wireDropZone(elements.secretDropZone, "secrets");
 elements.reloadConfig.addEventListener("click", () => {
   if (!state.dirty || window.confirm("Discard unsaved changes and reload the saved configuration?")) {
     loadConfig();
@@ -937,15 +1226,29 @@ elements.reloadConfig.addEventListener("click", () => {
 elements.saveConfig.addEventListener("click", saveConfig);
 elements.searchForm.addEventListener("submit", runSearch);
 elements.toolSearchForm.addEventListener("submit", runToolSearch);
+elements.secretSearchForm.addEventListener("submit", runSecretSearch);
 elements.documentsTab.addEventListener("click", () => activateTab("documents"));
 elements.toolsTab.addEventListener("click", () => activateTab("tools"));
-for (const tab of [elements.documentsTab, elements.toolsTab]) {
+elements.secretsTab.addEventListener("click", () => activateTab("secrets"));
+const tabOrder = ["documents", "tools", "secrets"];
+const tabElements = [elements.documentsTab, elements.toolsTab, elements.secretsTab];
+for (const [index, tab] of tabElements.entries()) {
   tab.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
     event.preventDefault();
-    const nextTab = event.key === "ArrowRight" || event.key === "End" ? "tools" : "documents";
+    let nextIndex;
+    if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = tabOrder.length - 1;
+    } else if (event.key === "ArrowRight") {
+      nextIndex = (index + 1) % tabOrder.length;
+    } else {
+      nextIndex = (index - 1 + tabOrder.length) % tabOrder.length;
+    }
+    const nextTab = tabOrder[nextIndex];
     activateTab(nextTab, true);
   });
 }
@@ -957,8 +1260,11 @@ if (!runtime.nativePickers) {
   elements.pickToolFolder.hidden = true;
   elements.pickToolFile.hidden = true;
   elements.toolOpenDropBox.hidden = true;
+  elements.pickSecretFile.hidden = true;
+  elements.secretOpenDropBox.hidden = true;
   elements.dropHelp.textContent = "Drop files or folders directly when your browser exposes complete local paths.";
   elements.toolDropHelp.textContent = "Drop tool folders or files directly when your browser exposes complete local paths.";
+  elements.secretDropHelp.textContent = "Drop exact secret files directly when your browser exposes complete local paths.";
 }
 
 window.addEventListener("beforeunload", (event) => {

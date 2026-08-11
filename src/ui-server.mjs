@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEFAULT_CONFIG_PATH, expandPathVariables, parseConfig, PROJECT_ROOT } from "./config.mjs";
 import { AgentDocError, errorPayload } from "./errors.mjs";
 import { checkConfiguration, searchDocuments } from "./search-service.mjs";
+import { findSecrets, inspectSecretPath } from "./secret-service.mjs";
 import { findTools } from "./tool-service.mjs";
 
 const UI_DIRECTORY = path.join(PROJECT_ROOT, "ui");
@@ -142,11 +143,19 @@ async function writeValidatedConfig(configPath, rawConfig) {
   return { backupCreated, backupPath: backupCreated ? backupPath : null };
 }
 
-function pickerScript(kind) {
+export function createNativePickerScript(kind) {
   const common = [
     "Add-Type -AssemblyName System.Windows.Forms",
+    "Add-Type -AssemblyName System.Drawing",
     "[System.Windows.Forms.Application]::EnableVisualStyles()",
-    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8"
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+    "$owner = New-Object System.Windows.Forms.Form",
+    "$owner.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen",
+    "$owner.ClientSize = New-Object System.Drawing.Size(1, 1)",
+    "$owner.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None",
+    "$owner.ShowInTaskbar = $false",
+    "$owner.TopMost = $true",
+    "$owner.Opacity = 0"
   ];
 
   if (kind === "directory") {
@@ -154,19 +163,29 @@ function pickerScript(kind) {
       "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
       "$dialog.Description = 'Choose a folder that the AI may search'",
       "$dialog.ShowNewFolderButton = $false",
-      "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Write($dialog.SelectedPath) }"
+      "$selectedPath = $null",
+      "try { $owner.Show(); $owner.Activate(); $owner.BringToFront(); if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $selectedPath = $dialog.SelectedPath } } finally { $dialog.Dispose(); $owner.Close(); $owner.Dispose() }",
+      "if (-not [string]::IsNullOrWhiteSpace($selectedPath)) { [Console]::Write($selectedPath) }"
     ].join("; ");
   }
-  if (kind === "file") {
+  if (kind === "file" || kind === "secret-file") {
+    const secret = kind === "secret-file";
     return [...common,
       "$dialog = New-Object System.Windows.Forms.OpenFileDialog",
-      "$dialog.Title = 'Choose an exact file that the AI may search and fetch'",
-      "$dialog.Filter = 'Text and documentation files|*.md;*.json;*.txt;*.yaml;*.yml|All files|*.*'",
+      secret
+        ? "$dialog.Title = 'Choose one exact secret file for the AI agent'"
+        : "$dialog.Title = 'Choose an exact file that the AI may search and fetch'",
+      secret
+        ? "$dialog.Filter = 'Secret and environment files|.env;*.env;*.txt;*.key;*.pem|All files|*.*'"
+        : "$dialog.Filter = 'Text and documentation files|*.md;*.json;*.txt;*.yaml;*.yml|All files|*.*'",
       "$dialog.CheckFileExists = $true",
-      "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Write($dialog.FileName) }"
+      "$dialog.RestoreDirectory = $true",
+      "$selectedPath = $null",
+      "try { $owner.Show(); $owner.Activate(); $owner.BringToFront(); if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $selectedPath = $dialog.FileName } } finally { $dialog.Dispose(); $owner.Close(); $owner.Dispose() }",
+      "if (-not [string]::IsNullOrWhiteSpace($selectedPath)) { [Console]::Write($selectedPath) }"
     ].join("; ");
   }
-  throw new AgentDocError("UI_PICKER_KIND_INVALID", "Picker kind must be 'file' or 'directory'.");
+  throw new AgentDocError("UI_PICKER_KIND_INVALID", "Picker kind must be 'file', 'secret-file', or 'directory'.");
 }
 
 async function showNativePicker(kind) {
@@ -176,7 +195,7 @@ async function showNativePicker(kind) {
 
   const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
   return new Promise((resolve, reject) => {
-    const child = spawn(powershell, ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", pickerScript(kind)], {
+    const child = spawn(powershell, ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", createNativePickerScript(kind)], {
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"]
     });
@@ -518,6 +537,25 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
           query: typeof body?.query === "string" ? body.query : "",
           maxResults: 20
         }, { configPath: resolvedConfigPath }));
+        return;
+      }
+
+      if (route === "/api/find-secret" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await findSecrets({
+          query: typeof body?.query === "string" ? body.query : "",
+          maxResults: 20
+        }, { configPath: resolvedConfigPath }));
+        return;
+      }
+
+      if (route === "/api/inspect-secret" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await inspectSecretPath({
+          name: typeof body?.name === "string" ? body.name : "",
+          path: typeof body?.path === "string" ? body.path : "",
+          format: typeof body?.format === "string" ? body.format : "auto"
+        }));
         return;
       }
 

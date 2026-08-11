@@ -5,8 +5,9 @@ import { performance } from "node:perf_hooks";
 
 import createIgnore from "ignore";
 
-import { getSource, loadConfig, matchesConfiguredDocument } from "./config.mjs";
+import { getSource, isConfiguredSecretPath, loadConfig, matchesConfiguredDocument } from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
+import { inspectConfiguredSecrets } from "./secret-service.mjs";
 import { canonicalize, countLines, createQueryPlan, decodeText, sha256, splitLines } from "./text.mjs";
 
 const PROTECTED_DIRECTORY_NAMES = new Set([".aws", ".azure", ".gnupg", ".ssh"]);
@@ -189,7 +190,7 @@ async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefin
         continue;
       }
 
-      if (isProtectedPath(fullPath) || isIgnored(ignoreSpec, relativePath)) {
+      if (isProtectedPath(fullPath) || isConfiguredSecretPath(fullPath, state.config) || isIgnored(ignoreSpec, relativePath)) {
         state.stats.skippedIgnored += 1;
         continue;
       }
@@ -332,7 +333,7 @@ async function *enumerateRoot(root, source, state, seenPaths) {
       continue;
     }
     const relativePath = path.relative(realRoot, fullPath);
-    if (isProtectedPath(fullPath) || isIgnored(ignoreSpec, relativePath)) {
+    if (isProtectedPath(fullPath) || isConfiguredSecretPath(fullPath, state.config) || isIgnored(ignoreSpec, relativePath)) {
       state.stats.skippedIgnored += 1;
       continue;
     }
@@ -362,7 +363,7 @@ async function *specificFiles(source, state, seenPaths) {
       return;
     }
     state.stats.filesConsidered += 1;
-    if (isProtectedPath(configuredFile)) {
+    if (isProtectedPath(configuredFile) || isConfiguredSecretPath(configuredFile, state.config)) {
       state.stats.skippedIgnored += 1;
       addWarning(state, "PROTECTED_FILE_SKIPPED", "Configured file is blocked by the protected-path policy.", configuredFile);
       continue;
@@ -620,7 +621,7 @@ async function resolveAllowedFetchPath(requestedPath, source, config) {
   if (!path.isAbsolute(requestedPath)) {
     throw new AgentDocError("FETCH_PATH_NOT_ABSOLUTE", "fetch requires the absolute path returned by search.");
   }
-  if (isProtectedPath(requestedPath)) {
+  if (isProtectedPath(requestedPath) || isConfiguredSecretPath(requestedPath, config)) {
     throw new AgentDocError("FETCH_PATH_PROTECTED", "The requested path is blocked by the protected-path policy.");
   }
 
@@ -640,6 +641,9 @@ async function resolveAllowedFetchPath(requestedPath, source, config) {
   }
   if (!config.followLinks && !samePath(path.resolve(requestedPath), realPath)) {
     throw new AgentDocError("FETCH_LINK_NOT_ALLOWED", "fetch does not follow symbolic links or junctions.");
+  }
+  if (isConfiguredSecretPath(realPath, config)) {
+    throw new AgentDocError("FETCH_PATH_PROTECTED", "Configured secret files cannot be read with fetch.");
   }
 
   for (const configuredFile of source.files) {
@@ -721,12 +725,24 @@ export async function checkConfiguration(options = {}) {
   for (const [sourceName, source] of Object.entries(config.sources)) {
     const roots = [];
     for (const root of source.roots) {
+      if (!root.enabled) {
+        roots.push({
+          name: root.name,
+          path: root.path,
+          priority: root.priority,
+          enabled: false,
+          available: null,
+          type: "disabled"
+        });
+        continue;
+      }
       try {
         const rootStat = await fs.lstat(root.path);
         roots.push({
           name: root.name,
           path: root.path,
           priority: root.priority,
+          enabled: true,
           available: rootStat.isDirectory() && !rootStat.isSymbolicLink(),
           type: rootStat.isSymbolicLink() ? "link" : rootStat.isDirectory() ? "directory" : "other"
         });
@@ -735,6 +751,7 @@ export async function checkConfiguration(options = {}) {
           name: root.name,
           path: root.path,
           priority: root.priority,
+          enabled: true,
           available: false,
           error: error instanceof Error ? error.message : String(error)
         });
@@ -742,16 +759,26 @@ export async function checkConfiguration(options = {}) {
     }
 
     const files = [];
-    for (const filePath of source.files) {
+    for (const file of source.files) {
+      if (!file.enabled) {
+        files.push({ path: file.path, enabled: false, available: null, type: "disabled" });
+        continue;
+      }
       try {
-        const fileStat = await fs.lstat(filePath);
+        const fileStat = await fs.lstat(file.path);
         files.push({
-          path: filePath,
+          path: file.path,
+          enabled: true,
           available: fileStat.isFile() && !fileStat.isSymbolicLink(),
           type: fileStat.isSymbolicLink() ? "link" : fileStat.isFile() ? "file" : "other"
         });
       } catch (error) {
-        files.push({ path: filePath, available: false, error: error instanceof Error ? error.message : String(error) });
+        files.push({
+          path: file.path,
+          enabled: true,
+          available: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }
 
@@ -765,6 +792,19 @@ export async function checkConfiguration(options = {}) {
 
   const toolDirectories = [];
   for (const directory of config.tools.directories) {
+    if (!directory.enabled) {
+      toolDirectories.push({
+        name: directory.name,
+        path: directory.path,
+        priority: directory.priority,
+        recursive: directory.recursive,
+        includeDocs: directory.includeDocs,
+        enabled: false,
+        available: null,
+        type: "disabled"
+      });
+      continue;
+    }
     try {
       const directoryStat = await fs.lstat(directory.path);
       toolDirectories.push({
@@ -773,6 +813,7 @@ export async function checkConfiguration(options = {}) {
         priority: directory.priority,
         recursive: directory.recursive,
         includeDocs: directory.includeDocs,
+        enabled: true,
         available: directoryStat.isDirectory() && !directoryStat.isSymbolicLink(),
         type: directoryStat.isSymbolicLink() ? "link" : directoryStat.isDirectory() ? "directory" : "other"
       });
@@ -783,6 +824,7 @@ export async function checkConfiguration(options = {}) {
         priority: directory.priority,
         recursive: directory.recursive,
         includeDocs: directory.includeDocs,
+        enabled: true,
         available: false,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -791,12 +833,24 @@ export async function checkConfiguration(options = {}) {
 
   const toolFiles = [];
   for (const file of config.tools.files) {
+    if (!file.enabled) {
+      toolFiles.push({
+        name: file.name,
+        path: file.path,
+        priority: file.priority,
+        enabled: false,
+        available: null,
+        type: "disabled"
+      });
+      continue;
+    }
     try {
       const fileStat = await fs.lstat(file.path);
       toolFiles.push({
         name: file.name,
         path: file.path,
         priority: file.priority,
+        enabled: true,
         available: fileStat.isFile() && !fileStat.isSymbolicLink(),
         type: fileStat.isSymbolicLink() ? "link" : fileStat.isFile() ? "file" : "other"
       });
@@ -805,11 +859,14 @@ export async function checkConfiguration(options = {}) {
         name: file.name,
         path: file.path,
         priority: file.priority,
+        enabled: true,
         available: false,
         error: error instanceof Error ? error.message : String(error)
       });
     }
   }
+
+  const secrets = await inspectConfiguredSecrets(config);
 
   return {
     schemaVersion: "1.0",
@@ -827,6 +884,7 @@ export async function checkConfiguration(options = {}) {
       directories: toolDirectories,
       files: toolFiles,
       extensions: config.tools.extensions
-    }
+    },
+    secrets
   };
 }

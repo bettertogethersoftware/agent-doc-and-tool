@@ -6,7 +6,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { createNativeDropTargetManager, startUiServer } from "../src/ui-server.mjs";
+import { createNativeDropTargetManager, createNativePickerScript, startUiServer } from "../src/ui-server.mjs";
 
 function createFakeChild() {
   const child = new EventEmitter();
@@ -25,11 +25,13 @@ async function createUiFixture(t) {
   const docsRoot = path.join(temporaryRoot, "allowed docs");
   const exactFile = path.join(temporaryRoot, "dropped exact file.txt");
   const toolPath = path.join(docsRoot, "ffprobe.exe");
+  const secretPath = path.join(temporaryRoot, "ftp-secret.txt");
   const configPath = path.join(temporaryRoot, "search.config.json");
   await fs.mkdir(docsRoot, { recursive: true });
   await fs.writeFile(path.join(docsRoot, "workflow.json"), '{"description":"UI shell search target"}\n', "utf8");
   await fs.writeFile(toolPath, "fixture\n", "utf8");
   await fs.writeFile(exactFile, "Dropped exact file fixture.\n", "utf8");
+  await fs.writeFile(secretPath, "hostname=ftp.example.test\npassword=ui-fixture-password\n", "utf8");
 
   const config = {
     version: 1,
@@ -49,6 +51,10 @@ async function createUiFixture(t) {
       directories: [{ name: "ui-tools", path: docsRoot, priority: 100, recursive: true, includeDocs: true }],
       files: [],
       extensions: ".exe;.py"
+    },
+    secrets: {
+      files: [{ name: "ui-ftp", path: secretPath, format: "auto" }],
+      maxFileBytes: 100000
     },
     limits: {
       maxResults: 20,
@@ -71,7 +77,7 @@ async function createUiFixture(t) {
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
   });
 
-  return { config, configPath, docsRoot, exactFile, toolPath, ui };
+  return { config, configPath, docsRoot, exactFile, secretPath, toolPath, ui };
 }
 
 function apiHeaders(ui, json = false) {
@@ -88,9 +94,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   const page = await fetch(fixture.ui.url);
   assert.equal(page.status, 200);
   const pageText = await page.text();
-  assert.match(pageText, /Choose what your AI agent can find/);
+  assert.match(pageText, /Agent Docs &amp; Tools configuration/);
   assert.match(pageText, /Drag and drop with the Windows drop box/);
   assert.match(pageText, /Register tools without running them/);
+  assert.match(pageText, /Register exact credential files/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -101,6 +108,33 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(payload.config.sources.local.extensions, "**.json;**.ai.md");
   assert.deepEqual(payload.check.sources.local.extensions, [".json", ".ai.md"]);
   assert.equal(payload.check.tools.directories[0].recursive, true);
+  assert.deepEqual(payload.check.secrets.files[0].fields, ["hostname", "password"]);
+  assert.doesNotMatch(JSON.stringify(payload), /ui-fixture-password/);
+});
+
+test("configuration UI inspects and finds secret metadata without returning values", async (t) => {
+  const fixture = await createUiFixture(t);
+  const inspectResponse = await fetch(new URL("api/inspect-secret", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ name: "ui-ftp", path: fixture.secretPath, format: "auto" })
+  });
+  const inspected = await inspectResponse.json();
+  assert.equal(inspectResponse.status, 200);
+  assert.equal(inspected.secret.path, fixture.secretPath);
+  assert.deepEqual(inspected.secret.fields, ["hostname", "password"]);
+  assert.doesNotMatch(JSON.stringify(inspected), /ui-fixture-password/);
+
+  const findResponse = await fetch(new URL("api/find-secret", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "hostname" })
+  });
+  const found = await findResponse.json();
+  assert.equal(findResponse.status, 200);
+  assert.equal(found.results[0].name, "ui-ftp");
+  assert.equal(found.meta.sensitiveValuesReturned, false);
+  assert.doesNotMatch(JSON.stringify(found), /ui-fixture-password/);
 });
 
 test("configuration UI classifies dropped files and folders", async (t) => {
@@ -163,6 +197,16 @@ test("native drop manager kills and rejects a timed-out helper", async () => {
   assert.equal(child.killed, true);
 });
 
+test("native picker dialogs use a topmost owner window", () => {
+  for (const kind of ["directory", "file", "secret-file"]) {
+    const script = createNativePickerScript(kind);
+    assert.match(script, /\$owner\.TopMost = \$true/);
+    assert.match(script, /\$owner\.BringToFront\(\)/);
+    assert.match(script, /ShowDialog\(\$owner\)/);
+    assert.match(script, /\$owner\.Dispose\(\)/);
+  }
+});
+
 test("configuration UI validates, saves, backs up, and searches", async (t) => {
   const fixture = await createUiFixture(t);
   const nextConfig = structuredClone(fixture.config);
@@ -198,4 +242,54 @@ test("configuration UI validates, saves, backs up, and searches", async (t) => {
   assert.equal(toolPayload.ok, true);
   assert.equal(toolPayload.meta.executed, false);
   assert.equal(toolPayload.results[0].path, fixture.toolPath);
+});
+
+test("configuration UI saves disabled states across every tab", async (t) => {
+  const fixture = await createUiFixture(t);
+  const nextConfig = structuredClone(fixture.config);
+  nextConfig.sources.local.roots[0].enabled = false;
+  nextConfig.sources.local.files.push({ path: fixture.exactFile, enabled: false });
+  nextConfig.tools.directories[0].enabled = false;
+  nextConfig.tools.files.push({ name: "disabled-ffprobe", path: fixture.toolPath, priority: 100, enabled: false });
+  nextConfig.secrets.files[0].enabled = false;
+
+  const saveResponse = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: nextConfig })
+  });
+  const savePayload = await saveResponse.json();
+  assert.equal(saveResponse.status, 200);
+  assert.equal(savePayload.ok, true);
+
+  const saved = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  assert.equal(saved.sources.local.roots[0].enabled, false);
+  assert.equal(saved.sources.local.files[0].enabled, false);
+  assert.equal(saved.tools.directories[0].enabled, false);
+  assert.equal(saved.tools.files[0].enabled, false);
+  assert.equal(saved.secrets.files[0].enabled, false);
+  assert.equal(savePayload.check.sources.local.roots[0].available, null);
+  assert.equal(savePayload.check.sources.local.files[0].available, null);
+  assert.equal(savePayload.check.tools.directories[0].available, null);
+  assert.equal(savePayload.check.tools.files[0].available, null);
+  assert.equal(savePayload.check.secrets.files[0].available, null);
+
+  const searchResponse = await fetch(new URL("api/search", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "ui shell target", source: "local" })
+  });
+  const toolResponse = await fetch(new URL("api/find-tool", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "ffprobe" })
+  });
+  const secretResponse = await fetch(new URL("api/find-secret", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "hostname" })
+  });
+  assert.equal((await searchResponse.json()).results.length, 0);
+  assert.equal((await toolResponse.json()).results.length, 0);
+  assert.equal((await secretResponse.json()).results.length, 0);
 });
