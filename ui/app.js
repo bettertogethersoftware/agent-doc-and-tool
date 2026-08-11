@@ -9,9 +9,11 @@ const elements = {
   pageStatus: document.querySelector("#page-status"),
   documentsTab: document.querySelector("#documents-tab"),
   toolsTab: document.querySelector("#tools-tab"),
+  promptsTab: document.querySelector("#prompts-tab"),
   secretsTab: document.querySelector("#secrets-tab"),
   documentsPanel: document.querySelector("#documents-panel"),
   toolsPanel: document.querySelector("#tools-panel"),
+  promptsPanel: document.querySelector("#prompts-panel"),
   secretsPanel: document.querySelector("#secrets-panel"),
   rootsList: document.querySelector("#roots-list"),
   rootsEmpty: document.querySelector("#roots-empty"),
@@ -63,6 +65,15 @@ const elements = {
   runToolSearch: document.querySelector("#run-tool-search"),
   toolSearchSummary: document.querySelector("#tool-search-summary"),
   toolSearchResults: document.querySelector("#tool-search-results"),
+  promptsList: document.querySelector("#prompts-list"),
+  promptsEmpty: document.querySelector("#prompts-empty"),
+  promptTemplate: document.querySelector("#prompt-row-template"),
+  addPrompt: document.querySelector("#add-prompt"),
+  promptSearchForm: document.querySelector("#prompt-search-form"),
+  promptSearchQuery: document.querySelector("#prompt-search-query"),
+  runPromptSearch: document.querySelector("#run-prompt-search"),
+  promptSearchSummary: document.querySelector("#prompt-search-summary"),
+  promptSearchResults: document.querySelector("#prompt-search-results"),
   secretFilesList: document.querySelector("#secret-files-list"),
   secretFilesEmpty: document.querySelector("#secret-files-empty"),
   secretFileTemplate: document.querySelector("#secret-file-row-template"),
@@ -83,7 +94,7 @@ const state = {
   config: null,
   check: null,
   sourceKey: "local",
-  activeTab: "documents",
+  activeTab: "prompts",
   dirty: false,
   toastTimer: null
 };
@@ -97,6 +108,22 @@ function splitValues(value) {
     .split(/[;\n]/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function splitKeywords(value) {
+  const seen = new Set();
+  return value
+    .split(/[;,\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter((entry) => {
+      const comparable = entry.toLowerCase();
+      if (seen.has(comparable)) {
+        return false;
+      }
+      seen.add(comparable);
+      return true;
+    });
 }
 
 function splitLines(value) {
@@ -215,6 +242,10 @@ function uniqueToolFileName(baseName) {
 
 function uniqueSecretName(baseName) {
   return uniqueNameInList(elements.secretFilesList, baseName);
+}
+
+function uniquePromptName(baseName) {
+  return uniqueNameInList(elements.promptsList, baseName);
 }
 
 function attachConfigurationInput(input) {
@@ -431,11 +462,38 @@ function appendSecretFile(secretFile = {}, inspection = undefined) {
   return row;
 }
 
+function appendPrompt(prompt = {}) {
+  const fragment = elements.promptTemplate.content.cloneNode(true);
+  const row = fragment.querySelector(".entry-row");
+  const nameInput = row.querySelector('[data-field="name"]');
+  const keywordsInput = row.querySelector('[data-field="keywords"]');
+  const contentInput = row.querySelector('[data-field="content"]');
+
+  nameInput.value = prompt.name ?? uniquePromptName("reusable-prompt");
+  keywordsInput.value = Array.isArray(prompt.keywords) ? prompt.keywords.join(";") : (prompt.keywords ?? "");
+  contentInput.value = prompt.content ?? "";
+  initializeEntryToggle(row, null, entryEnabled(prompt));
+
+  for (const input of row.querySelectorAll("input, textarea")) {
+    attachConfigurationInput(input);
+  }
+  row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    row.remove();
+    updateEmptyStates();
+    markDirty();
+  });
+
+  elements.promptsList.append(row);
+  updateEmptyStates();
+  return row;
+}
+
 function updateEmptyStates() {
   elements.rootsEmpty.hidden = elements.rootsList.children.length > 0;
   elements.filesEmpty.hidden = elements.filesList.children.length > 0;
   elements.toolDirectoriesEmpty.hidden = elements.toolDirectoriesList.children.length > 0;
   elements.toolFilesEmpty.hidden = elements.toolFilesList.children.length > 0;
+  elements.promptsEmpty.hidden = elements.promptsList.children.length > 0;
   elements.secretFilesEmpty.hidden = elements.secretFilesList.children.length > 0;
 }
 
@@ -458,6 +516,7 @@ function renderConfig(config, check) {
     extensions: [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"]
   };
   const checkedTools = check?.tools;
+  const prompts = Array.isArray(config.prompts) ? config.prompts : [];
   const secrets = config.secrets ?? { files: [], maxFileBytes: 256_000 };
   const checkedSecrets = check?.secrets;
 
@@ -465,6 +524,7 @@ function renderConfig(config, check) {
   elements.filesList.replaceChildren();
   elements.toolDirectoriesList.replaceChildren();
   elements.toolFilesList.replaceChildren();
+  elements.promptsList.replaceChildren();
   elements.secretFilesList.replaceChildren();
   for (const root of (source.roots ?? [])) {
     const rootName = typeof root === "string" ? undefined : root.name;
@@ -488,6 +548,9 @@ function renderConfig(config, check) {
       ? checkedTools?.files?.find((entry) => entry.name === toolName)
       : checkedTools?.files?.[index];
     appendToolFile(toolFile, availability);
+  }
+  for (const prompt of prompts) {
+    appendPrompt(prompt);
   }
   for (const [index, secretFile] of (secrets.files ?? []).entries()) {
     const secretName = typeof secretFile === "string" ? undefined : secretFile.name;
@@ -520,6 +583,7 @@ function renderConfig(config, check) {
     ...(source.files ?? []),
     ...(tools.directories ?? []),
     ...(tools.files ?? []),
+    ...prompts,
     ...(secrets.files ?? [])
   ];
   const enabledTotal = configuredEntries.filter(entryEnabled).length;
@@ -530,7 +594,7 @@ function renderConfig(config, check) {
     setPageStatus(
       "ready",
       "Configuration is valid",
-      `${enabledTotal} grant(s) enabled and ${disabledTotal} disabled across Documents, Tools, and Secrets.`
+      `${enabledTotal} enabled and ${disabledTotal} disabled across Prompts, Documents, Tools, and Secrets.`
     );
   }
   updateEmptyStates();
@@ -626,6 +690,30 @@ function collectConfig() {
     }),
     maxFileBytes: next.secrets?.maxFileBytes ?? 256_000
   };
+
+  const promptNames = new Set();
+  next.prompts = [...elements.promptsList.querySelectorAll(".entry-row")].map((row, index) => {
+    const name = row.querySelector('[data-field="name"]').value.trim();
+    const keywords = splitKeywords(row.querySelector('[data-field="keywords"]').value);
+    const content = row.querySelector('[data-field="content"]').value;
+    if (!name || !content.trim()) {
+      throw new Error(`Reusable prompt ${index + 1} needs a name or alias and prompt text.`);
+    }
+    const comparableName = name.toLowerCase();
+    if (promptNames.has(comparableName)) {
+      throw new Error(`Reusable prompt name or alias '${name}' is used more than once.`);
+    }
+    promptNames.add(comparableName);
+    const prompt = {
+      name,
+      content,
+      enabled: row.querySelector('[data-field="enabled"]').checked
+    };
+    if (keywords.length > 0) {
+      prompt.keywords = keywords;
+    }
+    return prompt;
+  });
 
   const patterns = elements.extensions.value.trim();
   source.extensions = patterns || [];
@@ -1124,12 +1212,66 @@ async function runSecretSearch(event) {
   }
 }
 
+async function runPromptSearch(event) {
+  event.preventDefault();
+  if (state.dirty) {
+    showToast("Save your configuration before testing prompt discovery.", "error");
+    return;
+  }
+
+  setBusy(elements.runPromptSearch, true, "Resolving…");
+  elements.promptSearchSummary.hidden = true;
+  elements.promptSearchResults.replaceChildren();
+  try {
+    const payload = await api("/api/find-prompt", {
+      method: "POST",
+      body: { query: elements.promptSearchQuery.value.trim() }
+    });
+    elements.promptSearchSummary.hidden = false;
+    elements.promptSearchSummary.textContent = `${payload.results.length} result(s) · ${payload.meta.promptsEnabled} enabled prompt(s) · all words required · name and keywords only`;
+
+    if (payload.results.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "No matching enabled reusable prompt was found.";
+      elements.promptSearchResults.append(empty);
+      return;
+    }
+
+    for (const result of payload.results) {
+      const article = document.createElement("article");
+      article.className = "result tool-result";
+      const badge = document.createElement("div");
+      badge.className = "result-line tool-type";
+      badge.textContent = "PROMPT";
+      const body = document.createElement("div");
+      const heading = document.createElement("strong");
+      heading.className = "result-name";
+      heading.textContent = result.name;
+      const details = document.createElement("div");
+      details.className = "result-path";
+      details.textContent = `${result.lineCount} line(s) · ${result.characterCount} characters · matched ${result.matchedFields.join(" and ")}`;
+      const preview = document.createElement("div");
+      preview.className = "result-text";
+      preview.textContent = result.preview;
+      body.append(heading, details, preview);
+      article.append(badge, body);
+      elements.promptSearchResults.append(article);
+    }
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setBusy(elements.runPromptSearch, false);
+  }
+}
+
 function activateTab(tabName, focus = false) {
-  const selected = ["documents", "tools", "secrets"].includes(tabName) ? tabName : "documents";
+  const selected = ["prompts", "documents", "tools", "secrets"].includes(tabName) ? tabName : "prompts";
   state.activeTab = selected;
   const tabs = {
     documents: { tab: elements.documentsTab, panel: elements.documentsPanel },
     tools: { tab: elements.toolsTab, panel: elements.toolsPanel },
+    prompts: { tab: elements.promptsTab, panel: elements.promptsPanel },
     secrets: { tab: elements.secretsTab, panel: elements.secretsPanel }
   };
   for (const [name, item] of Object.entries(tabs)) {
@@ -1207,6 +1349,12 @@ elements.addSecretFile.addEventListener("click", () => {
   row.querySelector('[data-field="path"]').focus();
   markDirty();
 });
+elements.addPrompt.addEventListener("click", () => {
+  const name = uniquePromptName(`reusable-prompt-${elements.promptsList.children.length + 1}`);
+  const row = appendPrompt({ name, content: "", enabled: true });
+  row.querySelector('[data-field="name"]').select();
+  markDirty();
+});
 elements.pickFolder.addEventListener("click", () => pickPath("directory"));
 elements.pickFile.addEventListener("click", () => pickPath("file"));
 elements.pickToolFolder.addEventListener("click", () => pickPath("directory", "tools"));
@@ -1226,12 +1374,14 @@ elements.reloadConfig.addEventListener("click", () => {
 elements.saveConfig.addEventListener("click", saveConfig);
 elements.searchForm.addEventListener("submit", runSearch);
 elements.toolSearchForm.addEventListener("submit", runToolSearch);
+elements.promptSearchForm.addEventListener("submit", runPromptSearch);
 elements.secretSearchForm.addEventListener("submit", runSecretSearch);
 elements.documentsTab.addEventListener("click", () => activateTab("documents"));
 elements.toolsTab.addEventListener("click", () => activateTab("tools"));
+elements.promptsTab.addEventListener("click", () => activateTab("prompts"));
 elements.secretsTab.addEventListener("click", () => activateTab("secrets"));
-const tabOrder = ["documents", "tools", "secrets"];
-const tabElements = [elements.documentsTab, elements.toolsTab, elements.secretsTab];
+const tabOrder = ["prompts", "documents", "tools", "secrets"];
+const tabElements = [elements.promptsTab, elements.documentsTab, elements.toolsTab, elements.secretsTab];
 for (const [index, tab] of tabElements.entries()) {
   tab.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -1274,5 +1424,5 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 elements.configPath.textContent = runtime.configPath;
-activateTab("documents");
+activateTab("prompts");
 loadConfig();

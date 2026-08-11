@@ -45,6 +45,20 @@ try {
       files: [{ name: "smoke-ftp", path: secretPath, format: "auto" }],
       maxFileBytes: 100000
     },
+    prompts: [
+      {
+        name: "youtube-mv",
+        keywords: ["cinematic", "music video"],
+        content: "Create a cinematic YouTube music video and verify the final render.",
+        enabled: true
+      },
+      {
+        name: "short mv",
+        keywords: ["cinematic", "music video"],
+        content: "Create a short music video.",
+        enabled: true
+      }
+    ],
     limits: {
       maxResults: 20,
       maxMatchesPerFile: 3,
@@ -65,7 +79,7 @@ try {
   await client.connect(transport);
 
   const listed = await client.listTools();
-  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_secret", "find_tool", "read_secret", "search"]);
+  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "read_prompt", "read_secret", "search"]);
 
   const searchCall = await client.callTool({
     name: "search",
@@ -93,6 +107,25 @@ try {
   assert.equal(toolPayload.meta.executed, false);
   assert.equal(toolPayload.results[0].path, toolPath);
   assert.equal(toolPayload.results[0].type, "python-script");
+
+  const promptFindCall = await client.callTool({
+    name: "find_prompt",
+    arguments: { query: "short mv" }
+  });
+  const promptFindPayload = JSON.parse(promptFindCall.content[0].text);
+  assert.equal(promptFindPayload.ok, true);
+  assert.deepEqual(promptFindPayload.results.map((entry) => entry.name), ["short mv"]);
+  assert.deepEqual(promptFindPayload.results[0].matchedFields, ["name"]);
+  assert.equal(promptFindPayload.meta.matchMode, "all-terms");
+  assert.equal(Object.hasOwn(promptFindPayload.results[0], "content"), false);
+
+  const promptReadCall = await client.callTool({
+    name: "read_prompt",
+    arguments: { prompt: "youtube-mv" }
+  });
+  const promptReadPayload = JSON.parse(promptReadCall.content[0].text);
+  assert.equal(promptReadPayload.ok, true);
+  assert.match(promptReadPayload.content, /cinematic YouTube music video/);
 
   const secretFindCall = await client.callTool({
     name: "find_secret",
@@ -133,6 +166,11 @@ try {
       path: toolPayload.results[0].path,
       type: toolPayload.results[0].type,
       executed: toolPayload.meta.executed
+    },
+    promptHit: {
+      name: promptFindPayload.results[0].name,
+      preview: promptFindPayload.results[0].preview,
+      sha256: promptReadPayload.sha256
     },
     secretHit: {
       path: secretFindPayload.results[0].path,

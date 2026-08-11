@@ -1,13 +1,13 @@
 interface:
   display_name: "Agent Docs & Tools"
-  short_description: "Find approved local docs, tools, and secrets"
-  default_prompt: "Use $agent-doc-and-tool to find authoritative local instructions, resolve allowlisted tools, and access exact secret grants with minimum exposure."
+  short_description: "Find approved local docs, tools, prompts, secrets"
+  default_prompt: "Use $agent-doc-and-tool to find authoritative local instructions, resolve allowlisted tools, retrieve a reusable prompt, or access an exact secret grant safely."
 
 dependencies:
   tools:
     - type: "mcp"
       value: "local_doc_search"
-      description: "Read-only local documentation, tool discovery, and exact secret-file MCP server"
+      description: "Read-only local documentation, tool, reusable-prompt, and exact secret-file MCP server"
       transport: "stdio"
 
 policy:

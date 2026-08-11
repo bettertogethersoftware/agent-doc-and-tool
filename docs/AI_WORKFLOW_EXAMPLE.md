@@ -40,4 +40,26 @@ The agent reviews the paths and line text, prefers the machine-specific workflow
 
 `fetch` returns the complete text plus its size, encoding, line count, and SHA-256 hash. The agent then follows the fetched preflight and verification instructions while retaining normal authorization and safety boundaries.
 
+If the user also asks to use a saved prompt such as `youtube-mv`, the agent discovers it separately with `find_prompt`:
+
+```json
+{
+  "query": "youtube mv"
+}
+```
+
+Every query term must match across the prompt name and optional keywords. Prompt body text is never part of discovery. If several enabled prompts match, the agent selects a case-insensitive exact name or alias first. It asks the user to disambiguate when no exact result clearly represents the request rather than reading every candidate body.
+
+After selecting the intended result, it reads the canonical prompt with `read_prompt`:
+
+```json
+{
+  "prompt": "youtube-mv"
+}
+```
+
+The reusable prompt supplements the current request and the fetched machine-specific workflow. It does not authorize unrelated execution, publication, disclosure, or other side effects.
+
+This workflow assumes the first-class `local_doc_search` methods are attached to the current agent task. After registering the server or changing its tool contract, start a new task or restart the client. A CLI command or standalone stdio MCP client is a useful explicitly labelled fallback test, but it verifies the server transport rather than direct tool attachment to the current task.
+
 If search returns no useful result, the agent retries once with a shorter or differently spaced query such as `minimax h3 video`. If that also fails, it reports that local instructions were not found instead of inventing a workflow. The human can then add a root, suffix, exact filename, or specific file to `config/search.config.json`.

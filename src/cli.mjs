@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { errorPayload } from "./errors.mjs";
+import { findPrompts, readPrompt } from "./prompt-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "./search-service.mjs";
 import { findTools } from "./tool-service.mjs";
 
@@ -43,7 +44,9 @@ function usage() {
       check: "node src/cli.mjs check [--config PATH]",
       search: "node src/cli.mjs search --query TEXT [--source local] [--max-results N] [--config PATH]",
       fetch: "node src/cli.mjs fetch --path ABSOLUTE_PATH [--source local] [--config PATH]",
-      findTool: "node src/cli.mjs find-tool --query TEXT [--max-results N] [--config PATH]"
+      findTool: "node src/cli.mjs find-tool --query TEXT [--max-results N] [--config PATH]",
+      findPrompt: "node src/cli.mjs find-prompt --query TEXT [--max-results N] [--config PATH]",
+      readPrompt: "node src/cli.mjs read-prompt --prompt NAME [--config PATH]"
     }
   };
 }
@@ -76,6 +79,17 @@ async function main() {
     return findTools({
       query: typeof args.query === "string" ? args.query : "",
       maxResults: integerArgument(args["max-results"], "max-results")
+    }, options);
+  }
+  if (command === "find-prompt") {
+    return findPrompts({
+      query: typeof args.query === "string" ? args.query : "",
+      maxResults: integerArgument(args["max-results"], "max-results")
+    }, options);
+  }
+  if (command === "read-prompt") {
+    return readPrompt({
+      prompt: typeof args.prompt === "string" ? args.prompt : ""
     }, options);
   }
   throw new Error(`Unknown command '${command}'.`);

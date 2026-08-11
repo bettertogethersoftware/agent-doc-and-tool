@@ -56,6 +56,10 @@ async function createUiFixture(t) {
       files: [{ name: "ui-ftp", path: secretPath, format: "auto" }],
       maxFileBytes: 100000
     },
+    prompts: [
+      { name: "youtube-mv", keywords: ["cinematic", "music video", "youtube", "feature length"], content: "Create a YouTube music video with deliberate pacing.", enabled: true },
+      { name: "short mv", keywords: ["cinematic", "music video", "youtube"], content: "Create a short music video.", enabled: true }
+    ],
     limits: {
       maxResults: 20,
       maxMatchesPerFile: 3,
@@ -95,8 +99,12 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, /Agent Docs &amp; Tools configuration/);
+  assert.match(pageText, /id="prompts-tab" class="tab is-active"/);
+  assert.ok(pageText.indexOf('id="prompts-tab"') < pageText.indexOf('id="documents-tab"'));
+  assert.match(pageText, /data-field="keywords"/);
   assert.match(pageText, /Drag and drop with the Windows drop box/);
   assert.match(pageText, /Register tools without running them/);
+  assert.match(pageText, /Keep reusable prompts close to your agent/);
   assert.match(pageText, /Register exact credential files/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
@@ -108,6 +116,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(payload.config.sources.local.extensions, "**.json;**.ai.md");
   assert.deepEqual(payload.check.sources.local.extensions, [".json", ".ai.md"]);
   assert.equal(payload.check.tools.directories[0].recursive, true);
+  assert.equal(payload.check.prompts.enabledCount, 2);
+  assert.deepEqual(payload.check.prompts.entries[0].keywords, ["cinematic", "music video", "youtube", "feature length"]);
   assert.deepEqual(payload.check.secrets.files[0].fields, ["hostname", "password"]);
   assert.doesNotMatch(JSON.stringify(payload), /ui-fixture-password/);
 });
@@ -135,6 +145,39 @@ test("configuration UI inspects and finds secret metadata without returning valu
   assert.equal(found.results[0].name, "ui-ftp");
   assert.equal(found.meta.sensitiveValuesReturned, false);
   assert.doesNotMatch(JSON.stringify(found), /ui-fixture-password/);
+});
+
+test("configuration UI requires every prompt query term across aliases and keywords, never body text", async (t) => {
+  const fixture = await createUiFixture(t);
+  const findResponse = await fetch(new URL("api/find-prompt", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "feature length" })
+  });
+  const found = await findResponse.json();
+  assert.equal(findResponse.status, 200);
+  assert.deepEqual(found.results.map((entry) => entry.name), ["youtube-mv"]);
+  assert.deepEqual(found.results[0].matchedFields, ["keywords"]);
+  assert.match(found.results[0].preview, /YouTube music video/);
+  assert.equal(Object.hasOwn(found.results[0], "content"), false);
+  assert.equal(found.meta.matchMode, "all-terms");
+
+  const exactTermsResponse = await fetch(new URL("api/find-prompt", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "short mv" })
+  });
+  const exactTerms = await exactTermsResponse.json();
+  assert.equal(exactTermsResponse.status, 200);
+  assert.deepEqual(exactTerms.results.map((entry) => entry.name), ["short mv"]);
+
+  const bodyOnlyResponse = await fetch(new URL("api/find-prompt", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "deliberate pacing" })
+  });
+  const bodyOnly = await bodyOnlyResponse.json();
+  assert.equal(bodyOnly.results.length, 0);
 });
 
 test("configuration UI classifies dropped files and folders", async (t) => {
@@ -252,6 +295,7 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   nextConfig.tools.directories[0].enabled = false;
   nextConfig.tools.files.push({ name: "disabled-ffprobe", path: fixture.toolPath, priority: 100, enabled: false });
   nextConfig.secrets.files[0].enabled = false;
+  nextConfig.prompts[0].enabled = false;
 
   const saveResponse = await fetch(new URL("api/config", fixture.ui.url), {
     method: "POST",
@@ -268,11 +312,13 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   assert.equal(saved.tools.directories[0].enabled, false);
   assert.equal(saved.tools.files[0].enabled, false);
   assert.equal(saved.secrets.files[0].enabled, false);
+  assert.equal(saved.prompts[0].enabled, false);
   assert.equal(savePayload.check.sources.local.roots[0].available, null);
   assert.equal(savePayload.check.sources.local.files[0].available, null);
   assert.equal(savePayload.check.tools.directories[0].available, null);
   assert.equal(savePayload.check.tools.files[0].available, null);
   assert.equal(savePayload.check.secrets.files[0].available, null);
+  assert.equal(savePayload.check.prompts.entries[0].enabled, false);
 
   const searchResponse = await fetch(new URL("api/search", fixture.ui.url), {
     method: "POST",
@@ -289,7 +335,13 @@ test("configuration UI saves disabled states across every tab", async (t) => {
     headers: apiHeaders(fixture.ui, true),
     body: JSON.stringify({ query: "hostname" })
   });
+  const promptResponse = await fetch(new URL("api/find-prompt", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "feature length" })
+  });
   assert.equal((await searchResponse.json()).results.length, 0);
   assert.equal((await toolResponse.json()).results.length, 0);
   assert.equal((await secretResponse.json()).results.length, 0);
+  assert.equal((await promptResponse.json()).results.length, 0);
 });

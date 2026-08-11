@@ -24,6 +24,7 @@
     "files": [],
     "maxFileBytes": 256000
   },
+  "prompts": [],
   "limits": {
     "maxResults": 50,
     "maxMatchesPerFile": 3,

@@ -867,6 +867,17 @@ export async function checkConfiguration(options = {}) {
   }
 
   const secrets = await inspectConfiguredSecrets(config);
+  const prompts = {
+    entries: config.prompts.map((prompt) => ({
+      name: prompt.name,
+      keywords: prompt.keywords,
+      enabled: prompt.enabled,
+      characterCount: prompt.content.length,
+      lineCount: countLines(prompt.content)
+    })),
+    enabledCount: config.prompts.filter((prompt) => prompt.enabled).length,
+    disabledCount: config.prompts.filter((prompt) => !prompt.enabled).length
+  };
 
   return {
     schemaVersion: "1.0",
@@ -885,6 +896,7 @@ export async function checkConfiguration(options = {}) {
       files: toolFiles,
       extensions: config.tools.extensions
     },
-    secrets
+    secrets,
+    prompts
   };
 }

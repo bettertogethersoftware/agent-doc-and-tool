@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { findPrompts, readPrompt } from "../src/prompt-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "../src/search-service.mjs";
 import { findSecrets, readSecret } from "../src/secret-service.mjs";
 import { findTools } from "../src/tool-service.mjs";
@@ -92,6 +93,10 @@ async function createFixture(t) {
       ],
       maxFileBytes: 100_000
     },
+    prompts: [
+      { name: "enabled-prompt", content: "Enabled reusable prompt marker.", enabled: true },
+      { name: "disabled-prompt", content: "Disabled reusable prompt marker.", enabled: false }
+    ],
     limits: {
       maxResults: 20,
       maxMatchesPerFile: 3,
@@ -174,6 +179,21 @@ test("disabled secrets cannot be discovered or read and remain protected", async
   );
 });
 
+test("disabled reusable prompts cannot be discovered or read", async (t) => {
+  const fixture = await createFixture(t);
+
+  const enabled = await findPrompts({ query: "enabled prompt" }, { configPath: fixture.configPath });
+  const disabled = await findPrompts({ query: "disabled prompt" }, { configPath: fixture.configPath });
+  assert.deepEqual(enabled.results.map((entry) => entry.name), ["enabled-prompt"]);
+  assert.ok(disabled.results.every((entry) => entry.name !== "disabled-prompt"));
+  assert.equal(enabled.meta.promptsEnabled, 1);
+  assert.equal(enabled.meta.promptsDisabled, 1);
+  await assert.rejects(
+    readPrompt({ prompt: "disabled-prompt" }, { configPath: fixture.configPath }),
+    (error) => error?.code === "PROMPT_DISABLED"
+  );
+});
+
 test("configuration checks retain disabled entries without probing missing paths", async (t) => {
   const fixture = await createFixture(t);
   const checked = await checkConfiguration({ configPath: fixture.configPath });
@@ -190,4 +210,7 @@ test("configuration checks retain disabled entries without probing missing paths
     assert.equal(entry.type, "disabled");
     assert.equal(Object.hasOwn(entry, "error"), false);
   }
+  assert.equal(checked.prompts.enabledCount, 1);
+  assert.equal(checked.prompts.disabledCount, 1);
+  assert.equal(checked.prompts.entries.find((entry) => entry.name === "disabled-prompt").enabled, false);
 });

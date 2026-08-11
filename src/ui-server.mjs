@@ -9,13 +9,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { DEFAULT_CONFIG_PATH, expandPathVariables, parseConfig, PROJECT_ROOT } from "./config.mjs";
 import { AgentDocError, errorPayload } from "./errors.mjs";
+import { findPrompts } from "./prompt-service.mjs";
 import { checkConfiguration, searchDocuments } from "./search-service.mjs";
 import { findSecrets, inspectSecretPath } from "./secret-service.mjs";
 import { findTools } from "./tool-service.mjs";
 
 const UI_DIRECTORY = path.join(PROJECT_ROOT, "ui");
 const WINDOWS_DROP_TARGET = path.join(PROJECT_ROOT, "scripts", "windows-drop-target.ps1");
-const MAX_REQUEST_BYTES = 1_000_000;
+const MAX_REQUEST_BYTES = 6_000_000;
 const NATIVE_DROP_TIMEOUT_MS = 120_000;
 const DEFAULT_PORT = 43120;
 const LOOPBACK_HOST = "127.0.0.1";
@@ -534,6 +535,15 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
       if (route === "/api/find-tool" && request.method === "POST") {
         const body = await readJsonBody(request);
         sendJson(response, 200, await findTools({
+          query: typeof body?.query === "string" ? body.query : "",
+          maxResults: 20
+        }, { configPath: resolvedConfigPath }));
+        return;
+      }
+
+      if (route === "/api/find-prompt" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await findPrompts({
           query: typeof body?.query === "string" ? body.query : "",
           maxResults: 20
         }, { configPath: resolvedConfigPath }));

@@ -16,7 +16,8 @@
       </span>
     </a>
     <nav class="tabs" role="tablist" aria-label="Configuration sections">
-      <button id="documents-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="documents-panel">Documents</button>
+      <button id="prompts-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prompts-panel">Prompts</button>
+      <button id="documents-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="documents-panel" tabindex="-1">Documents</button>
       <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
       <button id="secrets-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="secrets-panel" tabindex="-1">Secrets</button>
     </nav>
@@ -29,7 +30,7 @@
   <main class="shell">
     <h1 class="sr-only">Agent Docs &amp; Tools configuration</h1>
 
-    <div id="documents-panel" class="tab-panel" role="tabpanel" aria-labelledby="documents-tab">
+    <div id="documents-panel" class="tab-panel" role="tabpanel" aria-labelledby="documents-tab" hidden>
 
     <section class="panel drop-panel">
       <div class="panel-heading compact">
@@ -287,6 +288,56 @@
       </section>
     </div>
 
+    <div id="prompts-panel" class="tab-panel" role="tabpanel" aria-labelledby="prompts-tab">
+      <section class="panel prompt-intro">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">REUSABLE CONTEXT</p>
+            <h2>Keep reusable prompts close to your agent</h2>
+            <p>Save named prompt text once, then let the agent discover it with <code>find_prompt</code> and retrieve the full text with <code>read_prompt</code>.</p>
+          </div>
+        </div>
+        <div class="safety-note">
+          <strong>Current request stays in control</strong>
+          <span>A stored prompt supplies reusable task details. It cannot override higher-priority instructions or authorize unrelated actions.</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">01</p>
+            <h2>Reusable prompts</h2>
+            <p>Give each prompt a unique name or alias and optional discovery keywords. Disable an entry to keep the text saved without exposing it to the agent.</p>
+          </div>
+          <div class="button-row">
+            <button id="add-prompt" class="button primary" type="button">Add prompt</button>
+          </div>
+        </div>
+        <div id="prompts-list" class="entry-list prompt-list"></div>
+        <p id="prompts-empty" class="empty-state" hidden>No reusable prompts are saved yet.</p>
+      </section>
+
+      <section class="panel test-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">02</p>
+            <h2>Test saved prompt discovery</h2>
+            <p>Find by name, alias, or optional keywords. Every search word must match; prompt body text is never searched.</p>
+          </div>
+        </div>
+        <form id="prompt-search-form" class="search-form">
+          <label class="field grow">
+            <span>Prompt name, alias, or keywords</span>
+            <input id="prompt-search-query" type="search" value="youtube mv" maxlength="500" required>
+          </label>
+          <button id="run-prompt-search" class="button primary" type="submit">Find prompt</button>
+        </form>
+        <div id="prompt-search-summary" class="search-summary" hidden></div>
+        <div id="prompt-search-results" class="results"></div>
+      </section>
+    </div>
+
     <div id="secrets-panel" class="tab-panel" role="tabpanel" aria-labelledby="secrets-tab" hidden>
       <section class="panel secret-intro">
         <div class="panel-heading compact">
@@ -450,6 +501,28 @@
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove secret file">×</button>
       <div class="path-state secret-state" data-role="state"></div>
     </div>
+  </template>
+
+  <template id="prompt-row-template">
+    <article class="entry-row prompt-entry">
+      <div class="prompt-entry-header">
+        <label class="field prompt-name-field">
+          <span>Name or alias</span>
+          <input data-field="name" type="text" maxlength="200" placeholder="youtube-mv" required>
+        </label>
+        <label class="field prompt-keywords-field">
+          <span>Keywords <small>(optional)</small></span>
+          <input data-field="keywords" type="text" maxlength="10000" placeholder="music video;cinematic;youtube">
+        </label>
+        <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable reusable prompt" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
+        <button class="icon-button" data-action="remove" type="button" aria-label="Delete reusable prompt">×</button>
+      </div>
+      <label class="field prompt-content-field">
+        <span>Prompt text</span>
+        <textarea data-field="content" rows="8" maxlength="200000" spellcheck="true" placeholder="Write the reusable prompt here…" required></textarea>
+        <small>The body is not searched. The agent receives it only after selecting this exact prompt.</small>
+      </label>
+    </article>
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

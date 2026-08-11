@@ -22,7 +22,7 @@ const client = new Client({ name: "agent-doc-search-live-check", version: "1.0.0
 try {
   await client.connect(transport);
   const listed = await client.listTools();
-  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_secret", "find_tool", "read_secret", "search"]);
+  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "read_prompt", "read_secret", "search"]);
 
   const searchCall = await client.callTool({
     name: "search",

@@ -23,6 +23,11 @@ const DEFAULT_LIMITS = {
 
 export const DEFAULT_TOOL_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"];
 export const DEFAULT_SECRET_MAX_FILE_BYTES = 256_000;
+export const MAX_PROMPT_NAME_CHARS = 200;
+export const MAX_PROMPT_CONTENT_CHARS = 200_000;
+export const MAX_PROMPT_TOTAL_CHARS = 5_000_000;
+const MAX_PROMPT_KEYWORDS = 100;
+const MAX_PROMPT_KEYWORD_CHARS = 200;
 
 const RootEntrySchema = z.union([
   z.string().trim().min(1),
@@ -104,6 +109,18 @@ const SecretsSchema = z.object({
   maxFileBytes: DEFAULT_SECRET_MAX_FILE_BYTES
 });
 
+const PromptEntrySchema = z.object({
+  name: z.string().trim().min(1).max(MAX_PROMPT_NAME_CHARS),
+  keywords: z.union([
+    z.string().max(10_000),
+    z.array(z.string().trim().min(1).max(MAX_PROMPT_KEYWORD_CHARS)).max(MAX_PROMPT_KEYWORDS)
+  ]).default([]),
+  content: z.string().max(MAX_PROMPT_CONTENT_CHARS),
+  enabled: z.boolean().default(true)
+}).strict();
+
+const PromptsSchema = z.array(PromptEntrySchema).max(500).default([]);
+
 const LimitsSchema = z.object({
   maxResults: z.number().int().min(1).max(500).default(DEFAULT_LIMITS.maxResults),
   maxMatchesPerFile: z.number().int().min(1).max(20).default(DEFAULT_LIMITS.maxMatchesPerFile),
@@ -124,6 +141,7 @@ const ConfigSchema = z.object({
   followLinks: z.literal(false).default(false),
   tools: ToolsSchema,
   secrets: SecretsSchema,
+  prompts: PromptsSchema,
   limits: LimitsSchema
 }).strict();
 
@@ -305,6 +323,68 @@ function normalizeSecrets(rawSecrets, configDirectory) {
   };
 }
 
+function normalizePromptKeywords(value, promptName) {
+  const configured = typeof value === "string" ? [value] : value;
+  const keywords = configured
+    .flatMap((entry) => entry.split(/[;,\n]/))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (keywords.length > MAX_PROMPT_KEYWORDS) {
+    throw new AgentDocError(
+      "CONFIG_PROMPT_KEYWORDS_LIMIT",
+      `Prompt '${promptName}' has ${keywords.length} keywords; the limit is ${MAX_PROMPT_KEYWORDS}.`
+    );
+  }
+  const tooLong = keywords.find((keyword) => keyword.length > MAX_PROMPT_KEYWORD_CHARS);
+  if (tooLong) {
+    throw new AgentDocError(
+      "CONFIG_PROMPT_KEYWORD_TOO_LONG",
+      `Prompt '${promptName}' has a keyword longer than ${MAX_PROMPT_KEYWORD_CHARS} characters.`
+    );
+  }
+
+  const seen = new Set();
+  return keywords.filter((keyword) => {
+    const comparable = keyword.toLowerCase();
+    if (seen.has(comparable)) {
+      return false;
+    }
+    seen.add(comparable);
+    return true;
+  });
+}
+
+function normalizePrompts(rawPrompts) {
+  const names = new Set();
+  let totalCharacters = 0;
+  const prompts = rawPrompts.map((prompt) => {
+    const name = prompt.name.trim();
+    const comparableName = name.toLowerCase();
+    if (names.has(comparableName)) {
+      throw new AgentDocError("CONFIG_PROMPT_NAME_DUPLICATE", `Prompt name or alias '${name}' is configured more than once.`);
+    }
+    if (!prompt.content.trim()) {
+      throw new AgentDocError("CONFIG_PROMPT_CONTENT_EMPTY", `Prompt '${name}' must contain text.`);
+    }
+    names.add(comparableName);
+    totalCharacters += prompt.content.length;
+    return {
+      name,
+      keywords: normalizePromptKeywords(prompt.keywords, name),
+      content: prompt.content,
+      enabled: prompt.enabled !== false
+    };
+  });
+
+  if (totalCharacters > MAX_PROMPT_TOTAL_CHARS) {
+    throw new AgentDocError(
+      "CONFIG_PROMPT_TOTAL_TOO_LARGE",
+      `Reusable prompts contain ${totalCharacters} characters; the combined limit is ${MAX_PROMPT_TOTAL_CHARS}.`
+    );
+  }
+  return prompts;
+}
+
 export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PATH) {
   const configPath = path.resolve(expandPathVariables(configPathInput));
   const parsed = ConfigSchema.safeParse(rawConfig);
@@ -352,6 +432,7 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
     followLinks: parsed.data.followLinks,
     tools: normalizeTools(parsed.data.tools, configDirectory),
     secrets: normalizeSecrets(parsed.data.secrets, configDirectory),
+    prompts: normalizePrompts(parsed.data.prompts),
     limits: parsed.data.limits
   };
 }
