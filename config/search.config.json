@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "defaultSource": "local",
+  "sources": {
+    "local": {
+      "roots": [
+        {
+          "name": "source-repositories",
+          "path": "${USERPROFILE}\\source\\repos",
+          "priority": 100
+        },
+        {
+          "name": "codex-skills",
+          "path": "${USERPROFILE}\\.codex\\skills",
+          "priority": 80
+        },
+        {
+          "name": "yt-ad-skipper",
+          "path": "${USERPROFILE}\\Documents\\Jerry\\yt-ad-skipper (1)\\yt-ad-skipper",
+          "priority": 150
+        }
+      ],
+      "extensions": "**.json;**.ai.md",
+      "fileNames": [
+        "README.md"
+      ],
+      "files": [
+        "${USERPROFILE}\\source\\repos\\bettertogethersoftware\\motion-studio\\agent_tool_minimaxh3\\README.md",
+        "${USERPROFILE}\\Documents\\workspace.terminal.json"
+      ]
+    }
+  },
+  "ignoreFile": ".agent-searchignore",
+  "ignore": [],
+  "caseSensitive": false,
+  "followLinks": false,
+  "limits": {
+    "maxResults": 50,
+    "maxMatchesPerFile": 3,
+    "maxLineChars": 1000,
+    "maxFileBytes": 2000000,
+    "maxFetchBytes": 4000000,
+    "maxFiles": 50000,
+    "timeoutMs": 15000
+  }
+}

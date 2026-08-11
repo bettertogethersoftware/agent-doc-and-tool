@@ -1,0 +1,23 @@
+{
+  "name": "agent-doc-and-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only local documentation search MCP server for AI agents",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node src/cli.mjs check",
+    "mcp": "node src/server.mjs",
+    "ui": "node src/ui-server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:mcp": "node test/mcp-smoke.mjs",
+    "test:mcp:live": "node test/mcp-live.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "ignore": "7.0.6",
+    "zod": "4.4.3"
+  }
+}

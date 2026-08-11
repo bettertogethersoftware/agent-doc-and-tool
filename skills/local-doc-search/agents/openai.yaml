@@ -1,0 +1,14 @@
+interface:
+  display_name: "Local Document Search"
+  short_description: "Find and fetch trusted local AI docs"
+  default_prompt: "Use $local-doc-search to find authoritative local instructions before using an unfamiliar tool."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "local_doc_search"
+      description: "Read-only local documentation search and fetch MCP server"
+      transport: "stdio"
+
+policy:
+  allow_implicit_invocation: true

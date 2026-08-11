@@ -1,0 +1,30 @@
+# Version-control and dependency trees
+.git/
+node_modules/
+packages/
+package-lock.json
+
+# Large generated dictionaries that create noisy one-line JSON matches
+vocab.json
+
+# Generated output and caches
+dist/
+build/
+bin/
+obj/
+out/
+coverage/
+.cache/
+__pycache__/
+.venv/
+venv/
+tmp/
+temp/
+
+# Large generated/model stores
+models/
+outputs/
+data/
+
+# Git-style negation is supported. Add !patterns below when a skipped path
+# contains documentation that should remain searchable.

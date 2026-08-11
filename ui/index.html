@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Document Search — Configuration</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Agent Document Search home">
+      <span class="brand-mark">A<span>/</span></span>
+      <span>
+        <strong>Agent Document Search</strong>
+        <small>Local configuration console</small>
+      </span>
+    </a>
+    <div class="runtime-state">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Loopback only</span>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">SEARCH ACCESS</p>
+        <h1>Choose what your AI agent can read.</h1>
+        <p class="hero-copy">Allow exact files or recursively searched folders, then control eligible document types with suffix patterns.</p>
+      </div>
+      <div class="config-chip">
+        <span>ACTIVE CONFIG</span>
+        <code id="config-path">Loading…</code>
+      </div>
+    </section>
+
+    <div id="page-status" class="notice is-loading" role="status">
+      <span class="notice-icon" aria-hidden="true">···</span>
+      <div>
+        <strong>Loading configuration</strong>
+        <p>Reading the current allowlist and checking each path.</p>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="step">01</p>
+          <h2>Allowed folders</h2>
+          <p>Every matching document below these folders can be searched recursively.</p>
+        </div>
+        <div class="button-row">
+          <button id="pick-folder" class="button secondary" type="button">Browse folder</button>
+          <button id="add-folder" class="button secondary" type="button">Add manually</button>
+        </div>
+      </div>
+      <div class="table-head roots-grid" aria-hidden="true">
+        <span>Name</span>
+        <span>Folder path</span>
+        <span>Priority</span>
+        <span></span>
+      </div>
+      <div id="roots-list" class="entry-list"></div>
+      <p id="roots-empty" class="empty-state" hidden>No folders are allowed yet.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="step">02</p>
+          <h2>Exact files</h2>
+          <p>Exact files are allowed even when they are outside a folder or do not match a suffix pattern.</p>
+        </div>
+        <div class="button-row">
+          <button id="pick-file" class="button secondary" type="button">Browse file</button>
+          <button id="add-file" class="button secondary" type="button">Add manually</button>
+        </div>
+      </div>
+      <div id="files-list" class="entry-list"></div>
+      <p id="files-empty" class="empty-state" hidden>No exact files are allowed yet.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading compact">
+        <div>
+          <p class="step">03</p>
+          <h2>Matching rules</h2>
+          <p>Use semicolons between suffix patterns. Glob-style forms are normalized safely.</p>
+        </div>
+      </div>
+      <div class="field-grid">
+        <label class="field">
+          <span>Extension patterns</span>
+          <input id="extensions" type="text" spellcheck="false" placeholder="**.json;**.ai.md">
+          <small>Accepted examples: <code>.json</code>, <code>*.json</code>, <code>**.json</code>, <code>**/*.json</code>.</small>
+        </label>
+        <label class="field">
+          <span>Exact filenames</span>
+          <input id="file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
+          <small>Matched anywhere below an allowed folder.</small>
+        </label>
+      </div>
+      <label class="toggle-row">
+        <input id="case-sensitive" type="checkbox">
+        <span class="toggle" aria-hidden="true"></span>
+        <span>
+          <strong>Case-sensitive matching</strong>
+          <small>Usually leave this off on Windows.</small>
+        </span>
+      </label>
+    </section>
+
+    <details class="panel advanced">
+      <summary>
+        <span>
+          <span class="step">04</span>
+          <strong>Safety and limits</strong>
+        </span>
+        <small>Advanced</small>
+      </summary>
+      <div class="advanced-body">
+        <div class="field-grid">
+          <label class="field">
+            <span>Ignore file</span>
+            <input id="ignore-file" type="text" spellcheck="false" placeholder=".agent-searchignore">
+          </label>
+          <label class="field">
+            <span>Additional ignore patterns</span>
+            <textarea id="ignore-patterns" rows="4" spellcheck="false" placeholder="private/&#10;*.secret.json"></textarea>
+          </label>
+        </div>
+        <div class="limits-grid">
+          <label class="field"><span>Max results</span><input id="max-results" type="number" min="1" max="500"></label>
+          <label class="field"><span>Max files</span><input id="max-files" type="number" min="1" max="1000000"></label>
+          <label class="field"><span>Timeout (ms)</span><input id="timeout-ms" type="number" min="100" max="120000"></label>
+          <label class="field"><span>Max line characters</span><input id="max-line-chars" type="number" min="100" max="20000"></label>
+          <label class="field"><span>Max file bytes</span><input id="max-file-bytes" type="number" min="1024" max="100000000"></label>
+        </div>
+      </div>
+    </details>
+
+    <section class="panel test-panel">
+      <div class="panel-heading compact">
+        <div>
+          <p class="step">05</p>
+          <h2>Test the saved configuration</h2>
+          <p>Run the same local search exposed to the AI agent.</p>
+        </div>
+      </div>
+      <form id="search-form" class="search-form">
+        <label class="field grow">
+          <span>Search phrase</span>
+          <input id="search-query" type="search" value="minimax h3" maxlength="500" required>
+        </label>
+        <button id="run-search" class="button primary" type="submit">Run test search</button>
+      </form>
+      <div id="search-summary" class="search-summary" hidden></div>
+      <div id="search-results" class="results"></div>
+    </section>
+  </main>
+
+  <footer class="actionbar">
+    <div>
+      <strong id="dirty-state">No unsaved changes</strong>
+      <span>Saving validates the complete configuration first.</span>
+    </div>
+    <div class="button-row">
+      <button id="reload-config" class="button ghost" type="button">Reload</button>
+      <button id="save-config" class="button primary" type="button">Save configuration</button>
+    </div>
+  </footer>
+
+  <template id="root-row-template">
+    <div class="entry-row roots-grid">
+      <label><span class="sr-only">Folder name</span><input data-field="name" type="text" placeholder="my-tools" required></label>
+      <label><span class="sr-only">Folder path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\folder" required></label>
+      <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
+      <button class="icon-button" data-action="remove" type="button" aria-label="Remove folder">×</button>
+      <div class="path-state" data-role="state"></div>
+    </div>
+  </template>
+
+  <template id="file-row-template">
+    <div class="entry-row file-grid">
+      <label><span class="sr-only">Exact file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\file.json" required></label>
+      <button class="icon-button" data-action="remove" type="button" aria-label="Remove file">×</button>
+      <div class="path-state" data-role="state"></div>
+    </div>
+  </template>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/bootstrap.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
