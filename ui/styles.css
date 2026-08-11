@@ -242,6 +242,50 @@ h1 {
   line-height: 1.5;
 }
 
+.tabs {
+  display: inline-flex;
+  gap: 5px;
+  margin: 6px 0 4px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgb(10 19 17 / 82%);
+}
+
+.tab {
+  min-width: 132px;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition: 140ms ease;
+}
+
+.tab:hover,
+.tab:focus-visible {
+  color: var(--text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tab.is-active {
+  background: #1a2b26;
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px #3b5a4c;
+}
+
+.tab-panel[hidden] {
+  display: none;
+}
+
 .panel {
   margin-top: 18px;
   padding: 29px;
@@ -392,6 +436,14 @@ h1 {
   grid-template-columns: minmax(0, 1fr) 38px;
 }
 
+.tool-directory-grid {
+  grid-template-columns: minmax(130px, 0.6fr) minmax(280px, 2fr) 86px minmax(185px, 0.85fr) 38px;
+}
+
+.tool-file-grid {
+  grid-template-columns: minmax(140px, 0.65fr) minmax(300px, 2fr) 86px 38px;
+}
+
 .table-head {
   padding: 0 2px 9px;
   color: #6f817b;
@@ -436,6 +488,29 @@ h1 {
 .field input {
   height: 42px;
   padding: 0 12px;
+}
+
+.entry-options {
+  display: grid;
+  gap: 7px;
+}
+
+.entry-row .mini-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #bdc9c5;
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.entry-row .mini-check input {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  accent-color: var(--accent);
 }
 
 .field textarea {
@@ -516,6 +591,36 @@ h1 {
 
 .field small code {
   color: #aebdb8;
+}
+
+.tool-intro {
+  border-color: #36584a;
+}
+
+.tool-intro code {
+  color: var(--accent-strong);
+}
+
+.safety-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px 18px;
+  align-items: baseline;
+  padding: 15px 17px;
+  border: 1px solid #345246;
+  border-radius: 12px;
+  background: rgb(8 19 16 / 62%);
+}
+
+.safety-note strong {
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.safety-note span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .toggle-row {
@@ -688,6 +793,18 @@ h1 {
   line-height: 1.55;
 }
 
+.result-name {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.83rem;
+}
+
+.tool-type {
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-transform: uppercase;
+}
+
 .actionbar {
   position: fixed;
   z-index: 12;
@@ -784,6 +901,16 @@ h1 {
     gap: 28px;
   }
 
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .tab {
+    min-width: 0;
+  }
+
   .panel {
     padding: 22px;
   }
@@ -812,6 +939,28 @@ h1 {
   .roots-grid,
   .file-grid {
     grid-template-columns: 1fr 76px 38px;
+  }
+
+  .tool-directory-grid,
+  .tool-file-grid {
+    grid-template-columns: minmax(0, 1fr) 38px;
+  }
+
+  .entry-row.tool-directory-grid > label,
+  .entry-row.tool-file-grid > label,
+  .entry-row.tool-directory-grid > .entry-options {
+    grid-column: 1 / 2;
+  }
+
+  .entry-row.tool-directory-grid > .icon-button,
+  .entry-row.tool-file-grid > .icon-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .safety-note {
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
 
   .roots-grid label:nth-child(1) {

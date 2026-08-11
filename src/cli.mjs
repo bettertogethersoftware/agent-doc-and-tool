@@ -2,6 +2,7 @@
 
 import { errorPayload } from "./errors.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "./search-service.mjs";
+import { findTools } from "./tool-service.mjs";
 
 function parseArguments(values) {
   const result = { _: [] };
@@ -41,7 +42,8 @@ function usage() {
     commands: {
       check: "node src/cli.mjs check [--config PATH]",
       search: "node src/cli.mjs search --query TEXT [--source local] [--max-results N] [--config PATH]",
-      fetch: "node src/cli.mjs fetch --path ABSOLUTE_PATH [--source local] [--config PATH]"
+      fetch: "node src/cli.mjs fetch --path ABSOLUTE_PATH [--source local] [--config PATH]",
+      findTool: "node src/cli.mjs find-tool --query TEXT [--max-results N] [--config PATH]"
     }
   };
 }
@@ -68,6 +70,12 @@ async function main() {
     return fetchDocument({
       path: typeof args.path === "string" ? args.path : "",
       source: typeof args.source === "string" ? args.source : "local"
+    }, options);
+  }
+  if (command === "find-tool") {
+    return findTools({
+      query: typeof args.query === "string" ? args.query : "",
+      maxResults: integerArgument(args["max-results"], "max-results")
     }, options);
   }
   throw new Error(`Unknown command '${command}'.`);

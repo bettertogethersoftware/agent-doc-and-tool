@@ -117,12 +117,21 @@ function shouldStop(state) {
 
 async function realDirectory(root, state) {
   try {
-    const rootStat = await fs.stat(root.path);
-    if (!rootStat.isDirectory()) {
-      addWarning(state, "ROOT_NOT_DIRECTORY", "Configured root is not a directory.", root.path);
+    const rootStat = await fs.lstat(root.path);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+      if (rootStat.isSymbolicLink()) {
+        state.stats.skippedLinks += 1;
+      }
+      addWarning(state, "ROOT_NOT_DIRECTORY", "Configured root must be a regular non-link directory.", root.path);
       return null;
     }
-    return await fs.realpath(root.path);
+    const realRoot = await fs.realpath(root.path);
+    if (!state.config.followLinks && !samePath(path.resolve(root.path), realRoot)) {
+      state.stats.skippedLinks += 1;
+      addWarning(state, "ROOT_LINK_NOT_ALLOWED", "Configured root resolves through a link or junction.", root.path);
+      return null;
+    }
+    return realRoot;
   } catch (error) {
     addWarning(state, "ROOT_UNAVAILABLE", error instanceof Error ? error.message : String(error), root.path);
     return null;
@@ -713,13 +722,13 @@ export async function checkConfiguration(options = {}) {
     const roots = [];
     for (const root of source.roots) {
       try {
-        const rootStat = await fs.stat(root.path);
+        const rootStat = await fs.lstat(root.path);
         roots.push({
           name: root.name,
           path: root.path,
           priority: root.priority,
-          available: rootStat.isDirectory(),
-          type: rootStat.isDirectory() ? "directory" : "other"
+          available: rootStat.isDirectory() && !rootStat.isSymbolicLink(),
+          type: rootStat.isSymbolicLink() ? "link" : rootStat.isDirectory() ? "directory" : "other"
         });
       } catch (error) {
         roots.push({
@@ -735,8 +744,12 @@ export async function checkConfiguration(options = {}) {
     const files = [];
     for (const filePath of source.files) {
       try {
-        const fileStat = await fs.stat(filePath);
-        files.push({ path: filePath, available: fileStat.isFile(), type: fileStat.isFile() ? "file" : "other" });
+        const fileStat = await fs.lstat(filePath);
+        files.push({
+          path: filePath,
+          available: fileStat.isFile() && !fileStat.isSymbolicLink(),
+          type: fileStat.isSymbolicLink() ? "link" : fileStat.isFile() ? "file" : "other"
+        });
       } catch (error) {
         files.push({ path: filePath, available: false, error: error instanceof Error ? error.message : String(error) });
       }
@@ -750,6 +763,54 @@ export async function checkConfiguration(options = {}) {
     };
   }
 
+  const toolDirectories = [];
+  for (const directory of config.tools.directories) {
+    try {
+      const directoryStat = await fs.lstat(directory.path);
+      toolDirectories.push({
+        name: directory.name,
+        path: directory.path,
+        priority: directory.priority,
+        recursive: directory.recursive,
+        includeDocs: directory.includeDocs,
+        available: directoryStat.isDirectory() && !directoryStat.isSymbolicLink(),
+        type: directoryStat.isSymbolicLink() ? "link" : directoryStat.isDirectory() ? "directory" : "other"
+      });
+    } catch (error) {
+      toolDirectories.push({
+        name: directory.name,
+        path: directory.path,
+        priority: directory.priority,
+        recursive: directory.recursive,
+        includeDocs: directory.includeDocs,
+        available: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  const toolFiles = [];
+  for (const file of config.tools.files) {
+    try {
+      const fileStat = await fs.lstat(file.path);
+      toolFiles.push({
+        name: file.name,
+        path: file.path,
+        priority: file.priority,
+        available: fileStat.isFile() && !fileStat.isSymbolicLink(),
+        type: fileStat.isSymbolicLink() ? "link" : fileStat.isFile() ? "file" : "other"
+      });
+    } catch (error) {
+      toolFiles.push({
+        name: file.name,
+        path: file.path,
+        priority: file.priority,
+        available: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
   return {
     schemaVersion: "1.0",
     ok: true,
@@ -761,6 +822,11 @@ export async function checkConfiguration(options = {}) {
     defaultSource: config.defaultSource,
     followLinks: config.followLinks,
     limits: config.limits,
-    sources
+    sources,
+    tools: {
+      directories: toolDirectories,
+      files: toolFiles,
+      extensions: config.tools.extensions
+    }
   };
 }

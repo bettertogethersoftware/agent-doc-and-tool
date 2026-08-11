@@ -12,12 +12,14 @@ const projectRoot = path.resolve(testDirectory, "..");
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-mcp-smoke-"));
 const docsRoot = path.join(temporaryRoot, "docs");
 const readmePath = path.join(docsRoot, "README.md");
+const toolPath = path.join(docsRoot, "generate_music_stable_audio3.py");
 const configPath = path.join(temporaryRoot, "search.config.json");
 let client;
 
 try {
   await fs.mkdir(docsRoot, { recursive: true });
   await fs.writeFile(readmePath, "# MCP fixture\nMiniMax H3 local video workflow.\n", "utf8");
+  await fs.writeFile(toolPath, "print('MCP fixture')\n", "utf8");
   await fs.writeFile(configPath, JSON.stringify({
     version: 1,
     defaultSource: "local",
@@ -32,6 +34,11 @@ try {
     ignore: [],
     caseSensitive: false,
     followLinks: false,
+    tools: {
+      directories: [{ name: "smoke-tools", path: docsRoot, priority: 100, recursive: true, includeDocs: true }],
+      files: [],
+      extensions: ".exe;.py"
+    },
     limits: {
       maxResults: 20,
       maxMatchesPerFile: 3,
@@ -52,7 +59,7 @@ try {
   await client.connect(transport);
 
   const listed = await client.listTools();
-  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "search"]);
+  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_tool", "search"]);
 
   const searchCall = await client.callTool({
     name: "search",
@@ -71,6 +78,16 @@ try {
   assert.equal(fetchPayload.ok, true);
   assert.match(fetchPayload.content, /MiniMax H3 local video workflow/);
 
+  const toolCall = await client.callTool({
+    name: "find_tool",
+    arguments: { query: "stable audio 3" }
+  });
+  const toolPayload = JSON.parse(toolCall.content[0].text);
+  assert.equal(toolPayload.ok, true);
+  assert.equal(toolPayload.meta.executed, false);
+  assert.equal(toolPayload.results[0].path, toolPath);
+  assert.equal(toolPayload.results[0].type, "python-script");
+
   process.stdout.write(`${JSON.stringify({
     ok: true,
     tools: listed.tools.map((tool) => tool.name).sort(),
@@ -78,6 +95,11 @@ try {
       path: searchPayload.results[0].path,
       lineNumber: searchPayload.results[0].lineNumber,
       lineText: searchPayload.results[0].lineText
+    },
+    toolHit: {
+      path: toolPayload.results[0].path,
+      type: toolPayload.results[0].type,
+      executed: toolPayload.meta.executed
     },
     fetchSha256: fetchPayload.sha256
   }, null, 2)}\n`);

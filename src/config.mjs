@@ -21,6 +21,8 @@ const DEFAULT_LIMITS = {
   timeoutMs: 15_000
 };
 
+export const DEFAULT_TOOL_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"];
+
 const RootEntrySchema = z.union([
   z.string().trim().min(1),
   z.object({
@@ -42,6 +44,36 @@ const SourceSchema = z.object({
   files: z.array(z.string().trim().min(1)).default([])
 }).strict();
 
+const ToolDirectoryEntrySchema = z.union([
+  z.string().trim().min(1),
+  z.object({
+    name: z.string().trim().min(1).optional(),
+    path: z.string().trim().min(1),
+    priority: z.number().int().min(-10_000).max(10_000).default(0),
+    recursive: z.boolean().default(true),
+    includeDocs: z.boolean().default(true)
+  }).strict()
+]);
+
+const ToolFileEntrySchema = z.union([
+  z.string().trim().min(1),
+  z.object({
+    name: z.string().trim().min(1).optional(),
+    path: z.string().trim().min(1),
+    priority: z.number().int().min(-10_000).max(10_000).default(0)
+  }).strict()
+]);
+
+const ToolsSchema = z.object({
+  directories: z.array(ToolDirectoryEntrySchema).default([]),
+  files: z.array(ToolFileEntrySchema).default([]),
+  extensions: ExtensionListSchema.default(DEFAULT_TOOL_EXTENSIONS)
+}).strict().default({
+  directories: [],
+  files: [],
+  extensions: DEFAULT_TOOL_EXTENSIONS
+});
+
 const LimitsSchema = z.object({
   maxResults: z.number().int().min(1).max(500).default(DEFAULT_LIMITS.maxResults),
   maxMatchesPerFile: z.number().int().min(1).max(20).default(DEFAULT_LIMITS.maxMatchesPerFile),
@@ -60,6 +92,7 @@ const ConfigSchema = z.object({
   ignore: z.array(z.string()).default([]),
   caseSensitive: z.boolean().default(false),
   followLinks: z.literal(false).default(false),
+  tools: ToolsSchema,
   limits: LimitsSchema
 }).strict();
 
@@ -161,6 +194,37 @@ function normalizeSource(name, rawSource, configDirectory) {
   };
 }
 
+function normalizeTools(rawTools, configDirectory) {
+  const directories = rawTools.directories.map((entry, index) => {
+    const directory = typeof entry === "string"
+      ? { path: entry, priority: 0, recursive: true, includeDocs: true }
+      : entry;
+    return {
+      name: directory.name ?? `tool-directory-${index + 1}`,
+      path: resolveConfiguredPath(directory.path, configDirectory),
+      priority: directory.priority ?? 0,
+      recursive: directory.recursive !== false,
+      includeDocs: directory.includeDocs !== false
+    };
+  }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
+
+  const files = rawTools.files.map((entry, index) => {
+    const file = typeof entry === "string" ? { path: entry, priority: 0 } : entry;
+    const resolvedPath = resolveConfiguredPath(file.path, configDirectory);
+    return {
+      name: file.name ?? (path.basename(resolvedPath) || `tool-file-${index + 1}`),
+      path: resolvedPath,
+      priority: file.priority ?? 0
+    };
+  }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
+
+  return {
+    directories,
+    files,
+    extensions: normalizeExtensionPatterns(rawTools.extensions)
+  };
+}
+
 export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PATH) {
   const configPath = path.resolve(expandPathVariables(configPathInput));
   const parsed = ConfigSchema.safeParse(rawConfig);
@@ -206,6 +270,7 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
     ignorePatterns,
     caseSensitive: parsed.data.caseSensitive,
     followLinks: parsed.data.followLinks,
+    tools: normalizeTools(parsed.data.tools, configDirectory),
     limits: parsed.data.limits
   };
 }
@@ -243,7 +308,36 @@ export function getSource(config, sourceInput = undefined) {
       availableSources: Object.keys(config.sources)
     });
   }
-  return source;
+  if (sourceName !== config.defaultSource) {
+    return source;
+  }
+
+  const configuredRootPaths = new Set(source.roots.map((root) => (
+    process.platform === "win32" ? root.path.toLowerCase() : root.path
+  )));
+  const documentationRoots = config.tools.directories
+    .filter((directory) => directory.includeDocs)
+    .filter((directory) => {
+      const comparable = process.platform === "win32" ? directory.path.toLowerCase() : directory.path;
+      if (configuredRootPaths.has(comparable)) {
+        return false;
+      }
+      configuredRootPaths.add(comparable);
+      return true;
+    })
+    .map((directory) => ({
+      name: `tool:${directory.name}`,
+      path: directory.path,
+      priority: directory.priority
+    }));
+
+  return documentationRoots.length === 0
+    ? source
+    : {
+        ...source,
+        roots: [...source.roots, ...documentationRoots]
+          .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
+      };
 }
 
 export function matchesConfiguredDocument(filePath, source, caseSensitive) {

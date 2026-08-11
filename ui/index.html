@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent Document Search — Configuration</title>
+  <title>Agent Docs &amp; Tools — Configuration</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="Agent Document Search home">
+    <a class="brand" href="/" aria-label="Agent Docs and Tools home">
       <span class="brand-mark">A<span>/</span></span>
       <span>
-        <strong>Agent Document Search</strong>
+        <strong>Agent Docs &amp; Tools</strong>
         <small>Local configuration console</small>
       </span>
     </a>
@@ -24,9 +24,9 @@
   <main class="shell">
     <section class="hero">
       <div>
-        <p class="eyebrow">SEARCH ACCESS</p>
-        <h1>Choose what your AI agent can read.</h1>
-        <p class="hero-copy">Allow exact files or recursively searched folders, then control eligible document types with suffix patterns.</p>
+        <p class="eyebrow">LOCAL ACCESS</p>
+        <h1>Choose what your AI agent can find.</h1>
+        <p class="hero-copy">Allow local documentation and discoverable tools without publishing personal paths or automatically executing anything.</p>
       </div>
       <div class="config-chip">
         <span>ACTIVE CONFIG</span>
@@ -41,6 +41,13 @@
         <p>Reading the current allowlist and checking each path.</p>
       </div>
     </div>
+
+    <nav class="tabs" role="tablist" aria-label="Configuration sections">
+      <button id="documents-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="documents-panel">Documents</button>
+      <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
+    </nav>
+
+    <div id="documents-panel" class="tab-panel" role="tabpanel" aria-labelledby="documents-tab">
 
     <section class="panel drop-panel">
       <div class="panel-heading compact">
@@ -175,6 +182,120 @@
       <div id="search-summary" class="search-summary" hidden></div>
       <div id="search-results" class="results"></div>
     </section>
+    </div>
+
+    <div id="tools-panel" class="tab-panel" role="tabpanel" aria-labelledby="tools-tab" hidden>
+      <section class="panel tool-intro">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">TOOL ACCESS</p>
+            <h2>Register tools without running them</h2>
+            <p>Tool folders expose matching executables and scripts to <code>find_tool</code>. Documentation is included by default, so the agent can search and fetch a nearby <code>README.md</code> before using a tool.</p>
+          </div>
+        </div>
+        <div class="safety-note">
+          <strong>Discovery only</strong>
+          <span>The MCP server verifies and returns local paths. It never launches a program, changes PATH, or treats discovery as permission to execute.</span>
+        </div>
+      </section>
+
+      <section class="panel drop-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">01</p>
+            <h2>Add tool folders or files</h2>
+            <p>Folders become searchable tool catalogs. Files become exact tool grants.</p>
+          </div>
+        </div>
+        <div id="tool-drop-zone" class="drop-zone">
+          <div class="drop-symbol" aria-hidden="true">↓</div>
+          <div>
+            <strong>Drag and drop with the Windows drop box</strong>
+            <p id="tool-drop-help">Click the button, then drop from File Explorer into the separate window. Direct drops here also work when the browser exposes complete paths.</p>
+          </div>
+          <button id="tool-open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">02</p>
+            <h2>Tool folders</h2>
+            <p>Matching executables and scripts are discovered throughout each folder tree by default. Global ignore rules still skip caches such as <code>__pycache__</code>.</p>
+          </div>
+          <div class="button-row">
+            <button id="pick-tool-folder" class="button secondary" type="button">Browse folder</button>
+            <button id="add-tool-folder" class="button secondary" type="button">Add manually</button>
+          </div>
+        </div>
+        <div class="table-head tool-directory-grid" aria-hidden="true">
+          <span>Name</span>
+          <span>Folder path</span>
+          <span>Priority</span>
+          <span>Options</span>
+          <span></span>
+        </div>
+        <div id="tool-directories-list" class="entry-list"></div>
+        <p id="tool-directories-empty" class="empty-state" hidden>No tool folders are registered yet.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">03</p>
+            <h2>Exact tool files</h2>
+            <p>Register a specific executable or script even when its parent folder should not be scanned.</p>
+          </div>
+          <div class="button-row">
+            <button id="pick-tool-file" class="button secondary" type="button">Browse file</button>
+            <button id="add-tool-file" class="button secondary" type="button">Add manually</button>
+          </div>
+        </div>
+        <div class="table-head tool-file-grid" aria-hidden="true">
+          <span>Name or alias</span>
+          <span>File path</span>
+          <span>Priority</span>
+          <span></span>
+        </div>
+        <div id="tool-files-list" class="entry-list"></div>
+        <p id="tool-files-empty" class="empty-state" hidden>No exact tool files are registered yet.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">04</p>
+            <h2>Tool matching rules</h2>
+            <p>Only matching suffixes are discovered inside tool folders. Exact tool files do not need to match.</p>
+          </div>
+        </div>
+        <label class="field">
+          <span>Tool suffix patterns</span>
+          <input id="tool-extensions" type="text" spellcheck="false" placeholder=".exe;.cmd;.bat;.ps1;.py;.js;.mjs">
+          <small>Use semicolons between values. Global ignore rules and non-link path checks apply to folder scans.</small>
+        </label>
+      </section>
+
+      <section class="panel test-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">05</p>
+            <h2>Test the saved tool catalog</h2>
+            <p>Run the same read-only resolver exposed to the AI agent.</p>
+          </div>
+        </div>
+        <form id="tool-search-form" class="search-form">
+          <label class="field grow">
+            <span>Tool or capability</span>
+            <input id="tool-search-query" type="search" value="ffprobe" maxlength="500" required>
+          </label>
+          <button id="run-tool-search" class="button primary" type="submit">Find tool</button>
+        </form>
+        <div id="tool-search-summary" class="search-summary" hidden></div>
+        <div id="tool-search-results" class="results"></div>
+      </section>
+    </div>
   </main>
 
   <footer class="actionbar">
@@ -202,6 +323,30 @@
     <div class="entry-row file-grid">
       <label><span class="sr-only">Exact file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\file.json" required></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove file">×</button>
+      <div class="path-state" data-role="state"></div>
+    </div>
+  </template>
+
+  <template id="tool-directory-row-template">
+    <div class="entry-row tool-directory-grid">
+      <label><span class="sr-only">Tool folder name</span><input data-field="name" type="text" placeholder="media-tools" required></label>
+      <label><span class="sr-only">Tool folder path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\tool-folder" required></label>
+      <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
+      <div class="entry-options">
+        <label class="mini-check"><input data-field="recursive" type="checkbox" checked><span>Include subfolders</span></label>
+        <label class="mini-check"><input data-field="includeDocs" type="checkbox" checked><span>Include documentation</span></label>
+      </div>
+      <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool folder">×</button>
+      <div class="path-state" data-role="state"></div>
+    </div>
+  </template>
+
+  <template id="tool-file-row-template">
+    <div class="entry-row tool-file-grid">
+      <label><span class="sr-only">Tool name or alias</span><input data-field="name" type="text" placeholder="music-generator" required></label>
+      <label><span class="sr-only">Exact tool file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\tool.py" required></label>
+      <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
+      <button class="icon-button" data-action="remove" type="button" aria-label="Remove exact tool file">×</button>
       <div class="path-state" data-role="state"></div>
     </div>
   </template>

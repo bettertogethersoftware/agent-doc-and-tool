@@ -1,9 +1,10 @@
-# Agent Document Search
+# Agent Docs & Tools
 
-Read-only local documentation search for AI agents. The package exposes an MCP server with two tools:
+Read-only local documentation search and tool discovery for AI agents. The package exposes three MCP tools:
 
 - `search(query, source)` scans human-configured directories for allowed suffix patterns and exact filenames, plus explicitly listed files. It returns JSON containing the full path, 1-based line number, and matching line text. Exceptionally long one-line documents return a bounded excerpt with truncation metadata.
 - `fetch(path, source)` returns the complete text and SHA-256 identity of a file selected from search results.
+- `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 
 The current backend scans files directly. It does not build an index, contact the web, or query databases. Those can be added later as separate providers without changing the tool contract.
 
@@ -26,6 +27,7 @@ All CLI commands write JSON to stdout:
 ```powershell
 node .\src\cli.mjs search --query "minimax h3" --source local
 node .\src\cli.mjs fetch --path "C:\full\path\returned-by-search\README.md" --source local
+node .\src\cli.mjs find-tool --query "ffprobe"
 ```
 
 ## Configuration UI
@@ -40,8 +42,11 @@ It binds only to `127.0.0.1`, opens the default browser, and edits the local `co
 
 From the UI you can:
 
+- Switch between **Documents** and **Tools** tabs while saving everything to the same private local configuration.
 - Drop several files or folders at once. On Windows, click **Open Windows drop box**, then drag from File Explorer into the separate window so complete local paths are preserved.
 - Browse for or paste recursively searched folders and exact files.
+- Register tool folders recursively or exact tool files. Tool folders include matching documentation by default, so a project folder can expose both a script and its nearby `README.md`.
+- Control executable and script suffixes such as `.exe;.cmd;.bat;.ps1;.py;.js;.mjs` and test the saved catalog with the same `find_tool` resolver used by the agent.
 - Enter suffix patterns such as `.json;.ai.md;.md;.txt`.
 - Edit exact filenames, ignore rules, and safety limits.
 - Save only after full schema validation; the previous file is retained as `search.config.json.bak`.
@@ -76,6 +81,34 @@ Edit the local `config/search.config.json` to define named sources, directories,
 
 `roots` are searched recursively. `files` are exact grants and do not need to match an extension or filename rule. `extensions` accepts either an array of suffixes or a semicolon-separated string; `.json`, `*.json`, `**.json`, and `**/*.json` all normalize to the same `.json` suffix rule. `fileNames` contains exact names matched anywhere beneath a root.
 
+Tool access is configured separately in the same file:
+
+```json
+{
+  "tools": {
+    "directories": [
+      {
+        "name": "media-tools",
+        "path": "C:\\path\\to\\tool-folder",
+        "priority": 100,
+        "recursive": true,
+        "includeDocs": true
+      }
+    ],
+    "files": [
+      {
+        "name": "one-exact-script",
+        "path": "C:\\path\\to\\one-tool.py",
+        "priority": 100
+      }
+    ],
+    "extensions": ".exe;.cmd;.bat;.ps1;.py;.js;.mjs"
+  }
+}
+```
+
+`directories` are scanned recursively by default. `includeDocs` also makes matching documentation beneath that folder available to `search` and `fetch`; document suffixes and exact filenames still come from the selected document source. Global ignore rules apply to both scans. Exact tool files do not need to match a suffix.
+
 Git tracks only the empty [configuration example](config/search.config.example.json), never the active configuration or its backup. Edit [config/.agent-searchignore](config/.agent-searchignore) using Git-ignore syntax to exclude generated or irrelevant directories. Negated `!patterns` are supported.
 
 `fetch` is intentionally allowlisted: it only reads eligible files beneath configured roots or exact files listed by the human. It rejects relative paths, links, known credential locations and secret file types, binary files, ignored files, and oversized files.
@@ -95,13 +128,14 @@ $agentDocRoot = (Get-Location).Path
 codex mcp add local_doc_search --env "AGENT_DOC_SEARCH_CONFIG=$agentDocRoot\config\search.config.json" -- node "$agentDocRoot\src\server.mjs"
 ```
 
-The companion [local-doc-search skill](skills/local-doc-search/SKILL.md) teaches Codex to search before guessing, select the authoritative result, and fetch the exact document. A newly registered MCP server becomes available after starting a new Codex task or restarting the local client.
+The companion [local-doc-search skill](skills/local-doc-search/SKILL.md) teaches Codex to search before guessing, fetch authoritative local documentation, and resolve local tools that are not reliably on `PATH`. A newly registered or updated MCP server becomes available after starting a new Codex task or restarting the local client.
 
 See [the MiniMax H3 workflow example](docs/AI_WORKFLOW_EXAMPLE.md) for the intended agent loop.
 
 ## Safety and behavior
 
 - Read-only and local-only in this version.
+- Tool discovery never executes files, runs `--help`, modifies `PATH`, or grants execution permission. Invocation remains a separate, user-authorized action.
 - No persistent index, cache, telemetry, or network requests.
 - Configuration reloads on every call, so human edits take effect without restarting the server.
 - Search stops at configured file, result, size, and time limits and reports partial results honestly.

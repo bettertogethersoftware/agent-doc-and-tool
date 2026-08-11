@@ -156,4 +156,6 @@ test("check reports direct scan configuration without indexing or network", asyn
   assert.equal(result.indexed, false);
   assert.equal(result.networkEnabled, false);
   assert.equal(result.sources.local.roots[0].available, true);
+  assert.deepEqual(result.tools.directories, []);
+  assert.deepEqual(result.tools.files, []);
 });

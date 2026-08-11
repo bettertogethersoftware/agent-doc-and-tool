@@ -15,6 +15,11 @@
   "ignore": [],
   "caseSensitive": false,
   "followLinks": false,
+  "tools": {
+    "directories": [],
+    "files": [],
+    "extensions": ".exe;.com;.cmd;.bat;.ps1;.py;.js;.mjs;.cjs"
+  },
   "limits": {
     "maxResults": 50,
     "maxMatchesPerFile": 3,

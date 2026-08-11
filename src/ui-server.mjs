@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEFAULT_CONFIG_PATH, expandPathVariables, parseConfig, PROJECT_ROOT } from "./config.mjs";
 import { AgentDocError, errorPayload } from "./errors.mjs";
 import { checkConfiguration, searchDocuments } from "./search-service.mjs";
+import { findTools } from "./tool-service.mjs";
 
 const UI_DIRECTORY = path.join(PROJECT_ROOT, "ui");
 const WINDOWS_DROP_TARGET = path.join(PROJECT_ROOT, "scripts", "windows-drop-target.ps1");
@@ -506,6 +507,15 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
         sendJson(response, 200, await searchDocuments({
           query: typeof body?.query === "string" ? body.query : "",
           source: typeof body?.source === "string" ? body.source : "local",
+          maxResults: 20
+        }, { configPath: resolvedConfigPath }));
+        return;
+      }
+
+      if (route === "/api/find-tool" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await findTools({
+          query: typeof body?.query === "string" ? body.query : "",
           maxResults: 20
         }, { configPath: resolvedConfigPath }));
         return;
