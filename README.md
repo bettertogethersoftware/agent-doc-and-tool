@@ -40,7 +40,7 @@ It binds only to `127.0.0.1`, opens the default browser, and edits the local `co
 
 From the UI you can:
 
-- Drop several files or folders at once. On Windows, use the native drop box when the browser hides full local paths.
+- Drop several files or folders at once. On Windows, click **Open Windows drop box**, then drag from File Explorer into the separate window so complete local paths are preserved.
 - Browse for or paste recursively searched folders and exact files.
 - Enter suffix patterns such as `.json;.ai.md;.md;.txt`.
 - Edit exact filenames, ignore rules, and safety limits.

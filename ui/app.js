@@ -471,7 +471,7 @@ async function classifyAndAddDroppedPaths(paths) {
 }
 
 async function openNativeDropBox() {
-  setBusy(elements.openDropBox, true, "Waiting for drop…");
+  setBusy(elements.openDropBox, true, "Use the open drop box…");
   try {
     const payload = await api("/api/native-drop", { method: "POST", body: {} });
     if (!payload.cancelled) {
@@ -498,7 +498,7 @@ async function handleBrowserDrop(event) {
   }
 
   if (runtime.nativePickers) {
-    showToast("This browser hides complete local paths. Drop the same items into the Windows drop box that is opening.");
+    showToast("A separate Windows drop box is opening in front. Drop the same items there, or press Esc to cancel.");
     await openNativeDropBox();
   } else {
     showToast("This browser does not expose complete local paths. Use the folder or file browse buttons.", "error");

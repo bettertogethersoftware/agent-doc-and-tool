@@ -12,8 +12,21 @@ $script:dropForm.ClientSize = New-Object System.Drawing.Size(620, 330)
 $script:dropForm.MinimumSize = New-Object System.Drawing.Size(560, 310)
 $script:dropForm.BackColor = [System.Drawing.Color]::FromArgb(9, 16, 15)
 $script:dropForm.ForeColor = [System.Drawing.Color]::FromArgb(241, 245, 242)
+$script:dropForm.ShowInTaskbar = $true
 $script:dropForm.TopMost = $true
 $script:dropForm.AllowDrop = $true
+$script:dropForm.KeyPreview = $true
+$script:dropForm.Add_Shown({
+  $script:dropForm.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+  $script:dropForm.BringToFront()
+  $script:dropForm.Activate()
+})
+$script:dropForm.Add_KeyDown({
+  param($sender, $eventArgs)
+  if ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+    $script:dropForm.Close()
+  }
+})
 
 $title = New-Object System.Windows.Forms.Label
 $title.AutoSize = $true
@@ -27,7 +40,7 @@ $subtitle.AutoSize = $true
 $subtitle.Location = New-Object System.Drawing.Point(30, 60)
 $subtitle.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(147, 164, 159)
-$subtitle.Text = 'You can add several items in one drop. Nothing is saved until you click Save configuration.'
+$subtitle.Text = 'Drop from File Explorer. Press Esc or Cancel to close. Nothing is saved until you click Save configuration.'
 $script:dropForm.Controls.Add($subtitle)
 
 $dropArea = New-Object System.Windows.Forms.Panel

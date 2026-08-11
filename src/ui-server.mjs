@@ -14,6 +14,7 @@ import { checkConfiguration, searchDocuments } from "./search-service.mjs";
 const UI_DIRECTORY = path.join(PROJECT_ROOT, "ui");
 const WINDOWS_DROP_TARGET = path.join(PROJECT_ROOT, "scripts", "windows-drop-target.ps1");
 const MAX_REQUEST_BYTES = 1_000_000;
+const NATIVE_DROP_TIMEOUT_MS = 120_000;
 const DEFAULT_PORT = 43120;
 const LOOPBACK_HOST = "127.0.0.1";
 
@@ -263,77 +264,134 @@ export async function classifyDroppedPaths(pathsInput) {
   return { items, errors };
 }
 
-async function showNativeDropTarget() {
-  if (process.platform !== "win32") {
-    throw new AgentDocError("UI_DROP_TARGET_UNAVAILABLE", "The native drag-and-drop window is currently available on Windows only.");
-  }
+export function createNativeDropTargetManager({
+  platform = process.platform,
+  powershellPath = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+  scriptPath = WINDOWS_DROP_TARGET,
+  spawnProcess = spawn,
+  timeoutMs = NATIVE_DROP_TIMEOUT_MS
+} = {}) {
+  let active = null;
 
-  const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-  return new Promise((resolve, reject) => {
-    const child = spawn(powershell, [
-      "-NoLogo",
-      "-NoProfile",
-      "-STA",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      WINDOWS_DROP_TARGET
-    ], {
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    const stdout = [];
-    const stderr = [];
-    let outputBytes = 0;
-    let settled = false;
+  const show = () => {
+    if (platform !== "win32") {
+      return Promise.reject(new AgentDocError(
+        "UI_DROP_TARGET_UNAVAILABLE",
+        "The native drag-and-drop window is currently available on Windows only."
+      ));
+    }
+    if (active) {
+      return active.promise;
+    }
 
-    const fail = (error) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      reject(error);
-    };
-
-    child.stdout.on("data", (chunk) => {
-      outputBytes += chunk.length;
-      if (outputBytes > 512_000) {
-        child.kill();
-        fail(new AgentDocError("UI_DROP_TARGET_OUTPUT_TOO_LARGE", "Native drop target returned too much data."));
-        return;
-      }
-      stdout.push(chunk);
-    });
-    child.stderr.on("data", (chunk) => stderr.push(chunk));
-    child.on("error", (error) => fail(new AgentDocError("UI_DROP_TARGET_FAILED", "Cannot start the native drag-and-drop window.", {
-      cause: error instanceof Error ? error.message : String(error)
-    })));
-    child.on("close", (code) => {
-      if (settled) {
-        return;
-      }
-      if (code !== 0) {
-        fail(new AgentDocError("UI_DROP_TARGET_FAILED", "Native drag-and-drop window did not complete successfully.", {
-          cause: Buffer.concat(stderr).toString("utf8").trim() || `PowerShell exited with code ${code}.`
-        }));
-        return;
-      }
-
+    const state = { child: null, promise: null };
+    const processPromise = new Promise((resolve, reject) => {
       try {
-        const paths = Buffer.concat(stdout).toString("utf8")
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => Buffer.from(line, "base64").toString("utf8"));
-        settled = true;
-        resolve(paths);
+        state.child = spawnProcess(powershellPath, [
+          "-NoLogo",
+          "-NoProfile",
+          "-STA",
+          "-WindowStyle",
+          "Hidden",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          scriptPath
+        ], {
+          stdio: ["ignore", "pipe", "pipe"]
+        });
       } catch (error) {
-        fail(new AgentDocError("UI_DROP_TARGET_OUTPUT_INVALID", "Native drop target returned invalid path data.", {
+        reject(new AgentDocError("UI_DROP_TARGET_FAILED", "Cannot start the native drag-and-drop window.", {
           cause: error instanceof Error ? error.message : String(error)
         }));
+        return;
+      }
+
+      const child = state.child;
+      const stdout = [];
+      const stderr = [];
+      let outputBytes = 0;
+      let settled = false;
+      let timeout;
+
+      const finish = (callback, value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        callback(value);
+      };
+      const fail = (error) => finish(reject, error);
+      const succeed = (paths) => finish(resolve, paths);
+
+      timeout = setTimeout(() => {
+        try {
+          child.kill();
+        } catch {
+          // The timeout error below remains the useful response even if the process already ended.
+        }
+        fail(new AgentDocError(
+          "UI_DROP_TARGET_TIMEOUT",
+          "The Windows drop box timed out. Try again, or use Browse folder / Browse file."
+        ));
+      }, timeoutMs);
+
+      child.stdout.on("data", (chunk) => {
+        outputBytes += chunk.length;
+        if (outputBytes > 512_000) {
+          child.kill();
+          fail(new AgentDocError("UI_DROP_TARGET_OUTPUT_TOO_LARGE", "Native drop target returned too much data."));
+          return;
+        }
+        stdout.push(chunk);
+      });
+      child.stderr.on("data", (chunk) => stderr.push(chunk));
+      child.on("error", (error) => fail(new AgentDocError("UI_DROP_TARGET_FAILED", "Cannot start the native drag-and-drop window.", {
+        cause: error instanceof Error ? error.message : String(error)
+      })));
+      child.on("close", (code) => {
+        if (settled) {
+          return;
+        }
+        if (code !== 0) {
+          fail(new AgentDocError("UI_DROP_TARGET_FAILED", "Native drag-and-drop window did not complete successfully.", {
+            cause: Buffer.concat(stderr).toString("utf8").trim() || `PowerShell exited with code ${code}.`
+          }));
+          return;
+        }
+
+        try {
+          const paths = Buffer.concat(stdout).toString("utf8")
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => Buffer.from(line, "base64").toString("utf8"));
+          succeed(paths);
+        } catch (error) {
+          fail(new AgentDocError("UI_DROP_TARGET_OUTPUT_INVALID", "Native drop target returned invalid path data.", {
+            cause: error instanceof Error ? error.message : String(error)
+          }));
+        }
+      });
+    });
+
+    state.promise = processPromise.finally(() => {
+      if (active === state) {
+        active = null;
       }
     });
-  });
+    active = state;
+    return state.promise;
+  };
+
+  const stop = () => {
+    if (active?.child && !active.child.killed) {
+      active.child.kill();
+    }
+  };
+
+  return { show, stop };
 }
 
 async function serveStatic(response, route) {
@@ -387,6 +445,7 @@ function launchBrowser(url) {
 export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = DEFAULT_PORT } = {}) {
   const resolvedConfigPath = path.resolve(expandPathVariables(configPath));
   const sessionToken = crypto.randomBytes(32).toString("hex");
+  const nativeDropTarget = createNativeDropTargetManager();
 
   const server = http.createServer(async (request, response) => {
     try {
@@ -468,7 +527,7 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
 
       if (route === "/api/native-drop" && request.method === "POST") {
         await readJsonBody(request);
-        const droppedPaths = await showNativeDropTarget();
+        const droppedPaths = await nativeDropTarget.show();
         const classified = await classifyDroppedPaths(droppedPaths);
         sendJson(response, 200, {
           schemaVersion: "1.0",
@@ -498,7 +557,10 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
     port: actualPort,
     token: sessionToken,
     url: `http://${LOOPBACK_HOST}:${actualPort}/`,
-    close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    close: () => {
+      nativeDropTarget.stop();
+      return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
   };
 }
 

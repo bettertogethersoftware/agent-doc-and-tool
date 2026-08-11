@@ -1,10 +1,24 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { startUiServer } from "../src/ui-server.mjs";
+import { createNativeDropTargetManager, startUiServer } from "../src/ui-server.mjs";
+
+function createFakeChild() {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.killed = false;
+  child.kill = () => {
+    child.killed = true;
+    return true;
+  };
+  return child;
+}
 
 async function createUiFixture(t) {
   const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-ui-test-"));
@@ -68,7 +82,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, /Choose what your AI agent can read/);
-  assert.match(pageText, /Drop files or folders here/);
+  assert.match(pageText, /Drag and drop with the Windows drop box/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -98,6 +112,46 @@ test("configuration UI classifies dropped files and folders", async (t) => {
   assert.equal(path.basename(payload.items[1].path), path.basename(fixture.exactFile));
   assert.equal(payload.errors.length, 1);
   assert.equal(payload.errors[0].code, "PATH_NOT_ABSOLUTE");
+});
+
+test("native drop manager shows one console-hidden helper and shares concurrent requests", async () => {
+  const launches = [];
+  const child = createFakeChild();
+  const manager = createNativeDropTargetManager({
+    platform: "win32",
+    powershellPath: "powershell.exe",
+    scriptPath: "drop-target.ps1",
+    timeoutMs: 1000,
+    spawnProcess: (...arguments_) => {
+      launches.push(arguments_);
+      return child;
+    }
+  });
+
+  const first = manager.show();
+  const second = manager.show();
+  assert.equal(first, second);
+  assert.equal(launches.length, 1);
+  assert.deepEqual(launches[0][1].slice(3, 5), ["-WindowStyle", "Hidden"]);
+  assert.equal(launches[0][2].windowsHide, undefined);
+
+  const droppedPath = "C:\\allowed\\folder";
+  child.stdout.write(`${Buffer.from(droppedPath, "utf8").toString("base64")}\n`);
+  child.emit("close", 0);
+  assert.deepEqual(await first, [droppedPath]);
+  assert.deepEqual(await second, [droppedPath]);
+});
+
+test("native drop manager kills and rejects a timed-out helper", async () => {
+  const child = createFakeChild();
+  const manager = createNativeDropTargetManager({
+    platform: "win32",
+    timeoutMs: 10,
+    spawnProcess: () => child
+  });
+
+  await assert.rejects(manager.show(), (error) => error?.code === "UI_DROP_TARGET_TIMEOUT");
+  assert.equal(child.killed, true);
 });
 
 test("configuration UI validates, saves, backs up, and searches", async (t) => {
