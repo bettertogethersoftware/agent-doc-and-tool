@@ -91,13 +91,31 @@ export async function listToolCatalog(options = {}) {
   const config = await loadConfig(options.configPath);
   const directories = config.tools.directories
     .filter((directory) => directory.enabled)
-    .map((directory) => ({
-      name: directory.name,
-      path: directory.path,
-      priority: directory.priority,
-      recursive: directory.recursive,
-      includeDocs: directory.includeDocs
-    }));
+    .map((directory) => {
+      const scannedToolFiles = directory.scannedToolFiles
+        .filter((file) => file.enabled)
+        .map((file) => ({
+          name: file.name,
+          path: file.path,
+          priority: file.priority
+        }));
+      const scannedDocumentFiles = directory.scannedDocumentFiles
+        .filter((file) => file.enabled)
+        .map((file) => ({
+          name: file.name,
+          path: file.path
+        }));
+      return {
+        name: directory.name,
+        path: directory.path,
+        priority: directory.priority,
+        recursive: directory.recursive,
+        includeDocs: directory.includeDocs,
+        ...(directory.humanNote ? { humanNote: directory.humanNote } : {}),
+        ...(scannedToolFiles.length > 0 ? { scannedToolFiles } : {}),
+        ...(scannedDocumentFiles.length > 0 ? { scannedDocumentFiles } : {})
+      };
+    });
   const files = config.tools.files
     .filter((file) => file.enabled)
     .map((file) => ({
@@ -105,6 +123,8 @@ export async function listToolCatalog(options = {}) {
       path: file.path,
       priority: file.priority
     }));
+  const scannedToolFilesReturned = directories.reduce((total, directory) => total + (directory.scannedToolFiles?.length ?? 0), 0);
+  const scannedDocumentFilesReturned = directories.reduce((total, directory) => total + (directory.scannedDocumentFiles?.length ?? 0), 0);
 
   return {
     schemaVersion: "1.0",
@@ -119,6 +139,9 @@ export async function listToolCatalog(options = {}) {
       executed: false,
       directoriesReturned: directories.length,
       filesReturned: files.length,
+      scannedToolFilesReturned,
+      scannedDocumentFilesReturned,
+      toolFilesReturned: files.length + scannedToolFilesReturned,
       configPath: config.configPath
     }
   };

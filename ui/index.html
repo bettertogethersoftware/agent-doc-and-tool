@@ -215,7 +215,7 @@
           <div>
             <p class="step">02</p>
             <h2>Tool folders</h2>
-            <p>Matching executables and scripts are discovered throughout each enabled folder tree by default. Global ignore rules still skip caches such as <code>__pycache__</code>.</p>
+            <p>Matching executables and scripts are discovered throughout each enabled folder tree by default. Each folder keeps its own Tool and Document scan results. The scans always recurse and apply only their matching rules, regardless of the catalog options or general ignore patterns.</p>
           </div>
           <div class="button-row">
             <button id="pick-tool-folder" class="button secondary" type="button">Browse folder</button>
@@ -226,7 +226,7 @@
           <span>Name</span>
           <span>Folder path</span>
           <span>Priority</span>
-          <span>Options</span>
+          <span>Options &amp; scans</span>
           <span>Status</span>
           <span></span>
         </div>
@@ -268,7 +268,7 @@
         <label class="field">
           <span>Tool suffix patterns</span>
           <input id="tool-extensions" type="text" spellcheck="false" placeholder=".exe;.cmd;.bat;.ps1;.py;.js;.mjs">
-          <small>Use semicolons between values. Global ignore rules and non-link path checks apply to folder scans.</small>
+          <small>Use semicolons between values. Scan Tool applies only these suffix rules and always recurses; link and secret safety checks still apply.</small>
         </label>
       </section>
 
@@ -473,10 +473,23 @@
       <div class="entry-options">
         <label class="mini-check"><input data-field="recursive" type="checkbox" checked><span>Include subfolders</span></label>
         <label class="mini-check"><input data-field="includeDocs" type="checkbox" checked><span>Include documentation</span></label>
+        <div class="folder-scan-actions" role="group" aria-label="Scan this attached folder">
+          <button class="button secondary folder-scan-button" data-action="scan-tool" type="button">Scan Tool</button>
+          <button class="button secondary folder-scan-button" data-action="scan-document" type="button">Scan Document</button>
+        </div>
       </div>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool folder">×</button>
       <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
+      <label class="folder-human-note">
+        <span>Human note for agent</span>
+        <textarea data-role="folder-human-note" rows="3" maxlength="5000" spellcheck="true" placeholder="Describe what this folder does or anything else the agent should know."></textarea>
+        <small>Saved with this folder and returned to the agent by <code>list_tool</code> when the folder is enabled.</small>
+      </label>
+      <div class="folder-scan-results" data-role="scan-results" aria-live="polite" hidden>
+        <div class="folder-scan-result-content" data-role="tool-scan-result-content" role="group" aria-label="Scanned tool files"></div>
+        <div class="folder-scan-result-content" data-role="document-scan-result-content" role="group" aria-label="Scanned document files"></div>
+      </div>
     </div>
   </template>
 

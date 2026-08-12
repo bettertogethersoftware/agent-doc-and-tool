@@ -261,6 +261,164 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
   assert.doesNotMatch(JSON.stringify(listed), /disabled-tools|disabled-exact-tool|does-not-exist/);
 });
 
+test("saved scan selections are listed as direct tools and searchable exact documents", async (t) => {
+  const fixture = await createFixture(t);
+  const scanToolPath = path.join(fixture.enabledTools, "generate_video.py");
+  const scanDocsDirectory = path.join(fixture.enabledTools, "docs");
+  const scanDocumentPath = path.join(scanDocsDirectory, "README.md");
+  const disabledScanDocumentPath = path.join(scanDocsDirectory, "disabled.md");
+  const disabledScanToolPath = path.join(fixture.enabledTools, "disabled_generate.py");
+  await fs.mkdir(scanDocsDirectory, { recursive: true });
+  await Promise.all([
+    fs.writeFile(scanToolPath, "print('generate video')\n", "utf8"),
+    fs.writeFile(disabledScanToolPath, "print('disabled')\n", "utf8"),
+    fs.writeFile(scanDocumentPath, "Custom video workflow documentation marker.\n", "utf8"),
+    fs.writeFile(disabledScanDocumentPath, "Disabled scanned document marker.\n", "utf8")
+  ]);
+
+  const rawConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  const directory = rawConfig.tools.directories.find((entry) => entry.name === "enabled-tools");
+  directory.humanNote = "Custom video utilities. Read the selected README before using the generator.";
+  directory.scannedToolFiles = [
+    { name: "enabled-tools-generate-video", path: scanToolPath, priority: 275, enabled: true },
+    { name: "enabled-tools-disabled-generate", path: disabledScanToolPath, priority: 275, enabled: false }
+  ];
+  directory.scannedDocumentFiles = [
+    { name: "enabled-tools-readme", path: scanDocumentPath, enabled: true },
+    { name: "enabled-tools-disabled-document", path: disabledScanDocumentPath, enabled: false }
+  ];
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(rawConfig, null, 2)}\n`, "utf8");
+
+  const listedTools = await listToolCatalog({ configPath: fixture.configPath });
+  const listedDirectory = listedTools.directories.find((entry) => entry.name === "enabled-tools");
+  assert.equal(listedDirectory.humanNote, directory.humanNote);
+  assert.deepEqual(listedDirectory.scannedToolFiles, [{
+    name: "enabled-tools-generate-video",
+    path: scanToolPath,
+    priority: 275
+  }]);
+  assert.deepEqual(listedDirectory.scannedDocumentFiles, [{
+    name: "enabled-tools-readme",
+    path: scanDocumentPath
+  }]);
+  assert.equal(Object.hasOwn(listedDirectory.scannedToolFiles[0], "origin"), false);
+  assert.equal(Object.hasOwn(listedDirectory.scannedDocumentFiles[0], "origin"), false);
+  assert.equal(listedTools.meta.scannedToolFilesReturned, 1);
+  assert.equal(listedTools.meta.scannedDocumentFilesReturned, 1);
+  assert.equal(listedTools.meta.toolFilesReturned, 2);
+  assert.doesNotMatch(JSON.stringify(listedTools), /disabled-generate|disabled-document/);
+
+  const listedDocuments = await listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath });
+  assert.ok(listedDocuments.files.some((file) => file.name === "enabled-tools-readme" && file.path === scanDocumentPath));
+  assert.ok(listedDocuments.files.every((file) => file.name !== "enabled-tools-disabled-document"));
+
+  const searched = await searchDocuments({
+    query: "custom video workflow",
+    source: "local",
+    directories: [],
+    files: ["ENABLED-TOOLS-README"]
+  }, { configPath: fixture.configPath });
+  assert.deepEqual(searched.scope.files, [{ name: "enabled-tools-readme", path: scanDocumentPath }]);
+  assert.deepEqual(searched.results.map((entry) => entry.path), [scanDocumentPath]);
+  const fetched = await fetchDocument({ path: scanDocumentPath, source: "local" }, { configPath: fixture.configPath });
+  assert.match(fetched.content, /Custom video workflow documentation marker/);
+
+  const foundTool = await findTools({ query: "generate video" }, { configPath: fixture.configPath });
+  const selectedTool = foundTool.results.find((entry) => entry.name === "enabled-tools-generate-video");
+  assert.equal(selectedTool.path, scanToolPath);
+  assert.equal(selectedTool.priority, 275);
+  assert.equal(selectedTool.documentationSearchEnabled, true);
+  assert.ok(foundTool.results.every((entry) => entry.name !== "enabled-tools-disabled-generate"));
+
+  const disabledUnscoped = await searchDocuments({ query: "disabled scanned document", source: "local" }, { configPath: fixture.configPath });
+  assert.equal(disabledUnscoped.results.length, 0);
+  await assert.rejects(
+    searchDocuments({
+      query: "disabled scanned document",
+      source: "local",
+      directories: [],
+      files: ["enabled-tools-disabled-document"]
+    }, { configPath: fixture.configPath }),
+    (error) => error?.code === "SEARCH_SCOPE_DISABLED"
+  );
+});
+
+test("scan aliases cannot collide with exact tool or document aliases", async (t) => {
+  const fixture = await createFixture(t);
+  const rawConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  rawConfig.tools.directories[0].scannedToolFiles = [{
+    name: "enabled-exact-tool",
+    path: fixture.enabledExactTool,
+    priority: 100,
+    enabled: true
+  }];
+  await assert.rejects(
+    parseConfig(rawConfig, fixture.configPath),
+    (error) => error?.code === "CONFIG_TOOL_FILE_NAME_DUPLICATE"
+  );
+
+  const duplicateDocumentConfig = structuredClone(rawConfig);
+  duplicateDocumentConfig.tools.directories[0].scannedToolFiles = [];
+  duplicateDocumentConfig.tools.directories[0].scannedDocumentFiles = [{
+    name: "enabled-exact-document",
+    path: fixture.enabledExactDocument,
+    enabled: true
+  }];
+  await assert.rejects(
+    parseConfig(duplicateDocumentConfig, fixture.configPath),
+    (error) => error?.code === "CONFIG_DOCUMENT_FILE_NAME_DUPLICATE"
+  );
+});
+
+test("a disabled folder disables all of its saved scan selections", async (t) => {
+  const fixture = await createFixture(t);
+  const scanToolPath = path.join(fixture.enabledTools, "folder_disabled_tool.py");
+  const scanDocumentPath = path.join(fixture.enabledTools, "folder-disabled.md");
+  await Promise.all([
+    fs.writeFile(scanToolPath, "print('folder disabled')\n", "utf8"),
+    fs.writeFile(scanDocumentPath, "Folder disabled selected document marker.\n", "utf8")
+  ]);
+
+  const rawConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  const directory = rawConfig.tools.directories.find((entry) => entry.name === "enabled-tools");
+  directory.enabled = false;
+  directory.scannedToolFiles = [{
+    name: "enabled-tools-folder-disabled-tool",
+    path: scanToolPath,
+    priority: 100,
+    enabled: true
+  }];
+  directory.scannedDocumentFiles = [{
+    name: "enabled-tools-folder-disabled-document",
+    path: scanDocumentPath,
+    enabled: true
+  }];
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(rawConfig, null, 2)}\n`, "utf8");
+
+  const listedTools = await listToolCatalog({ configPath: fixture.configPath });
+  assert.ok(listedTools.directories.every((entry) => entry.name !== "enabled-tools"));
+  const listedDocuments = await listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath });
+  assert.ok(listedDocuments.files.every((entry) => entry.name !== "enabled-tools-folder-disabled-document"));
+
+  const foundTools = await findTools({ query: "folder disabled tool" }, { configPath: fixture.configPath });
+  assert.ok(foundTools.results.every((entry) => entry.name !== "enabled-tools-folder-disabled-tool"));
+  const searched = await searchDocuments({ query: "folder disabled selected document", source: "local" }, { configPath: fixture.configPath });
+  assert.equal(searched.results.length, 0);
+  await assert.rejects(
+    searchDocuments({
+      query: "folder disabled selected document",
+      source: "local",
+      directories: [],
+      files: ["enabled-tools-folder-disabled-document"]
+    }, { configPath: fixture.configPath }),
+    (error) => error?.code === "SEARCH_SCOPE_DISABLED"
+  );
+  await assert.rejects(
+    fetchDocument({ path: scanDocumentPath, source: "local" }, { configPath: fixture.configPath }),
+    (error) => error?.code === "FETCH_PATH_NOT_ALLOWED"
+  );
+});
+
 test("prompt catalog lists enabled names and keywords without content", async (t) => {
   const fixture = await createFixture(t);
   const listed = await listPromptCatalog({ configPath: fixture.configPath });

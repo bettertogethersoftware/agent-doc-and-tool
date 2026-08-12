@@ -100,7 +100,8 @@ const state = {
   activeTab: "prompts",
   dirty: false,
   toastTimer: null,
-  pathValidationCounter: 0
+  pathValidationCounter: 0,
+  folderScanResults: new Map()
 };
 
 function deepClone(value) {
@@ -212,6 +213,27 @@ function friendlyPathName(filePath, fallback) {
 function comparableLocalPath(value) {
   const normalized = value.trim().replaceAll("/", "\\").replace(/[\\]+$/, "");
   return runtime.nativePickers ? normalized.toLowerCase() : normalized;
+}
+
+function folderScanKey(directoryPath) {
+  return comparableLocalPath(directoryPath);
+}
+
+function scanFileKey(filePath) {
+  return comparableLocalPath(filePath);
+}
+
+function uniqueNameFromSet(baseName, names) {
+  if (!names.has(baseName.toLowerCase())) {
+    return baseName;
+  }
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${baseName}-${suffix}`;
+    if (!names.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+  return `${baseName}-${Date.now()}`;
 }
 
 function uniqueNameInList(list, baseName) {
@@ -427,6 +449,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   const recursiveInput = row.querySelector('[data-field="recursive"]');
   const includeDocsInput = row.querySelector('[data-field="includeDocs"]');
   const pathState = row.querySelector('[data-role="state"]');
+  const noteInput = row.querySelector('[data-role="folder-human-note"]');
 
   const normalized = typeof directory === "string"
     ? { path: directory, priority: 0, recursive: true, includeDocs: true }
@@ -436,22 +459,306 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   priorityInput.value = normalized.priority ?? 0;
   recursiveInput.checked = normalized.recursive !== false;
   includeDocsInput.checked = normalized.includeDocs !== false;
+  noteInput.value = normalized.humanNote ?? "";
   applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "directory");
-
+  row.dataset.folderScanKey = folderScanKey(pathInput.value);
+  pathInput.addEventListener("input", () => {
+    const nextKey = folderScanKey(pathInput.value);
+    if (row.dataset.folderScanKey !== nextKey) {
+      state.folderScanResults.delete(row.dataset.folderScanKey);
+      row.dataset.folderScanKey = nextKey;
+    }
+    renderFolderScanResults(row);
+  });
+  priorityInput.addEventListener("input", () => renderFolderScanResults(row));
+  noteInput.addEventListener("input", markDirty);
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
   }
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    state.folderScanResults.delete(row.dataset.folderScanKey);
     row.remove();
     updateEmptyStates();
     markDirty();
   });
+  row.querySelector('[data-action="scan-tool"]').addEventListener("click", () => runFolderScan(row, "tool"));
+  row.querySelector('[data-action="scan-document"]').addEventListener("click", () => runFolderScan(row, "document"));
+  seedFolderScanResults(row, normalized);
+  renderFolderScanResults(row);
 
   elements.toolDirectoriesList.append(row);
   updateEmptyStates();
   return row;
+}
+
+function setFolderScanBusy(row, activeButton, busy) {
+  const buttons = [...row.querySelectorAll('[data-action="scan-tool"], [data-action="scan-document"]')];
+  for (const button of buttons) {
+    if (busy) {
+      button.dataset.previousLabel = button.textContent;
+      if (button === activeButton) {
+        button.textContent = "Scanning...";
+      }
+      button.disabled = true;
+      continue;
+    }
+    if (button.dataset.previousLabel) {
+      button.textContent = button.dataset.previousLabel;
+      delete button.dataset.previousLabel;
+    }
+    button.disabled = false;
+  }
+}
+
+function persistedFolderScan(kind, entries) {
+  if (entries.length === 0) {
+    return undefined;
+  }
+  return {
+    payload: {
+      kind,
+      results: entries.map((entry) => ({ path: entry.path })),
+      meta: { hasMore: false, truncated: false },
+      warnings: []
+    },
+    entries
+  };
+}
+
+function seedFolderScanResults(row, directory) {
+  const key = row.dataset.folderScanKey;
+  if (!key) {
+    return;
+  }
+  const tool = persistedFolderScan("tool", (directory.scannedToolFiles ?? []).map((file) => ({
+    name: file.name,
+    path: file.path,
+    priority: file.priority,
+    enabled: file.enabled !== false
+  })));
+  const document = persistedFolderScan("document", (directory.scannedDocumentFiles ?? []).map((file) => ({
+    name: file.name,
+    path: file.path,
+    enabled: file.enabled !== false
+  })));
+  if (tool || document) {
+    state.folderScanResults.set(key, { ...(tool ? { tool } : {}), ...(document ? { document } : {}) });
+  }
+}
+
+function scanEntryNameBase(folderName, filePath, kind) {
+  const folderPart = friendlyPathName(folderName, "tool-folder");
+  const filePart = friendlyPathName(filePath, kind === "tool" ? "tool-file" : "document-file");
+  return `${folderPart}-${filePart}`;
+}
+
+function usedScannedEntryNames(kind, excludedFolderKey) {
+  const inputs = kind === "tool"
+    ? elements.toolFilesList.querySelectorAll('[data-field="name"]')
+    : elements.filesList.querySelectorAll('[data-field="name"]');
+  const names = new Set([...inputs]
+    .map((input) => input.value.trim().toLowerCase())
+    .filter(Boolean));
+  for (const [folderKey, results] of state.folderScanResults) {
+    if (folderKey === excludedFolderKey) {
+      continue;
+    }
+    for (const entry of results[kind]?.entries ?? []) {
+      if (entry.name?.trim()) {
+        names.add(entry.name.trim().toLowerCase());
+      }
+    }
+  }
+  return names;
+}
+
+function storeFolderScanResult(folderRow, payload) {
+  const directoryPath = folderRow.querySelector('[data-field="path"]').value.trim();
+  const key = folderScanKey(directoryPath);
+  if (!key) {
+    return;
+  }
+  const folderResults = state.folderScanResults.get(key) ?? {};
+  const previousEntries = new Map((folderResults[payload.kind]?.entries ?? [])
+    .map((entry) => [scanFileKey(entry.path), entry]));
+  const folderName = folderRow.querySelector('[data-field="name"]').value.trim();
+  const folderPriority = Number(folderRow.querySelector('[data-field="priority"]').value);
+  const namesInUse = usedScannedEntryNames(payload.kind, key);
+  const returnedPaths = new Set(payload.results.map((result) => scanFileKey(result.path)));
+  for (const entry of previousEntries.values()) {
+    if (returnedPaths.has(scanFileKey(entry.path)) && entry.name?.trim()) {
+      namesInUse.add(entry.name.trim().toLowerCase());
+    }
+  }
+  folderResults[payload.kind] = {
+    payload,
+    entries: payload.results.map((result) => {
+      const previous = previousEntries.get(scanFileKey(result.path));
+      const name = previous?.name?.trim()
+        || uniqueNameFromSet(scanEntryNameBase(folderName, result.path, payload.kind), namesInUse);
+      namesInUse.add(name.toLowerCase());
+      return payload.kind === "tool"
+        ? {
+            name,
+            path: result.path,
+            priority: Number.isInteger(previous?.priority) ? previous.priority : folderPriority,
+            enabled: previous?.enabled !== false
+          }
+        : {
+            name,
+            path: result.path,
+            enabled: previous?.enabled !== false
+          };
+    })
+  };
+  state.folderScanResults.set(key, folderResults);
+  folderRow.dataset.folderScanKey = key;
+}
+
+function scanContentIsVisible(scan) {
+  return Boolean(scan && (scan.payload.results.length === 0 || scan.entries.length > 0));
+}
+
+function removeScannedFilePreview(folderRow, kind, filePath) {
+  const folderKey = folderRow.dataset.folderScanKey || folderScanKey(folderRow.querySelector('[data-field="path"]').value);
+  const scan = state.folderScanResults.get(folderKey)?.[kind];
+  if (!scan) {
+    return;
+  }
+  scan.entries = scan.entries.filter((entry) => scanFileKey(entry.path) !== scanFileKey(filePath));
+  renderFolderScanResults(folderRow);
+  markDirty();
+}
+
+function createScannedFileRow(folderRow, entry, kind, toolPriority) {
+  const row = document.createElement("article");
+  row.className = kind === "tool" ? "scan-exact-row scan-tool-file-grid" : "scan-exact-row scan-document-file-grid";
+  row.setAttribute("role", "listitem");
+  row.setAttribute(
+    "aria-label",
+    kind === "tool"
+      ? "Saved scanned tool selection. This file is registered as an exact tool file when the configuration is saved."
+      : "Saved scanned document selection. This file is registered as an exact document file when the configuration is saved."
+  );
+
+  const name = document.createElement("input");
+  name.className = "scan-exact-field scan-exact-name";
+  name.type = "text";
+  name.maxLength = 200;
+  name.value = entry.name ?? friendlyPathName(entry.path, kind === "tool" ? "tool-file" : "document-file");
+  name.setAttribute("aria-label", kind === "tool" ? "Scanned tool name or alias" : "Scanned document name or alias");
+  name.title = "Unique name or alias";
+  name.addEventListener("input", () => {
+    entry.name = name.value;
+    markDirty();
+  });
+
+  const filePath = document.createElement("div");
+  filePath.className = "scan-exact-field scan-exact-path";
+  filePath.textContent = entry.path;
+  filePath.title = entry.path;
+
+  row.append(name, filePath);
+
+  if (kind === "tool") {
+    const priority = document.createElement("input");
+    priority.className = "scan-exact-field scan-exact-priority";
+    priority.type = "number";
+    priority.min = "-10000";
+    priority.max = "10000";
+    priority.value = String(Number.isInteger(entry.priority) ? entry.priority : Number(toolPriority));
+    priority.setAttribute("aria-label", "Scanned tool priority");
+    priority.title = "Individual tool priority";
+    priority.addEventListener("input", () => {
+      entry.priority = Number(priority.value);
+      markDirty();
+    });
+    row.append(priority);
+  }
+
+  const enabled = document.createElement("label");
+  enabled.className = "entry-enabled scan-entry-enabled";
+  const enabledInput = document.createElement("input");
+  enabledInput.type = "checkbox";
+  enabledInput.dataset.field = "enabled";
+  enabledInput.setAttribute("aria-label", `Enable scanned ${kind} file ${entry.path}`);
+  const enabledSwitch = document.createElement("span");
+  enabledSwitch.className = "entry-switch";
+  enabledSwitch.setAttribute("aria-hidden", "true");
+  const enabledLabel = document.createElement("span");
+  enabledLabel.dataset.role = "enabled-label";
+  enabled.append(enabledInput, enabledSwitch, enabledLabel);
+
+  const remove = document.createElement("button");
+  remove.className = "icon-button scan-remove-button";
+  remove.type = "button";
+  remove.setAttribute("aria-label", `Remove scanned ${kind} file ${entry.path}`);
+  remove.textContent = "×";
+  remove.addEventListener("click", () => removeScannedFilePreview(folderRow, kind, entry.path));
+  row.append(enabled, remove);
+  initializeEntryToggle(row, null, entry.enabled);
+  enabledInput.addEventListener("change", () => {
+    entry.enabled = enabledInput.checked;
+    markDirty();
+  });
+  return row;
+}
+
+function renderFolderScanResultContent(folderRow, content, scan, kind, toolPriority) {
+  content.replaceChildren();
+  if (!scanContentIsVisible(scan)) {
+    content.hidden = true;
+    return;
+  }
+  content.hidden = false;
+  const { payload, entries } = scan;
+
+  if (payload.meta.hasMore) {
+    const warning = document.createElement("p");
+    warning.className = "folder-scan-warning";
+    warning.textContent = "Showing the first 100 matching results. Additional matches were found; refine the matching rules or scan a more specific folder.";
+    content.append(warning);
+  } else if (payload.meta.truncated) {
+    const warning = document.createElement("p");
+    warning.className = "folder-scan-warning";
+    warning.textContent = payload.warnings[0]?.message ?? "The scan stopped before it could finish.";
+    content.append(warning);
+  }
+
+  if (payload.results.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = `No matching ${payload.kind === "tool" ? "tools" : "documents"} were found in this folder.`;
+    content.append(empty);
+    return;
+  }
+
+  const files = document.createElement("div");
+  files.className = "scan-exact-list";
+  files.setAttribute("role", "list");
+  for (const entry of entries) {
+    files.append(createScannedFileRow(folderRow, entry, kind, toolPriority));
+  }
+  content.append(files);
+}
+
+function renderFolderScanResults(row) {
+  const results = row.querySelector('[data-role="scan-results"]');
+  if (!results) {
+    return;
+  }
+
+  const stored = state.folderScanResults.get(row.dataset.folderScanKey);
+  results.hidden = !scanContentIsVisible(stored?.tool) && !scanContentIsVisible(stored?.document);
+  if (results.hidden) {
+    return;
+  }
+
+  const toolPriority = row.querySelector('[data-field="priority"]').value;
+  renderFolderScanResultContent(row, results.querySelector('[data-role="tool-scan-result-content"]'), stored.tool, "tool", toolPriority);
+  renderFolderScanResultContent(row, results.querySelector('[data-role="document-scan-result-content"]'), stored.document, "document");
 }
 
 function appendToolFile(toolFile = {}, availability = undefined) {
@@ -766,6 +1073,8 @@ function renderConfig(config, check) {
   const secrets = config.secrets ?? { files: [], maxFileBytes: 256_000 };
   const checkedSecrets = check?.secrets;
 
+  state.folderScanResults.clear();
+
   elements.rootsList.replaceChildren();
   elements.filesList.replaceChildren();
   elements.toolDirectoriesList.replaceChildren();
@@ -836,6 +1145,8 @@ function renderConfig(config, check) {
     ...(source.roots ?? []),
     ...(source.files ?? []),
     ...(tools.directories ?? []),
+    ...(tools.directories ?? []).flatMap((directory) => directory.scannedToolFiles ?? []),
+    ...(tools.directories ?? []).flatMap((directory) => directory.scannedDocumentFiles ?? []),
     ...(tools.files ?? []),
     ...prompts,
     ...(secrets.files ?? [])
@@ -872,6 +1183,33 @@ function requireUniqueNames(entries, label) {
     }
     names.add(comparableName);
   }
+}
+
+function folderScanEntries(row, kind) {
+  return state.folderScanResults.get(row.dataset.folderScanKey)?.[kind]?.entries ?? [];
+}
+
+function collectScannedToolFiles(row, folderIndex) {
+  return folderScanEntries(row, "tool").map((entry, index) => {
+    const name = entry.name?.trim() ?? "";
+    const filePath = entry.path?.trim() ?? "";
+    const priority = Number(entry.priority);
+    if (!name || !filePath || !Number.isInteger(priority)) {
+      throw new Error(`Scanned tool ${index + 1} in tool folder ${folderIndex + 1} needs a name, path, and integer priority.`);
+    }
+    return { name, path: filePath, priority, enabled: entry.enabled !== false };
+  });
+}
+
+function collectScannedDocumentFiles(row, folderIndex) {
+  return folderScanEntries(row, "document").map((entry, index) => {
+    const name = entry.name?.trim() ?? "";
+    const filePath = entry.path?.trim() ?? "";
+    if (!name || !filePath) {
+      throw new Error(`Scanned document ${index + 1} in tool folder ${folderIndex + 1} needs a name and path.`);
+    }
+    return { name, path: filePath, enabled: entry.enabled !== false };
+  });
 }
 
 function collectConfig() {
@@ -916,7 +1254,7 @@ function collectConfig() {
       if (!name || !folderPath || !Number.isInteger(priority)) {
         throw new Error(`Tool folder ${index + 1} needs a name, path, and integer priority.`);
       }
-      return {
+      const directory = {
         name,
         path: folderPath,
         priority,
@@ -924,6 +1262,19 @@ function collectConfig() {
         includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
         enabled: row.querySelector('[data-field="enabled"]').checked
       };
+      const humanNote = row.querySelector('[data-role="folder-human-note"]').value.trim();
+      const scannedToolFiles = collectScannedToolFiles(row, index);
+      const scannedDocumentFiles = collectScannedDocumentFiles(row, index);
+      if (humanNote) {
+        directory.humanNote = humanNote;
+      }
+      if (scannedToolFiles.length > 0) {
+        directory.scannedToolFiles = scannedToolFiles;
+      }
+      if (scannedDocumentFiles.length > 0) {
+        directory.scannedDocumentFiles = scannedDocumentFiles;
+      }
+      return directory;
     }),
     files: [...elements.toolFilesList.querySelectorAll(".entry-row")].map((row, index) => {
       const name = row.querySelector('[data-field="name"]').value.trim();
@@ -941,6 +1292,15 @@ function collectConfig() {
     }),
     extensions: elements.toolExtensions.value.trim() || []
   };
+  requireUniqueNames(next.tools.directories, "Tool folder");
+  requireUniqueNames([
+    ...next.tools.files,
+    ...next.tools.directories.flatMap((directory) => directory.scannedToolFiles ?? [])
+  ], "Tool file");
+  requireUniqueNames([
+    ...source.files,
+    ...next.tools.directories.flatMap((directory) => directory.scannedDocumentFiles ?? [])
+  ], "Exact document file");
 
   next.secrets = {
     files: [...elements.secretFilesList.querySelectorAll(".entry-row")].map((row, index) => {
@@ -1457,6 +1817,46 @@ async function runToolSearch(event) {
     showToast(error.message, "error");
   } finally {
     setBusy(elements.runToolSearch, false);
+  }
+}
+
+async function runFolderScan(row, kind) {
+  const action = kind === "tool" ? "scan-tool" : "scan-document";
+  const button = row.querySelector(`[data-action="${action}"]`);
+  if (!button) {
+    return;
+  }
+
+  let config;
+  try {
+    config = collectConfig();
+  } catch (error) {
+    showToast(error.message, "error");
+    return;
+  }
+
+  setFolderScanBusy(row, button, true);
+  const directoryPath = row.querySelector('[data-field="path"]').value.trim();
+  try {
+    const payload = await api("/api/scan-attached-folder", {
+      method: "POST",
+      body: {
+        kind,
+        directoryPath,
+        config
+      }
+    });
+    storeFolderScanResult(row, payload);
+    renderFolderScanResults(row);
+    markDirty();
+  } catch (error) {
+    if (error.code === "UI_NOT_FOUND") {
+      showToast("The running Configuration UI needs a restart before folder scans are available. Restart it, then try again.", "error");
+    } else {
+      showToast(error.message, "error");
+    }
+  } finally {
+    setFolderScanBusy(row, button, false);
   }
 }
 

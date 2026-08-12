@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 
 import createIgnore from "ignore";
 
-import { isConfiguredSecretPath, loadConfig } from "./config.mjs";
+import { getExactToolFiles, isConfiguredSecretPath, loadConfig } from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
 import { canonicalize } from "./text.mjs";
 
@@ -58,9 +58,11 @@ function ignored(ignoreSpec, relativePath, directory = false) {
 
 function createState(config) {
   const enabledDirectories = config.tools.directories.filter((directory) => directory.enabled).length;
-  const enabledFiles = config.tools.files.filter((file) => file.enabled).length;
+  const exactToolFiles = getExactToolFiles(config);
+  const enabledFiles = exactToolFiles.filter((file) => file.enabled).length;
   return {
     config,
+    exactToolFiles,
     deadline: Date.now() + config.limits.timeoutMs,
     stopped: false,
     truncated: false,
@@ -70,9 +72,9 @@ function createState(config) {
       directoriesConfigured: config.tools.directories.length,
       directoriesEnabled: enabledDirectories,
       directoriesDisabled: config.tools.directories.length - enabledDirectories,
-      exactFilesConfigured: config.tools.files.length,
+      exactFilesConfigured: exactToolFiles.length,
       exactFilesEnabled: enabledFiles,
-      exactFilesDisabled: config.tools.files.length - enabledFiles,
+      exactFilesDisabled: exactToolFiles.length - enabledFiles,
       directoriesScanned: 0,
       filesConsidered: 0,
       eligibleFiles: 0,
@@ -250,7 +252,7 @@ async function *enumerateToolDirectory(directory, state, seenPaths) {
 }
 
 async function *enumerateExactToolFiles(state, seenPaths) {
-  for (const configuredFile of state.config.tools.files) {
+  for (const configuredFile of state.exactToolFiles) {
     if (!configuredFile.enabled) {
       continue;
     }
@@ -273,9 +275,9 @@ async function *enumerateExactToolFiles(state, seenPaths) {
       path: realPath,
       relativePath: path.basename(realPath),
       source: "exact-file",
-      sourceName: configuredFile.name,
+      sourceName: configuredFile.sourceDirectoryName ?? configuredFile.name,
       priority: configuredFile.priority,
-      documentationSearchEnabled: false
+      documentationSearchEnabled: configuredFile.documentationSearchEnabled === true
     };
   }
 }

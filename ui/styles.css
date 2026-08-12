@@ -502,6 +502,21 @@ code {
   accent-color: var(--accent);
 }
 
+.folder-scan-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.folder-scan-button {
+  min-width: 0;
+  padding: 7px 8px;
+  font-size: 0.61rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .entry-enabled {
   display: grid;
   justify-items: center;
@@ -513,7 +528,8 @@ code {
   line-height: 1;
 }
 
-.entry-row .entry-enabled input {
+.entry-row .entry-enabled input,
+.scan-exact-row .entry-enabled input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -562,6 +578,45 @@ code {
 .entry-row.is-disabled > label:not(.entry-enabled),
 .entry-row.is-disabled > .entry-options {
   opacity: 0.62;
+}
+
+.folder-human-note {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 5px;
+  padding: 2px 2px 0;
+}
+
+.folder-human-note > span {
+  color: #d9dde3;
+  font-size: 0.68rem;
+  font-weight: 680;
+}
+
+.folder-human-note textarea {
+  width: 100%;
+  min-height: 68px;
+  padding: 9px 10px;
+  border: 1px solid #303640;
+  border-radius: 7px;
+  outline: none;
+  resize: vertical;
+  background: #0b0e12;
+  color: var(--text);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.folder-human-note textarea:focus {
+  border-color: #5f9f6c;
+  box-shadow: 0 0 0 3px rgb(104 184 120 / 12%);
+}
+
+.folder-human-note small {
+  color: #818996;
+  font-size: 0.62rem;
+  line-height: 1.4;
 }
 
 .field textarea {
@@ -630,6 +685,116 @@ code {
   left: 14px;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+.folder-scan-results {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 7px;
+  margin-top: 5px;
+  padding: 8px;
+  border: 1px solid rgb(97 166 113 / 30%);
+  border-radius: 9px;
+  background: rgb(97 166 113 / 5%);
+}
+
+.folder-scan-results[hidden] {
+  display: none;
+}
+
+.folder-scan-result-content {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.folder-scan-result-content[hidden] {
+  display: none;
+}
+
+.scan-exact-list {
+  display: grid;
+  gap: 7px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.folder-scan-warning {
+  margin: 0;
+  color: var(--warning);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.scan-exact-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #303640;
+  border-radius: 7px;
+  background: #0b0e12;
+}
+
+.scan-tool-file-grid {
+  grid-template-columns: minmax(130px, 0.65fr) minmax(260px, 2fr) 78px 76px 32px;
+}
+
+.scan-document-file-grid {
+  grid-template-columns: minmax(130px, 0.65fr) minmax(260px, 2fr) 76px 32px;
+}
+
+.scan-exact-field {
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid #303640;
+  border-radius: 7px;
+  background: #0e1115;
+  color: var(--text);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.73rem;
+  line-height: 34px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+input.scan-exact-field {
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+}
+
+input.scan-exact-field:focus {
+  border-color: #5f9f6c;
+  box-shadow: 0 0 0 3px rgb(104 184 120 / 12%);
+}
+
+.scan-exact-path {
+  color: #cbd1d9;
+}
+
+.scan-exact-priority {
+  text-align: left;
+}
+
+.scan-exact-row.is-disabled {
+  border-color: #30353d;
+  border-style: dashed;
+  background: #0b0d10;
+}
+
+.scan-exact-row.is-disabled > .scan-exact-field {
+  opacity: 0.62;
+}
+
+.folder-scan-warning + .scan-exact-list {
+  margin-top: 1px;
+}
+
+.scan-exact-row:hover {
+  border-color: rgb(97 166 113 / 58%);
 }
 
 .empty-state {
@@ -1161,6 +1326,42 @@ code {
   .tool-file-grid,
   .secret-file-grid {
     grid-template-columns: minmax(0, 1fr) 76px 32px;
+  }
+
+  .scan-tool-file-grid,
+  .scan-document-file-grid {
+    grid-template-columns: minmax(0, 1fr) 76px 32px;
+  }
+
+  .scan-exact-path {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .scan-document-file-grid .scan-exact-field:not(.scan-exact-path),
+  .scan-tool-file-grid .scan-exact-field:not(.scan-exact-path):not(.scan-exact-priority) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .scan-tool-file-grid .scan-exact-priority {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .scan-exact-row .entry-enabled {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .scan-tool-file-grid .entry-enabled {
+    align-self: center;
+    grid-row: 2 / span 2;
+  }
+
+  .scan-remove-button {
+    grid-column: 3;
+    grid-row: 2;
   }
 
   .entry-row.tool-directory-grid > label:not(.entry-enabled),

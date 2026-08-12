@@ -113,6 +113,19 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="validate-paths"/);
   assert.match(pageText, /Validate all paths/);
   assert.match(pageText, /id="ignore-file-state"/);
+  assert.match(pageText, /data-action="scan-tool"/);
+  assert.match(pageText, /data-action="scan-document"/);
+  assert.match(pageText, /data-role="scan-results"/);
+  assert.match(pageText, /data-role="tool-scan-result-content"/);
+  assert.match(pageText, /data-role="document-scan-result-content"/);
+  assert.match(pageText, /data-role="folder-human-note"/);
+  assert.match(pageText, /Human note for agent/);
+  assert.match(pageText, /Saved with this folder and returned to the agent by/);
+  assert.doesNotMatch(pageText, /UI preview only for now/);
+  assert.doesNotMatch(pageText, /Scan results for this folder/);
+  assert.doesNotMatch(pageText, /Scan Tool results/);
+  assert.doesNotMatch(pageText, /Scan Document results/);
+  assert.match(pageText, /Options &amp; scans/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -269,6 +282,92 @@ test("configuration UI classifies dropped files and folders", async (t) => {
   assert.equal(path.basename(payload.items[1].path), path.basename(fixture.exactFile));
   assert.equal(payload.errors.length, 1);
   assert.equal(payload.errors[0].code, "PATH_NOT_ABSOLUTE");
+});
+
+test("configuration UI scans attached folders by matching rules, bypasses global ignores, and caps only after a 101st match", async (t) => {
+  const fixture = await createUiFixture(t);
+  const scanRoot = path.join(path.dirname(fixture.configPath), "attached scan folder");
+  const toolDirectory = path.join(scanRoot, "bin");
+  const documentDirectory = path.join(scanRoot, "docs");
+  const readmePath = path.join(scanRoot, "README.md");
+  const apiPath = path.join(documentDirectory, "api.md");
+  await fs.mkdir(toolDirectory, { recursive: true });
+  await fs.mkdir(documentDirectory, { recursive: true });
+  await fs.writeFile(readmePath, "Attached folder readme.\n", "utf8");
+  await fs.writeFile(apiPath, "Nested attached folder documentation.\n", "utf8");
+  await Promise.all(Array.from({ length: 100 }, (_unused, index) => (
+    fs.writeFile(path.join(toolDirectory, `tool-${String(index).padStart(3, "0")}.exe`), "fixture\n", "utf8")
+  )));
+
+  const draftConfig = structuredClone(fixture.config);
+  draftConfig.tools.directories = [{
+    name: "attached-scan-folder",
+    path: scanRoot,
+    priority: 100,
+    recursive: false,
+    includeDocs: false,
+    enabled: true
+  }];
+  draftConfig.tools.extensions = ".exe";
+  draftConfig.sources.local.extensions = ".md";
+  draftConfig.sources.local.fileNames = ["README.md"];
+  draftConfig.ignore = ["bin/", "docs/"];
+  draftConfig.limits.maxFiles = 1_000;
+  draftConfig.limits.timeoutMs = 5_000;
+  const configBefore = await fs.readFile(fixture.configPath, "utf8");
+
+  const toolResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "tool", directoryPath: scanRoot, config: draftConfig })
+  });
+  const toolPayload = await toolResponse.json();
+  assert.equal(toolResponse.status, 200);
+  assert.equal(toolPayload.ok, true);
+  assert.equal(toolPayload.meta.alwaysRecursive, true);
+  assert.equal(toolPayload.meta.resultLimit, 100);
+  assert.equal(toolPayload.results.length, 100);
+  assert.equal(toolPayload.meta.hasMore, false);
+  assert.equal(toolPayload.meta.truncated, false);
+  assert.ok(toolPayload.results.every((entry) => path.isAbsolute(entry.path) && entry.path.endsWith(".exe")));
+  assert.ok(toolPayload.results.some((entry) => entry.path === path.join(toolDirectory, "tool-000.exe")));
+
+  const documentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "document", directoryPath: scanRoot, config: draftConfig })
+  });
+  const documentPayload = await documentResponse.json();
+  assert.equal(documentResponse.status, 200);
+  assert.equal(documentPayload.meta.alwaysRecursive, true);
+  assert.deepEqual(new Set(documentPayload.results.map((entry) => entry.path)), new Set([readmePath, apiPath]));
+
+  await fs.writeFile(path.join(toolDirectory, "tool-100.exe"), "fixture\n", "utf8");
+  const limitedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "tool", directoryPath: scanRoot, config: draftConfig })
+  });
+  const limitedPayload = await limitedResponse.json();
+  assert.equal(limitedResponse.status, 200);
+  assert.equal(limitedPayload.results.length, 100);
+  assert.equal(limitedPayload.meta.hasMore, true);
+  assert.equal(limitedPayload.meta.truncated, true);
+  assert.ok(limitedPayload.warnings.some((warning) => warning.code === "SCAN_RESULT_LIMIT_REACHED"));
+  assert.equal(await fs.readFile(fixture.configPath, "utf8"), configBefore);
+
+  const unattachedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      kind: "tool",
+      directoryPath: path.join(path.dirname(fixture.configPath), "not-attached"),
+      config: draftConfig
+    })
+  });
+  const unattachedPayload = await unattachedResponse.json();
+  assert.equal(unattachedResponse.status, 400);
+  assert.equal(unattachedPayload.error.code, "UI_SCAN_DIRECTORY_NOT_ATTACHED");
 });
 
 test("native drop manager shows one console-hidden helper and shares concurrent requests", async () => {
@@ -429,6 +528,80 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   assert.equal((await toolResponse.json()).results.length, 0);
   assert.equal((await secretResponse.json()).results.length, 0);
   assert.equal((await promptResponse.json()).results.length, 0);
+});
+
+test("configuration UI saves a folder note and selected scanned tool and document grants", async (t) => {
+  const fixture = await createUiFixture(t);
+  const scannedToolPath = path.join(fixture.docsRoot, "generate_video.py");
+  const scannedDocumentPath = path.join(fixture.docsRoot, "custom-tool.md");
+  await Promise.all([
+    fs.writeFile(scannedToolPath, "print('custom generator')\n", "utf8"),
+    fs.writeFile(scannedDocumentPath, "Custom tool guide marker.\n", "utf8")
+  ]);
+
+  const nextConfig = structuredClone(fixture.config);
+  nextConfig.tools.directories[0].humanNote = "This folder contains custom media utilities.";
+  nextConfig.tools.directories[0].scannedToolFiles = [{
+    name: "ui-tools-generate-video",
+    path: scannedToolPath,
+    priority: 325,
+    enabled: true
+  }];
+  nextConfig.tools.directories[0].scannedDocumentFiles = [{
+    name: "ui-tools-custom-guide",
+    path: scannedDocumentPath,
+    enabled: true
+  }];
+
+  const saveResponse = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: nextConfig })
+  });
+  const savePayload = await saveResponse.json();
+  assert.equal(saveResponse.status, 200);
+  assert.equal(savePayload.ok, true);
+
+  const saved = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  assert.equal(saved.tools.directories[0].humanNote, "This folder contains custom media utilities.");
+  assert.deepEqual(saved.tools.directories[0].scannedToolFiles, [{
+    name: "ui-tools-generate-video",
+    path: scannedToolPath,
+    priority: 325,
+    enabled: true
+  }]);
+  assert.deepEqual(saved.tools.directories[0].scannedDocumentFiles, [{
+    name: "ui-tools-custom-guide",
+    path: scannedDocumentPath,
+    enabled: true
+  }]);
+
+  const searchResponse = await fetch(new URL("api/search", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      query: "custom tool guide",
+      source: "local",
+      directories: [],
+      files: ["ui-tools-custom-guide"]
+    })
+  });
+  const searchPayload = await searchResponse.json();
+  assert.equal(searchResponse.status, 200);
+  assert.deepEqual(searchPayload.results.map((entry) => entry.path), [scannedDocumentPath]);
+
+  const toolResponse = await fetch(new URL("api/find-tool", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "generate video" })
+  });
+  const toolPayload = await toolResponse.json();
+  assert.equal(toolResponse.status, 200);
+  assert.ok(toolPayload.results.some((entry) => (
+    entry.name === "ui-tools-generate-video"
+    && entry.path === scannedToolPath
+    && entry.priority === 325
+  )));
 });
 
 test("configuration API accepts selected document grant names without broadening", async (t) => {

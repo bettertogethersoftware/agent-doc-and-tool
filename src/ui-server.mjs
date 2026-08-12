@@ -14,6 +14,7 @@ import {
   PROJECT_ROOT,
   resolveConfiguredPath
 } from "./config.mjs";
+import { scanAttachedFolder } from "./attached-folder-scan-service.mjs";
 import { AgentDocError, errorPayload } from "./errors.mjs";
 import { findPrompts } from "./prompt-service.mjs";
 import { checkConfiguration, searchDocuments } from "./search-service.mjs";
@@ -677,6 +678,16 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
         sendJson(response, 200, await findTools({
           query: typeof body?.query === "string" ? body.query : "",
           maxResults: 20
+        }, { configPath: resolvedConfigPath }));
+        return;
+      }
+
+      if (route === "/api/scan-attached-folder" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await scanAttachedFolder({
+          kind: body?.kind,
+          directoryPath: body?.directoryPath,
+          config: body?.config
         }, { configPath: resolvedConfigPath }));
         return;
       }

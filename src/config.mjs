@@ -46,6 +46,19 @@ const DocumentFileEntrySchema = z.object({
   enabled: z.boolean().default(true)
 }).strict();
 
+const ScannedToolFileEntrySchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  path: z.string().trim().min(1),
+  priority: z.number().int().min(-10_000).max(10_000).default(0),
+  enabled: z.boolean().default(true)
+}).strict();
+
+const ScannedDocumentFileEntrySchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  path: z.string().trim().min(1),
+  enabled: z.boolean().default(true)
+}).strict();
+
 const ExtensionListSchema = z.union([
   z.string().trim().min(1),
   z.array(z.string().trim().min(1))
@@ -66,7 +79,10 @@ const ToolDirectoryEntrySchema = z.union([
     priority: z.number().int().min(-10_000).max(10_000).default(0),
     recursive: z.boolean().default(true),
     includeDocs: z.boolean().default(true),
-    enabled: z.boolean().default(true)
+    enabled: z.boolean().default(true),
+    humanNote: z.string().max(5_000).default(""),
+    scannedToolFiles: z.array(ScannedToolFileEntrySchema).max(100).default([]),
+    scannedDocumentFiles: z.array(ScannedDocumentFileEntrySchema).max(100).default([])
   }).strict()
 ]);
 
@@ -278,17 +294,39 @@ function normalizeSource(name, rawSource, configDirectory) {
 }
 
 function normalizeTools(rawTools, configDirectory) {
+  const directoryNames = new Set();
   const directories = rawTools.directories.map((entry, index) => {
     const directory = typeof entry === "string"
       ? { path: entry, priority: 0, recursive: true, includeDocs: true }
       : entry;
+    const name = directory.name ?? `tool-directory-${index + 1}`;
+    const comparableName = name.toLowerCase();
+    if (directoryNames.has(comparableName)) {
+      throw new AgentDocError(
+        "CONFIG_TOOL_DIRECTORY_NAME_DUPLICATE",
+        `Tool directory name '${name}' is configured more than once.`
+      );
+    }
+    directoryNames.add(comparableName);
     return {
-      name: directory.name ?? `tool-directory-${index + 1}`,
+      name,
       path: resolveConfiguredPath(directory.path, configDirectory),
       priority: directory.priority ?? 0,
       recursive: directory.recursive !== false,
       includeDocs: directory.includeDocs !== false,
-      enabled: directory.enabled !== false
+      enabled: directory.enabled !== false,
+      humanNote: directory.humanNote?.trim() ?? "",
+      scannedToolFiles: (directory.scannedToolFiles ?? []).map((file) => ({
+        name: file.name,
+        path: resolveConfiguredPath(file.path, configDirectory),
+        priority: file.priority ?? 0,
+        enabled: file.enabled !== false
+      })),
+      scannedDocumentFiles: (directory.scannedDocumentFiles ?? []).map((file) => ({
+        name: file.name,
+        path: resolveConfiguredPath(file.path, configDirectory),
+        enabled: file.enabled !== false
+      }))
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
@@ -302,6 +340,18 @@ function normalizeTools(rawTools, configDirectory) {
       enabled: file.enabled !== false
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
+
+  const toolNames = new Set();
+  for (const file of [...files, ...directories.flatMap((directory) => directory.scannedToolFiles)]) {
+    const comparableName = file.name.toLowerCase();
+    if (toolNames.has(comparableName)) {
+      throw new AgentDocError(
+        "CONFIG_TOOL_FILE_NAME_DUPLICATE",
+        `Tool file name or alias '${file.name}' is configured more than once.`
+      );
+    }
+    toolNames.add(comparableName);
+  }
 
   return {
     directories,
@@ -426,6 +476,8 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
     name.toLowerCase(),
     normalizeSource(name.toLowerCase(), source, configDirectory)
   ]));
+  const tools = normalizeTools(parsed.data.tools, configDirectory);
+  validateScannedDocumentFileNames(sources, parsed.data.defaultSource.toLowerCase(), tools);
 
   const ignorePatterns = [...parsed.data.ignore];
   let ignoreFile = null;
@@ -450,7 +502,7 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
     ignorePatterns,
     caseSensitive: parsed.data.caseSensitive,
     followLinks: parsed.data.followLinks,
-    tools: normalizeTools(parsed.data.tools, configDirectory),
+    tools,
     secrets: normalizeSecrets(parsed.data.secrets, configDirectory),
     prompts: normalizePrompts(parsed.data.prompts),
     limits: parsed.data.limits
@@ -482,6 +534,34 @@ export async function loadConfig(configPathInput = undefined) {
   return parseConfig(rawConfig, configPath);
 }
 
+export function getScannedDocumentFiles(config) {
+  return config.tools.directories.flatMap((directory) => (
+    directory.scannedDocumentFiles.map((file) => ({
+      name: file.name,
+      path: file.path,
+      enabled: directory.enabled && file.enabled
+    }))
+  ));
+}
+
+export function getExactToolFiles(config) {
+  return [
+    ...config.tools.files.map((file) => ({
+      ...file,
+      documentationSearchEnabled: false
+    })),
+    ...config.tools.directories.flatMap((directory) => (
+      directory.scannedToolFiles.map((file) => ({
+        ...file,
+        enabled: directory.enabled && file.enabled,
+        sourceDirectoryName: directory.name,
+        documentationSearchEnabled: directory.enabled
+          && directory.scannedDocumentFiles.some((document) => document.enabled)
+      }))
+    ))
+  ];
+}
+
 export function getConfiguredSource(config, sourceInput = undefined) {
   const sourceName = (sourceInput ?? config.defaultSource).trim().toLowerCase();
   const source = config.sources[sourceName];
@@ -490,7 +570,17 @@ export function getConfiguredSource(config, sourceInput = undefined) {
       availableSources: Object.keys(config.sources)
     });
   }
-  return source;
+  if (sourceName !== config.defaultSource) {
+    return source;
+  }
+
+  const scannedDocumentFiles = getScannedDocumentFiles(config);
+  return scannedDocumentFiles.length === 0
+    ? source
+    : {
+        ...source,
+        files: [...source.files, ...scannedDocumentFiles]
+      };
 }
 
 export function getSource(config, sourceInput = undefined) {
@@ -521,7 +611,10 @@ export function getSource(config, sourceInput = undefined) {
     .map((directory) => ({
       name: `tool:${directory.name}`,
       path: directory.path,
-      priority: directory.priority
+      priority: directory.priority,
+      excludedScannedDocumentPaths: directory.scannedDocumentFiles
+        .filter((file) => !file.enabled)
+        .map((file) => file.path)
     }));
 
   return documentationRoots.length === 0
@@ -592,6 +685,22 @@ function resolveSelectedEntries(entries, requestedNames) {
     unknown,
     disabled
   };
+}
+
+function validateScannedDocumentFileNames(sources, defaultSource, tools) {
+  const names = new Set(sources[defaultSource].files.map((file) => file.name.toLowerCase()));
+  for (const directory of tools.directories) {
+    for (const file of directory.scannedDocumentFiles) {
+      const comparableName = file.name.toLowerCase();
+      if (names.has(comparableName)) {
+        throw new AgentDocError(
+          "CONFIG_DOCUMENT_FILE_NAME_DUPLICATE",
+          `Exact document file name '${file.name}' is configured more than once in source '${defaultSource}'.`
+        );
+      }
+      names.add(comparableName);
+    }
+  }
 }
 
 function publicDocumentDirectory(directory) {

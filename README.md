@@ -2,10 +2,10 @@
 
 Read-only local documentation, tool, reusable-prompt, and exact secret-file access for AI agents. The package exposes eleven MCP tools:
 
-- `list()` returns only the enabled document folders and enabled exact files. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
+- `list()` returns only the enabled document folders and enabled exact files, including enabled scanned document selections saved beneath tool folders. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
 - `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
 - `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
-- `list_tool()` returns only enabled tool directories and exact tool files. Directory entries include name, resolved path, priority, recursion, and documentation-search settings; exact-file entries include name, resolved path, and priority. It does not enumerate, verify, invoke, or execute tools.
+- `list_tool()` returns only enabled tool directories and manually added exact tool files. A tool directory can also return its human note, selected scanned tool files, and selected scanned document files with their direct paths. It does not enumerate, verify, invoke, or execute tools.
 - `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
@@ -72,12 +72,12 @@ The four catalog methods provide a broad view of the grants that are currently e
 
 | MCP method | Input | Enabled entries returned | Deliberately not performed |
 | --- | --- | --- | --- |
-| `list` | `{}` | Document directories with `name`, `path`, and `priority`; exact document files with `name` and `path` | Recursive file enumeration or document-content search |
-| `list_tool` | `{}` | Tool directories with `name`, `path`, `priority`, `recursive`, and `includeDocs`; exact tool files with `name`, `path`, and `priority` | Directory enumeration, file verification, help calls, invocation, or execution |
+| `list` | `{}` | Document directories with `name`, `path`, and `priority`; exact document files with `name` and `path`, including enabled selected scanned documents | Recursive file enumeration or document-content search |
+| `list_tool` | `{}` | Tool directories with `name`, `path`, `priority`, `recursive`, `includeDocs`, optional `humanNote`, and enabled selected scan entries; manually added exact tool files with `name`, `path`, and `priority` | Directory enumeration, file verification, help calls, invocation, or execution |
 | `list_prompt` | `{}` | Reusable prompts with `name` and discovery `keywords` | Prompt-body retrieval or preview generation |
 | `list_secret` | `{}` | Exact secret-file grants with `name`, `path`, and configured `format` | Opening secret files, detecting fields, or returning values |
 
-Only document directories, tool directories, and exact tool files have a configured `priority`. Exact document files, prompts, and secret files do not have priority fields in the current configuration schema, so the server does not invent synthetic values for them.
+Only document directories, tool directories, manually added exact tool files, and selected scanned tool files have a configured `priority`. Exact document files, selected scanned document files, prompts, and secret files do not have priority fields in the current configuration schema, so the server does not invent synthetic values for them.
 
 #### `list`
 
@@ -142,7 +142,21 @@ An enabled tool catalog response has this shape:
       "path": "C:\\path\\to\\media-tools",
       "priority": 100,
       "recursive": true,
-      "includeDocs": true
+      "includeDocs": true,
+      "humanNote": "Use these media utilities for conversion and inspection.",
+      "scannedToolFiles": [
+        {
+          "name": "media-tools-ffprobe",
+          "path": "C:\\path\\to\\media-tools\\bin\\ffprobe.exe",
+          "priority": 100
+        }
+      ],
+      "scannedDocumentFiles": [
+        {
+          "name": "media-tools-readme",
+          "path": "C:\\path\\to\\media-tools\\README.md"
+        }
+      ]
     }
   ],
   "files": [
@@ -160,10 +174,15 @@ An enabled tool catalog response has this shape:
     "executed": false,
     "directoriesReturned": 1,
     "filesReturned": 1,
+    "scannedToolFilesReturned": 1,
+    "scannedDocumentFilesReturned": 1,
+    "toolFilesReturned": 2,
     "configPath": "C:\\path\\to\\search.config.json"
   }
 }
 ```
+
+`files` continues to contain manually added exact tool files. Saved scan selections stay nested under the tool folder that owns their human note and scan controls. The optional `humanNote` and the scan arrays are omitted when empty. No `origin` field is returned. A selected scanned tool is also discoverable by `find_tool`; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
 
 #### `list_prompt`
 
@@ -221,7 +240,7 @@ Use `list_secret` with an empty object. An enabled secret catalog exposes grant 
 
 ### `search`
 
-Search enabled document roots and enabled exact document files. An unscoped request uses the complete default document allowlist and also includes enabled tool directories whose `includeDocs` setting allows documentation search:
+Search enabled document roots and enabled exact document files. Enabled scanned document selections saved under tool folders are exact document files: they appear in `list`, can be passed by name through `search.files`, and can be read with `fetch`. An unscoped request uses the complete default document allowlist and also includes enabled tool directories whose `includeDocs` setting allows documentation search:
 
 ```json
 {
@@ -330,7 +349,7 @@ Request:
 
 ### `find_tool`
 
-Resolve a particular executable or script from enabled tool directories and enabled exact tool-file grants.
+Resolve a particular executable or script from enabled tool directories, enabled manually added exact tool-file grants, and enabled saved scanned tool selections.
 
 Request:
 
@@ -519,6 +538,7 @@ From the UI you can:
 - Drop several files or folders at once. On Windows, click **Open Windows drop box**, then drag from File Explorer into the separate window so complete local paths are preserved.
 - Browse for or paste recursively searched folders and named exact files. Document directory names and exact-file names must be unique within their respective categories.
 - Register tool folders recursively or exact tool files. Tool folders include matching documentation by default, so a project folder can expose both a script and its nearby `README.md`.
+- Use **Scan Tool** or **Scan Document** on an attached tool folder to select matching files as full paths. Both row-level scans always recurse and use only the current Tool or Documents matching rules; they ignore that folder's **Include subfolders** and **Include documentation** catalog settings and general ignore patterns, while built-in link and secret safety checks still apply. Every attached folder has one multiline **Human note for agent** field. Scan rows have editable unique aliases; scanned tools also have individually editable priorities. New aliases start as `folder-name-file-name` and receive `-2`, `-3`, and so on if needed. Saving persists each folder's note and its selected Tool and Document rows. Enabled scanned tools appear directly in `list_tool` and are exact grants for `find_tool`; enabled scanned documents appear in `list`, `search`, and `fetch` as exact document grants. Folder-disabled or row-disabled selections are omitted from MCP responses. Each scan returns at most 100 paths; when a 101st match is found, it stops and clearly warns that additional matches exist.
 - Create reusable prompts with a unique name or alias, optional semicolon-separated discovery keywords, and an editable multiline text area. The saved prompt can be discovered and read through MCP without creating a separate file.
 - Register exact secret files only. Folders and links are rejected; the UI detects key names but never displays or stores secret values.
 - Control executable and script suffixes such as `.exe;.cmd;.bat;.ps1;.py;.js;.mjs` and test the saved catalog with the same `find_tool` resolver used by the agent.
@@ -576,7 +596,23 @@ Tool access is configured separately in the same file:
         "priority": 100,
         "recursive": true,
         "includeDocs": true,
-        "enabled": true
+        "enabled": true,
+        "humanNote": "Custom video helpers and their reference documentation.",
+        "scannedToolFiles": [
+          {
+            "name": "media-tools-generate-video",
+            "path": "C:\\path\\to\\tool-folder\\generate_video.py",
+            "priority": 150,
+            "enabled": true
+          }
+        ],
+        "scannedDocumentFiles": [
+          {
+            "name": "media-tools-readme",
+            "path": "C:\\path\\to\\tool-folder\\docs\\README.md",
+            "enabled": true
+          }
+        ]
       }
     ],
     "files": [
@@ -592,7 +628,9 @@ Tool access is configured separately in the same file:
 }
 ```
 
-Enabled `directories` are scanned recursively by default. `includeDocs` also makes matching documentation beneath that enabled folder available to `search` and `fetch`; document suffixes and exact filenames still come from the selected document source. Global ignore rules apply to both scans. Exact tool files do not need to match a suffix.
+Enabled `directories` are scanned recursively by default. `includeDocs` also makes matching documentation beneath that enabled folder available to `search` and `fetch`; document suffixes and exact filenames still come from the selected document source. Exact tool files do not need to match a suffix. `humanNote` is optional and belongs only to its folder. `scannedToolFiles` and `scannedDocumentFiles` are optional explicit selections created by the UI scan controls; a scan result is not selected until it is saved. Tool names must be unique case-insensitively across `tools.files` and every `scannedToolFiles` entry. Document names must be unique case-insensitively across the default source's `files` and every `scannedDocumentFiles` entry. A disabled folder disables all of its saved child selections; disabled child selections are omitted from `list_tool`, `list`, `find_tool`, `search`, and `fetch`.
+
+In the Configuration UI, **Scan Tool** and **Scan Document** are per-folder selection controls. They always scan the complete folder tree, even if `recursive` is false or `includeDocs` is false for that folder, and do not apply global ignore patterns. Tool scans use only `tools.extensions`; document scans use only the selected Documents source's suffix and exact-filename rules. Each attached folder retains its own note plus Tool and Document result rows, even when scans run on other folders. The name/alias field is editable for every selected row; Tool rows also have an editable individual priority. New aliases use the folder name and filename, then an incrementing suffix when a name would collide. Saving writes the note and selected rows to the folder configuration. Enabled Tool selections are returned nested under their folder in `list_tool` and directly resolve through `find_tool`; enabled Document selections are returned nested in `list_tool`, also appear as exact file entries in `list`, and are searchable/fetchable through `search` and `fetch`. Results are full absolute paths and are limited to 100 displayed files. The UI checks for a 101st match before stopping, so an exactly-100-result scan is not shown as truncated. Built-in link and secret safety exclusions continue to apply.
 
 Reusable prompts are stored directly in the private local configuration:
 

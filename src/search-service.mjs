@@ -72,6 +72,10 @@ function isIgnored(ignoreSpec, relativePath, directory = false) {
   return ignoreSpec.ignores(portable);
 }
 
+function isDisabledScannedDocumentForRoot(root, filePath) {
+  return (root.excludedScannedDocumentPaths ?? []).some((excludedPath) => samePath(filePath, excludedPath));
+}
+
 function createState(config) {
   return {
     config,
@@ -197,7 +201,12 @@ async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefin
         continue;
       }
 
-      if (isProtectedPath(fullPath) || isConfiguredSecretPath(fullPath, state.config) || isIgnored(ignoreSpec, relativePath)) {
+      if (
+        isProtectedPath(fullPath)
+        || isConfiguredSecretPath(fullPath, state.config)
+        || isIgnored(ignoreSpec, relativePath)
+        || isDisabledScannedDocumentForRoot(root, fullPath)
+      ) {
         state.stats.skippedIgnored += 1;
         continue;
       }
@@ -344,7 +353,12 @@ async function *enumerateRoot(root, source, state, seenPaths) {
       continue;
     }
     const relativePath = path.relative(realRoot, fullPath);
-    if (isProtectedPath(fullPath) || isConfiguredSecretPath(fullPath, state.config) || isIgnored(ignoreSpec, relativePath)) {
+    if (
+      isProtectedPath(fullPath)
+      || isConfiguredSecretPath(fullPath, state.config)
+      || isIgnored(ignoreSpec, relativePath)
+      || isDisabledScannedDocumentForRoot(root, fullPath)
+    ) {
       state.stats.skippedIgnored += 1;
       continue;
     }
@@ -783,6 +797,9 @@ async function resolveAllowedFetchPath(requestedPath, source, config) {
     }
 
     const relativePath = path.relative(realRoot, realPath);
+    if (isDisabledScannedDocumentForRoot(root, realPath)) {
+      continue;
+    }
     if (isIgnored(ignoreSpec, relativePath) || !matchesConfiguredDocument(realPath, source, config.caseSensitive)) {
       break;
     }
