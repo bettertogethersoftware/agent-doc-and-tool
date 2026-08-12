@@ -79,7 +79,55 @@ try {
   await client.connect(transport);
 
   const listed = await client.listTools();
-  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "read_prompt", "read_secret", "search"]);
+  assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "list", "list_prompt", "list_secret", "list_tool", "read_prompt", "read_secret", "search"]);
+
+  const listCall = await client.callTool({
+    name: "list",
+    arguments: { source: "local" }
+  });
+  const listPayload = JSON.parse(listCall.content[0].text);
+  assert.equal(listPayload.ok, true);
+  assert.deepEqual(listPayload.directories, [{ name: "smoke", path: docsRoot, priority: 100 }]);
+  assert.deepEqual(listPayload.files, []);
+  assert.equal(listPayload.meta.enabledOnly, true);
+
+  const listToolCall = await client.callTool({
+    name: "list_tool",
+    arguments: {}
+  });
+  const listToolPayload = JSON.parse(listToolCall.content[0].text);
+  assert.deepEqual(listToolPayload.directories, [{
+    name: "smoke-tools",
+    path: docsRoot,
+    priority: 100,
+    recursive: true,
+    includeDocs: true
+  }]);
+  assert.deepEqual(listToolPayload.files, []);
+  assert.equal(listToolPayload.meta.enabledOnly, true);
+  assert.equal(listToolPayload.meta.executed, false);
+
+  const listPromptCall = await client.callTool({
+    name: "list_prompt",
+    arguments: {}
+  });
+  const listPromptPayload = JSON.parse(listPromptCall.content[0].text);
+  assert.deepEqual(listPromptPayload.prompts, [
+    { name: "youtube-mv", keywords: ["cinematic", "music video"] },
+    { name: "short mv", keywords: ["cinematic", "music video"] }
+  ]);
+  assert.equal(listPromptPayload.meta.promptContentReturned, false);
+  assert.doesNotMatch(JSON.stringify(listPromptPayload), /verify the final render|Create a short music video/);
+
+  const listSecretCall = await client.callTool({
+    name: "list_secret",
+    arguments: {}
+  });
+  const listSecretPayload = JSON.parse(listSecretCall.content[0].text);
+  assert.deepEqual(listSecretPayload.files, [{ name: "smoke-ftp", path: secretPath, format: "auto" }]);
+  assert.equal(listSecretPayload.meta.filesRead, 0);
+  assert.equal(listSecretPayload.meta.sensitiveValuesReturned, false);
+  assert.doesNotMatch(JSON.stringify(listSecretPayload), /mcp-fixture-password/);
 
   const searchCall = await client.callTool({
     name: "search",
@@ -160,6 +208,18 @@ try {
   process.stdout.write(`${JSON.stringify({
     ok: true,
     tools: listed.tools.map((tool) => tool.name).sort(),
+    catalog: {
+      documents: {
+        directories: listPayload.directories,
+        files: listPayload.files
+      },
+      tools: {
+        directories: listToolPayload.directories,
+        files: listToolPayload.files
+      },
+      prompts: listPromptPayload.prompts,
+      secrets: listSecretPayload.files
+    },
     searchHit: {
       path: searchPayload.results[0].path,
       lineNumber: searchPayload.results[0].lineNumber,

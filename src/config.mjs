@@ -462,7 +462,7 @@ export async function loadConfig(configPathInput = undefined) {
   return parseConfig(rawConfig, configPath);
 }
 
-export function getSource(config, sourceInput = undefined) {
+export function getConfiguredSource(config, sourceInput = undefined) {
   const sourceName = (sourceInput ?? config.defaultSource).trim().toLowerCase();
   const source = config.sources[sourceName];
   if (!source) {
@@ -470,6 +470,12 @@ export function getSource(config, sourceInput = undefined) {
       availableSources: Object.keys(config.sources)
     });
   }
+  return source;
+}
+
+export function getSource(config, sourceInput = undefined) {
+  const source = getConfiguredSource(config, sourceInput);
+  const sourceName = source.name;
   const enabledSource = {
     ...source,
     roots: source.roots.filter((root) => root.enabled),

@@ -4,6 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import {
+  listDocumentCatalog,
+  listPromptCatalog,
+  listSecretCatalog,
+  listToolCatalog
+} from "../src/catalog-service.mjs";
 import { findPrompts, readPrompt } from "../src/prompt-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "../src/search-service.mjs";
 import { findSecrets, readSecret } from "../src/secret-service.mjs";
@@ -94,8 +100,8 @@ async function createFixture(t) {
       maxFileBytes: 100_000
     },
     prompts: [
-      { name: "enabled-prompt", content: "Enabled reusable prompt marker.", enabled: true },
-      { name: "disabled-prompt", content: "Disabled reusable prompt marker.", enabled: false }
+      { name: "enabled-prompt", keywords: ["enabled", "reusable"], content: "Enabled reusable prompt marker.", enabled: true },
+      { name: "disabled-prompt", keywords: ["disabled"], content: "Disabled reusable prompt marker.", enabled: false }
     ],
     limits: {
       maxResults: 20,
@@ -118,11 +124,85 @@ async function createFixture(t) {
 
   return {
     configPath,
+    enabledDocs,
+    enabledTools,
+    disabledDocs,
     disabledExactDocument,
     disabledSecret,
-    enabledExactDocument
+    enabledExactDocument,
+    enabledExactTool,
+    enabledSecret
   };
 }
+
+test("document catalog lists enabled folders and exact files only", async (t) => {
+  const fixture = await createFixture(t);
+  const listed = await listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath });
+
+  assert.deepEqual(listed.directories, [{
+    name: "enabled-docs",
+    path: fixture.enabledDocs,
+    priority: 100
+  }]);
+  assert.deepEqual(listed.files, [{ path: fixture.enabledExactDocument }]);
+  assert.equal(listed.meta.enabledOnly, true);
+  assert.equal(listed.meta.directoriesReturned, 1);
+  assert.equal(listed.meta.filesReturned, 1);
+  assert.doesNotMatch(JSON.stringify(listed), /disabled-docs|disabled-exact|does-not-exist/);
+});
+
+test("tool catalog lists enabled directories and exact files only", async (t) => {
+  const fixture = await createFixture(t);
+  const listed = await listToolCatalog({ configPath: fixture.configPath });
+
+  assert.deepEqual(listed.directories, [{
+    name: "enabled-tools",
+    path: fixture.enabledTools,
+    priority: 100,
+    recursive: true,
+    includeDocs: true
+  }]);
+  assert.deepEqual(listed.files, [{
+    name: "enabled-exact-tool",
+    path: fixture.enabledExactTool,
+    priority: 100
+  }]);
+  assert.equal(listed.meta.enabledOnly, true);
+  assert.equal(listed.meta.executed, false);
+  assert.equal(listed.meta.directoriesReturned, 1);
+  assert.equal(listed.meta.filesReturned, 1);
+  assert.doesNotMatch(JSON.stringify(listed), /disabled-tools|disabled-exact-tool|does-not-exist/);
+});
+
+test("prompt catalog lists enabled names and keywords without content", async (t) => {
+  const fixture = await createFixture(t);
+  const listed = await listPromptCatalog({ configPath: fixture.configPath });
+
+  assert.deepEqual(listed.prompts, [{
+    name: "enabled-prompt",
+    keywords: ["enabled", "reusable"]
+  }]);
+  assert.equal(listed.meta.enabledOnly, true);
+  assert.equal(listed.meta.promptContentReturned, false);
+  assert.equal(listed.meta.promptsReturned, 1);
+  assert.doesNotMatch(JSON.stringify(listed), /disabled-prompt|reusable prompt marker/i);
+});
+
+test("secret catalog lists enabled grants without reading values", async (t) => {
+  const fixture = await createFixture(t);
+  const listed = await listSecretCatalog({ configPath: fixture.configPath });
+
+  assert.deepEqual(listed.files, [{
+    name: "enabled-secret",
+    path: fixture.enabledSecret,
+    format: "env"
+  }]);
+  assert.equal(listed.meta.enabledOnly, true);
+  assert.equal(listed.meta.filesRead, 0);
+  assert.equal(listed.meta.sensitiveValuesReturned, false);
+  assert.equal(listed.meta.filesReturned, 1);
+  assert.doesNotMatch(JSON.stringify(listed), /disabled-secret|does-not-exist|enabled-value|disabled-value/);
+});
 
 test("disabled document grants are neither searched nor fetched", async (t) => {
   const fixture = await createFixture(t);

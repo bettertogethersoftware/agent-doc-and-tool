@@ -1,7 +1,7 @@
 interface:
   display_name: "Agent Docs & Tools"
   short_description: "Find approved local docs, tools, prompts, secrets"
-  default_prompt: "Use $agent-doc-and-tool to find authoritative local instructions, resolve allowlisted tools, retrieve a reusable prompt, or access an exact secret grant safely."
+  default_prompt: "Use $agent-doc-and-tool to inspect enabled local grants, find authoritative instructions, resolve allowlisted tools, retrieve a reusable prompt, or access an exact secret grant safely."
 
 dependencies:
   tools:

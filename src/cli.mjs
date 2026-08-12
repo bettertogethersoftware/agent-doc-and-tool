@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+import {
+  listDocumentCatalog,
+  listPromptCatalog,
+  listSecretCatalog,
+  listToolCatalog
+} from "./catalog-service.mjs";
 import { errorPayload } from "./errors.mjs";
 import { findPrompts, readPrompt } from "./prompt-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "./search-service.mjs";
@@ -42,6 +48,10 @@ function usage() {
     ok: true,
     commands: {
       check: "node src/cli.mjs check [--config PATH]",
+      list: "node src/cli.mjs list [--source local] [--config PATH]",
+      listTool: "node src/cli.mjs list-tool [--config PATH]",
+      listPrompt: "node src/cli.mjs list-prompt [--config PATH]",
+      listSecret: "node src/cli.mjs list-secret [--config PATH]",
       search: "node src/cli.mjs search --query TEXT [--source local] [--max-results N] [--config PATH]",
       fetch: "node src/cli.mjs fetch --path ABSOLUTE_PATH [--source local] [--config PATH]",
       findTool: "node src/cli.mjs find-tool --query TEXT [--max-results N] [--config PATH]",
@@ -61,6 +71,20 @@ async function main() {
   }
   if (command === "check") {
     return checkConfiguration(options);
+  }
+  if (command === "list") {
+    return listDocumentCatalog({
+      source: typeof args.source === "string" ? args.source : "local"
+    }, options);
+  }
+  if (command === "list-tool") {
+    return listToolCatalog(options);
+  }
+  if (command === "list-prompt") {
+    return listPromptCatalog(options);
+  }
+  if (command === "list-secret") {
+    return listSecretCatalog(options);
   }
   if (command === "search") {
     return searchDocuments({
