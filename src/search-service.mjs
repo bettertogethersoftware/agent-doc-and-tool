@@ -81,6 +81,7 @@ function createState(config) {
       filesConsidered: 0,
       filesRead: 0,
       filesMatched: 0,
+      duplicateFilesOmitted: 0,
       skippedIgnored: 0,
       skippedLinks: 0,
       skippedOversize: 0,
@@ -429,11 +430,63 @@ function createLinePreview(lineText, queryPlan, config) {
   };
 }
 
+function lineQualityScore(lineText) {
+  const trimmed = lineText.trim();
+  if (!trimmed) {
+    return -100;
+  }
+
+  let score = 0;
+  if (/^#{1,6}\s+\S/.test(trimmed)) {
+    score += 80;
+  } else if (/^[\p{L}\p{N}]/u.test(trimmed)) {
+    score += 20;
+  }
+  if (trimmed.length >= 20 && trimmed.length <= 300) {
+    score += 15;
+  }
+  if (/[.!?:]$/.test(trimmed)) {
+    score += 5;
+  }
+
+  if (/<(?:img|svg|path|picture|source)\b/i.test(trimmed)) {
+    score -= 140;
+  }
+  if (/img\.shields\.io/i.test(trimmed)) {
+    score -= 80;
+  }
+  if (/(?:^|[^\p{L}])badge(?:[^\p{L}]|$)/iu.test(trimmed)) {
+    score -= 40;
+  }
+  if (/!\[[^\]]*\]\([^)]*\)/u.test(trimmed)) {
+    score -= 80;
+  }
+  const urlCount = (trimmed.match(/https?:\/\//gi) ?? []).length;
+  score -= Math.min(urlCount * 20, 60);
+  if (/^<[^>]+>.*<\/[^>]+>$/.test(trimmed)) {
+    score -= 30;
+  }
+
+  return score;
+}
+
+function compareLineHits(left, right) {
+  return right.lineScore - left.lineScore
+    || right.baseScore - left.baseScore
+    || right.matchedTerms.length - left.matchedTerms.length
+    || right.qualityScore - left.qualityScore
+    || left.lineNumber - right.lineNumber;
+}
+
+function compareSearchResults(left, right) {
+  return right.score - left.score
+    || left.path.localeCompare(right.path)
+    || left.lineNumber - right.lineNumber;
+}
+
 function matchText(text, candidate, queryPlan, config) {
   const lines = splitLines(text);
-  const exactHits = [];
-  const allTermHits = [];
-  const partialHits = [];
+  const hits = [];
   const fileTerms = new Set();
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -451,18 +504,32 @@ function matchText(text, candidate, queryPlan, config) {
       continue;
     }
 
-    const hit = { lineNumber: index + 1, lineText, matchedTerms };
+    let matchType;
+    let baseScore;
     if (normalizedLine.includes(queryPlan.normalizedQuery)) {
-      exactHits.push(hit);
+      matchType = "exact_phrase";
+      baseScore = 1_000;
     } else if (matchedTerms.length === queryPlan.terms.length) {
-      allTermHits.push(hit);
+      matchType = "all_terms_line";
+      baseScore = 800;
     } else {
-      partialHits.push(hit);
+      matchType = "all_terms_file";
+      baseScore = 600;
     }
+    const qualityScore = lineQualityScore(lineText);
+    hits.push({
+      lineNumber: index + 1,
+      lineText,
+      matchedTerms,
+      matchType,
+      baseScore,
+      qualityScore,
+      lineScore: baseScore + (matchedTerms.length * 10) + qualityScore
+    });
   }
 
   if (!queryPlan.terms.every((term) => fileTerms.has(term))) {
-    return [];
+    return null;
   }
 
   const normalizedPath = canonicalize(candidate.relativePath, config.caseSensitive);
@@ -470,39 +537,34 @@ function matchText(text, candidate, queryPlan, config) {
   const pathDepth = candidate.relativePath.split("/").filter(Boolean).length;
   const pathScore = (pathMatchedTerms.length * 30) - Math.min(pathDepth, 20);
 
-  let matchType;
-  let baseScore;
-  let selected;
-  if (exactHits.length > 0) {
-    matchType = "exact_phrase";
-    baseScore = 1_000;
-    selected = exactHits;
-  } else if (allTermHits.length > 0) {
-    matchType = "all_terms_line";
-    baseScore = 800;
-    selected = allTermHits;
-  } else {
-    matchType = "all_terms_file";
-    baseScore = 600;
-    selected = partialHits.sort((left, right) => (
-      right.matchedTerms.length - left.matchedTerms.length || left.lineNumber - right.lineNumber
-    ));
-  }
-
-  return selected.slice(0, config.limits.maxMatchesPerFile).map((hit) => {
+  hits.sort(compareLineHits);
+  const selected = hits.slice(0, config.limits.maxMatchesPerFile).map((hit) => {
     const preview = createLinePreview(hit.lineText, queryPlan, config);
     return {
-      path: candidate.path,
       lineNumber: hit.lineNumber,
       ...preview,
-      sourceRoot: candidate.root,
-      relativePath: candidate.relativePath,
-      matchType,
-      matchedTerms: hit.matchedTerms,
-      pathMatchedTerms,
-      score: baseScore + (hit.matchedTerms.length * 10) + candidate.priority + pathScore
+      matchType: hit.matchType,
+      matchedTerms: hit.matchedTerms
     };
   });
+  const [primary, ...additionalMatches] = selected;
+  const primaryHit = hits[0];
+
+  return {
+    path: candidate.path,
+    ...primary,
+    sourceRoot: candidate.root,
+    relativePath: candidate.relativePath,
+    pathMatchedTerms,
+    fileMatchedTerms: queryPlan.terms.filter((term) => fileTerms.has(term)),
+    matchCount: hits.length,
+    returnedMatchCount: selected.length,
+    additionalMatches,
+    duplicateCount: 0,
+    score: primaryHit.lineScore
+      + candidate.priority
+      + pathScore
+  };
 }
 
 async function searchCandidate(candidate, queryPlan, state) {
@@ -511,16 +573,16 @@ async function searchCandidate(candidate, queryPlan, state) {
     fileStat = await fs.lstat(candidate.path);
   } catch (error) {
     addWarning(state, "FILE_UNREADABLE", error instanceof Error ? error.message : String(error), candidate.path);
-    return [];
+    return null;
   }
 
   if (fileStat.isSymbolicLink() || !fileStat.isFile()) {
     state.stats.skippedLinks += 1;
-    return [];
+    return null;
   }
   if (fileStat.size > state.config.limits.maxFileBytes) {
     state.stats.skippedOversize += 1;
-    return [];
+    return null;
   }
 
   try {
@@ -528,14 +590,33 @@ async function searchCandidate(candidate, queryPlan, state) {
     const decoded = decodeText(buffer);
     if (decoded.binary) {
       state.stats.skippedBinary += 1;
-      return [];
+      return null;
     }
     state.stats.filesRead += 1;
-    return matchText(decoded.text, candidate, queryPlan, state.config);
+    const result = matchText(decoded.text, candidate, queryPlan, state.config);
+    return result ? { ...result, _contentSha256: sha256(buffer) } : null;
   } catch (error) {
     state.stats.permissionErrors += 1;
     addWarning(state, "FILE_UNREADABLE", error instanceof Error ? error.message : String(error), candidate.path);
-    return [];
+    return null;
+  }
+}
+
+function collectMatchedFile(result, resultsByHash, state) {
+  state.stats.filesMatched += 1;
+  const existing = resultsByHash.get(result._contentSha256);
+  if (!existing) {
+    resultsByHash.set(result._contentSha256, result);
+    return;
+  }
+
+  state.stats.duplicateFilesOmitted += 1;
+  const duplicateCount = existing.duplicateCount + 1;
+  if (compareSearchResults(result, existing) < 0) {
+    result.duplicateCount = duplicateCount;
+    resultsByHash.set(result._contentSha256, result);
+  } else {
+    existing.duplicateCount = duplicateCount;
   }
 }
 
@@ -554,13 +635,12 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
   const resultLimit = Math.min(maxResults ?? config.limits.maxResults, config.limits.maxResults);
   const state = createState(config);
   const seenPaths = new Set();
-  const results = [];
+  const resultsByHash = new Map();
 
   for await (const candidate of specificFiles(source, state, seenPaths)) {
-    const matches = await searchCandidate(candidate, queryPlan, state);
-    if (matches.length > 0) {
-      state.stats.filesMatched += 1;
-      results.push(...matches);
+    const result = await searchCandidate(candidate, queryPlan, state);
+    if (result) {
+      collectMatchedFile(result, resultsByHash, state);
     }
   }
 
@@ -569,15 +649,14 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
       break;
     }
     for await (const candidate of enumerateRoot(root, source, state, seenPaths)) {
-      const matches = await searchCandidate(candidate, queryPlan, state);
-      if (matches.length > 0) {
-        state.stats.filesMatched += 1;
-        results.push(...matches);
+      const result = await searchCandidate(candidate, queryPlan, state);
+      if (result) {
+        collectMatchedFile(result, resultsByHash, state);
       }
-      if (results.length >= resultLimit * 20) {
+      if (resultsByHash.size >= resultLimit * 20) {
         state.truncated = true;
         state.stopped = true;
-        addWarning(state, "MATCH_COLLECTION_LIMIT", "Search stopped after collecting enough candidate matches to rank.");
+        addWarning(state, "MATCH_COLLECTION_LIMIT", "Search stopped after collecting enough unique matching files to rank.");
         break;
       }
     }
@@ -586,14 +665,11 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
     }
   }
 
-  results.sort((left, right) => (
-    right.score - left.score
-    || left.path.localeCompare(right.path)
-    || left.lineNumber - right.lineNumber
-  ));
+  const results = [...resultsByHash.values()].sort(compareSearchResults);
   if (results.length > resultLimit) {
     state.truncated = true;
   }
+  const returnedResults = results.slice(0, resultLimit).map(({ _contentSha256: _internalHash, ...result }) => result);
 
   return {
     schemaVersion: "1.0",
@@ -601,9 +677,10 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
     source: source.name,
     query,
     queryPlan,
-    results: results.slice(0, resultLimit),
+    results: returnedResults,
     meta: {
       backend: "direct-scan",
+      resultUnit: "file",
       enumerationBackends: [...state.enumerationBackends],
       indexed: false,
       networkUsed: false,
@@ -611,6 +688,9 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
       elapsedMs: Math.round(performance.now() - started),
       truncated: state.truncated,
       warningCount: state.warningCount,
+      uniqueFilesMatched: resultsByHash.size,
+      snippetsPerFile: config.limits.maxMatchesPerFile,
+      matchesReturned: returnedResults.reduce((total, result) => total + result.returnedMatchCount, 0),
       ...state.stats
     },
     warnings: state.warnings

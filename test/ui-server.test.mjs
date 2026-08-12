@@ -106,6 +106,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /Register tools without running them/);
   assert.match(pageText, /Keep reusable prompts close to your agent/);
   assert.match(pageText, /Register exact credential files/);
+  assert.match(pageText, /id="max-matches-per-file"/);
+  assert.match(pageText, /Separate patterns with semicolons/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -254,6 +256,14 @@ test("configuration UI validates, saves, backs up, and searches", async (t) => {
   const fixture = await createUiFixture(t);
   const nextConfig = structuredClone(fixture.config);
   nextConfig.sources.local.fileNames.push("AGENTS.md");
+  nextConfig.limits.maxResults = 25;
+  await Promise.all(Array.from({ length: 21 }, (_unused, index) => (
+    fs.writeFile(
+      path.join(fixture.docsRoot, `ui-target-${index + 1}.ai.md`),
+      `<img alt="UI shell search target ${index + 1}">\n`,
+      "utf8"
+    )
+  )));
 
   const saveResponse = await fetch(new URL("api/config", fixture.ui.url), {
     method: "POST",
@@ -275,6 +285,10 @@ test("configuration UI validates, saves, backs up, and searches", async (t) => {
   const searchPayload = await searchResponse.json();
   assert.equal(searchPayload.ok, true);
   assert.equal(searchPayload.results[0].path, path.join(fixture.docsRoot, "workflow.json"));
+  assert.equal(searchPayload.results.length, 22);
+  assert.equal(searchPayload.meta.truncated, false);
+  assert.equal(searchPayload.meta.resultUnit, "file");
+  assert.equal(searchPayload.results[0].returnedMatchCount, 1);
 
   const toolResponse = await fetch(new URL("api/find-tool", fixture.ui.url), {
     method: "POST",

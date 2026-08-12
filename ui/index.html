@@ -140,11 +140,13 @@
           </label>
           <label class="field">
             <span>Additional ignore patterns</span>
-            <textarea id="ignore-patterns" rows="4" spellcheck="false" placeholder="private/&#10;*.secret.json"></textarea>
+            <textarea id="ignore-patterns" rows="4" spellcheck="false" placeholder="private/;*.secret.json&#10;generated/"></textarea>
+            <small>Separate patterns with semicolons or put one pattern on each line.</small>
           </label>
         </div>
         <div class="limits-grid">
           <label class="field"><span>Max results</span><input id="max-results" type="number" min="1" max="500"></label>
+          <label class="field"><span>Snippets per file</span><input id="max-matches-per-file" type="number" min="1" max="20" title="One file is returned once. Values above 1 add secondary matching lines inside that file result."></label>
           <label class="field"><span>Max files</span><input id="max-files" type="number" min="1" max="1000000"></label>
           <label class="field"><span>Timeout (ms)</span><input id="timeout-ms" type="number" min="100" max="120000"></label>
           <label class="field"><span>Max line characters</span><input id="max-line-chars" type="number" min="100" max="20000"></label>

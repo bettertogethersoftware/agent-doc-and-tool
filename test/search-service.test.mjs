@@ -11,8 +11,10 @@ async function createFixture(t) {
   const docsRoot = path.join(temporaryRoot, "docs");
   const ignoredRoot = path.join(docsRoot, "node_modules", "generic-tool");
   const generatedRoot = path.join(docsRoot, "generated");
+  const copiesRoot = path.join(docsRoot, "copies");
   await fs.mkdir(ignoredRoot, { recursive: true });
   await fs.mkdir(generatedRoot, { recursive: true });
+  await fs.mkdir(copiesRoot, { recursive: true });
 
   const readmePath = path.join(docsRoot, "README.md");
   const aiPath = path.join(docsRoot, "workflow.ai.md");
@@ -22,6 +24,9 @@ async function createFixture(t) {
   const ignoredJsonPath = path.join(generatedRoot, "ignored.json");
   const explicitPath = path.join(temporaryRoot, "special.instructions.txt");
   const outsidePath = path.join(temporaryRoot, "outside.txt");
+  const rankedPath = path.join(docsRoot, "ranked.ai.md");
+  const rankedCopyPath = path.join(copiesRoot, "ranked-copy.ai.md");
+  const secondRankedPath = path.join(docsRoot, "second-ranked.ai.md");
 
   const readmeContent = "# Local workflow\r\nUse MiniMax H3 video for the verified local workflow.\r\n";
   await fs.writeFile(readmePath, readmeContent, "utf8");
@@ -32,6 +37,15 @@ async function createFixture(t) {
   await fs.writeFile(ignoredJsonPath, '{"description":"Quasar ignored JSON target"}\n', "utf8");
   await fs.writeFile(explicitPath, "Special Falcon tool instructions.\n", "utf8");
   await fs.writeFile(outsidePath, "This file is not allowlisted.\n", "utf8");
+  const rankedContent = [
+    '<img src="atlas.png" alt="Atlas Search Guide">',
+    '[![Atlas Search Guide](https://img.shields.io/badge/Atlas-Search-blue)](https://example.test)',
+    "# Atlas Guide for Search Workflows",
+    "The verified Atlas guide explains this local search workflow."
+  ].join("\n");
+  await fs.writeFile(rankedPath, rankedContent, "utf8");
+  await fs.writeFile(rankedCopyPath, rankedContent, "utf8");
+  await fs.writeFile(secondRankedPath, "# Atlas Search Guide for the secondary workflow\n", "utf8");
   await fs.writeFile(path.join(temporaryRoot, ".agent-searchignore"), "node_modules/\nignored.json\n", "utf8");
 
   const configPath = path.join(temporaryRoot, "search.config.json");
@@ -68,7 +82,20 @@ async function createFixture(t) {
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
   });
 
-  return { configPath, readmePath, readmeContent, jsonPath, longJsonPath, ignoredPath, ignoredJsonPath, explicitPath, outsidePath };
+  return {
+    configPath,
+    readmePath,
+    readmeContent,
+    jsonPath,
+    longJsonPath,
+    ignoredPath,
+    ignoredJsonPath,
+    explicitPath,
+    outsidePath,
+    rankedPath,
+    rankedCopyPath,
+    secondRankedPath
+  };
 }
 
 test("search finds compound-word variants and ignores excluded trees", async (t) => {
@@ -130,6 +157,49 @@ test("search bounds exceptionally long matching lines and reports truncation", a
   assert.equal(hit.lineText.length, 1000);
   assert.ok(hit.lineTextLength > hit.lineText.length);
   assert.match(hit.lineText, /Nebula line sentinel/);
+});
+
+test("search returns one ranked result per unique file with nested secondary snippets", async (t) => {
+  const fixture = await createFixture(t);
+  const searchResult = await searchDocuments({ query: "atlas search guide", source: "local" }, { configPath: fixture.configPath });
+
+  assert.equal(searchResult.meta.resultUnit, "file");
+  assert.equal(searchResult.meta.filesMatched, 3);
+  assert.equal(searchResult.meta.uniqueFilesMatched, 2);
+  assert.equal(searchResult.meta.duplicateFilesOmitted, 1);
+  assert.equal(searchResult.meta.snippetsPerFile, 3);
+  assert.equal(searchResult.results.length, 2);
+  assert.deepEqual(new Set(searchResult.results.map((result) => result.path)), new Set([
+    fixture.rankedPath,
+    fixture.secondRankedPath
+  ]));
+
+  const ranked = searchResult.results.find((result) => result.path === fixture.rankedPath);
+  assert.ok(ranked);
+  assert.equal(ranked.lineNumber, 3);
+  assert.equal(ranked.lineText, "# Atlas Guide for Search Workflows");
+  assert.equal(ranked.matchType, "all_terms_line");
+  assert.deepEqual(ranked.fileMatchedTerms, ["atlas", "search", "guide"]);
+  assert.equal(ranked.matchCount, 4);
+  assert.equal(ranked.returnedMatchCount, 3);
+  assert.equal(ranked.additionalMatches.length, 2);
+  assert.equal(ranked.duplicateCount, 1);
+  assert.ok(searchResult.results.every((result) => result.path !== fixture.rankedCopyPath));
+});
+
+test("search defaults to one snippet while still counting every matching line", async (t) => {
+  const fixture = await createFixture(t);
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  delete config.limits.maxMatchesPerFile;
+  await fs.writeFile(fixture.configPath, JSON.stringify(config, null, 2), "utf8");
+
+  const searchResult = await searchDocuments({ query: "atlas search guide", source: "local" }, { configPath: fixture.configPath });
+  const ranked = searchResult.results.find((result) => result.path === fixture.rankedPath);
+
+  assert.equal(searchResult.meta.snippetsPerFile, 1);
+  assert.equal(ranked.matchCount, 4);
+  assert.equal(ranked.returnedMatchCount, 1);
+  assert.deepEqual(ranked.additionalMatches, []);
 });
 
 test("fetch rejects files that were not granted by human configuration", async (t) => {

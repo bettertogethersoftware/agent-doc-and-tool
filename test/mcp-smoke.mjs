@@ -89,6 +89,9 @@ try {
   assert.equal(searchPayload.ok, true);
   assert.equal(searchPayload.results[0].path, readmePath);
   assert.equal(searchPayload.results[0].lineNumber, 2);
+  assert.equal(searchPayload.meta.resultUnit, "file");
+  assert.equal(searchPayload.meta.uniqueFilesMatched, 1);
+  assert.equal(searchPayload.results[0].returnedMatchCount, 1);
 
   const fetchCall = await client.callTool({
     name: "fetch",

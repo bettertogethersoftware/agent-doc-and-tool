@@ -840,6 +840,36 @@ code {
   line-height: 1.45;
 }
 
+.result-meta {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.result-details {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.67rem;
+}
+
+.result-details summary {
+  cursor: pointer;
+  color: #aeb5c0;
+}
+
+.result-secondary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+  color: #c6cbd3;
+}
+
+.result-secondary > :first-child {
+  color: var(--accent);
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+
 .result-name {
   display: block;
   margin-bottom: 3px;

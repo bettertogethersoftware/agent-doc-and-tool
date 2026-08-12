@@ -34,6 +34,7 @@ const elements = {
   ignoreFile: document.querySelector("#ignore-file"),
   ignorePatterns: document.querySelector("#ignore-patterns"),
   maxResults: document.querySelector("#max-results"),
+  maxMatchesPerFile: document.querySelector("#max-matches-per-file"),
   maxFiles: document.querySelector("#max-files"),
   timeoutMs: document.querySelector("#timeout-ms"),
   maxLineChars: document.querySelector("#max-line-chars"),
@@ -124,13 +125,6 @@ function splitKeywords(value) {
       seen.add(comparable);
       return true;
     });
-}
-
-function splitLines(value) {
-  return value
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
 }
 
 function extensionText(value) {
@@ -566,6 +560,7 @@ function renderConfig(config, check) {
   elements.ignoreFile.value = config.ignoreFile ?? "";
   elements.ignorePatterns.value = (config.ignore ?? []).join("\n");
   elements.maxResults.value = config.limits?.maxResults ?? 50;
+  elements.maxMatchesPerFile.value = config.limits?.maxMatchesPerFile ?? 1;
   elements.maxFiles.value = config.limits?.maxFiles ?? 50_000;
   elements.timeoutMs.value = config.limits?.timeoutMs ?? 15_000;
   elements.maxLineChars.value = config.limits?.maxLineChars ?? 1_000;
@@ -725,8 +720,9 @@ function collectConfig() {
   } else {
     delete next.ignoreFile;
   }
-  next.ignore = splitLines(elements.ignorePatterns.value);
+  next.ignore = splitValues(elements.ignorePatterns.value);
   next.limits.maxResults = positiveInteger(elements.maxResults, "Max results");
+  next.limits.maxMatchesPerFile = positiveInteger(elements.maxMatchesPerFile, "Snippets per file");
   next.limits.maxFiles = positiveInteger(elements.maxFiles, "Max files");
   next.limits.timeoutMs = positiveInteger(elements.timeoutMs, "Timeout");
   next.limits.maxLineChars = positiveInteger(elements.maxLineChars, "Max line characters");
@@ -1063,12 +1059,15 @@ async function runSearch(event) {
       body: { query: elements.searchQuery.value.trim(), source: state.sourceKey }
     });
     elements.searchSummary.hidden = false;
-    elements.searchSummary.textContent = `${payload.results.length} result(s) · ${payload.meta.filesRead} file(s) read · ${payload.meta.elapsedMs} ms${payload.meta.truncated ? " · partial result" : ""}`;
+    const duplicateSummary = payload.meta.duplicateFilesOmitted > 0
+      ? ` · ${payload.meta.duplicateFilesOmitted} duplicate ${payload.meta.duplicateFilesOmitted === 1 ? "file" : "files"} omitted`
+      : "";
+    elements.searchSummary.textContent = `${payload.results.length} unique file(s) · ${payload.meta.filesRead} file(s) read${duplicateSummary} · ${payload.meta.elapsedMs} ms${payload.meta.truncated ? " · partial result" : ""}`;
 
     if (payload.results.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty-state";
-      empty.textContent = "No matching line was found in the allowed documents.";
+      empty.textContent = "No matching allowed document was found.";
       elements.searchResults.append(empty);
       return;
     }
@@ -1086,7 +1085,33 @@ async function runSearch(event) {
       const resultText = document.createElement("div");
       resultText.className = "result-text";
       resultText.textContent = result.lineText;
-      body.append(resultPath, resultText);
+      const resultMeta = document.createElement("div");
+      resultMeta.className = "result-meta";
+      const metaParts = [`${result.matchCount} matching ${result.matchCount === 1 ? "line" : "lines"}`];
+      if (result.duplicateCount > 0) {
+        metaParts.push(`${result.duplicateCount} identical ${result.duplicateCount === 1 ? "copy" : "copies"} omitted`);
+      }
+      resultMeta.textContent = metaParts.join(" · ");
+      body.append(resultPath, resultText, resultMeta);
+
+      if (result.additionalMatches?.length > 0) {
+        const details = document.createElement("details");
+        details.className = "result-details";
+        const summary = document.createElement("summary");
+        summary.textContent = `${result.additionalMatches.length} secondary snippet(s)`;
+        details.append(summary);
+        for (const match of result.additionalMatches) {
+          const secondary = document.createElement("div");
+          secondary.className = "result-secondary";
+          const secondaryLine = document.createElement("span");
+          secondaryLine.textContent = `L${match.lineNumber}`;
+          const secondaryText = document.createElement("span");
+          secondaryText.textContent = match.lineText;
+          secondary.append(secondaryLine, secondaryText);
+          details.append(secondary);
+        }
+        body.append(details);
+      }
       article.append(line, body);
       elements.searchResults.append(article);
     }
@@ -1312,6 +1337,7 @@ for (const input of [
   elements.ignoreFile,
   elements.ignorePatterns,
   elements.maxResults,
+  elements.maxMatchesPerFile,
   elements.maxFiles,
   elements.timeoutMs,
   elements.maxLineChars,

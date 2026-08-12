@@ -13,7 +13,7 @@ If the agent does not already have verified machine-specific instructions, it ca
 }
 ```
 
-The `search` result contains grounded lines rather than guessed instructions:
+The `search` result contains one ranked entry per unique matching file rather than repeated top-level line hits:
 
 ```json
 {
@@ -23,13 +23,18 @@ The `search` result contains grounded lines rather than guessed instructions:
       "path": "C:\\path\\to\\local\\documentation\\README.md",
       "lineNumber": 37,
       "lineText": "The local MiniMax H3 workflow uses ...",
-      "matchType": "all_terms_line"
+      "matchType": "all_terms_line",
+      "fileMatchedTerms": ["minimax", "h3"],
+      "matchCount": 4,
+      "returnedMatchCount": 1,
+      "additionalMatches": [],
+      "duplicateCount": 1
     }
   ]
 }
 ```
 
-The agent reviews the paths and line text, prefers the machine-specific workflow over generic model documentation, and fetches the selected file:
+The primary line is the best ranked snippet found after scanning the whole file, so headings and useful prose are preferred over badges or image markup. `matchCount` still reveals how many lines matched, and byte-identical copies do not consume separate results. The agent reviews the paths and primary snippets, prefers the machine-specific workflow over generic model documentation, and fetches the selected file:
 
 ```json
 {

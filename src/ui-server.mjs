@@ -526,8 +526,7 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
         const body = await readJsonBody(request);
         sendJson(response, 200, await searchDocuments({
           query: typeof body?.query === "string" ? body.query : "",
-          source: typeof body?.source === "string" ? body.source : "local",
-          maxResults: 20
+          source: typeof body?.source === "string" ? body.source : "local"
         }, { configPath: resolvedConfigPath }));
         return;
       }

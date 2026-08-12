@@ -13,7 +13,7 @@ export const DEFAULT_CONFIG_PATH = path.join(PROJECT_ROOT, "config", "search.con
 
 const DEFAULT_LIMITS = {
   maxResults: 50,
-  maxMatchesPerFile: 3,
+  maxMatchesPerFile: 1,
   maxLineChars: 1_000,
   maxFileBytes: 2_000_000,
   maxFetchBytes: 4_000_000,

@@ -13,7 +13,7 @@ Use the `local_doc_search` MCP server to ground machine-specific work in human-a
    {"query":"minimax h3","source":"local"}
    ```
 
-2. Review the returned full paths, line numbers, and line text. Prefer the most specific local workflow or repository documentation over generic material.
+2. Review the unique file results, their full paths, best line snippets, file-level matched terms, and match counts. Prefer the most specific local workflow or repository documentation over generic material. Byte-identical copies are collapsed; `additionalMatches` contains optional secondary snippets from the same file rather than duplicate top-level results.
 
 3. If there is no useful hit, retry once with a shorter, spaced, or hyphenated query. For example, retry `minimax h3video` as `minimax h3 video`.
 

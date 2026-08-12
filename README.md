@@ -2,7 +2,7 @@
 
 Read-only local documentation, tool, reusable-prompt, and exact secret-file access for AI agents. The package exposes seven MCP tools:
 
-- `search(query, source)` scans human-configured directories for allowed suffix patterns and exact filenames, plus explicitly listed files. It returns JSON containing the full path, 1-based line number, and matching line text. Exceptionally long one-line documents return a bounded excerpt with truncation metadata.
+- `search(query, source)` scans human-configured directories for allowed suffix patterns and exact filenames, plus explicitly listed files. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed. Each result includes the full path, 1-based line number, bounded line text, file-level match counts, and optional nested secondary snippets.
 - `fetch(path, source)` returns the complete text and SHA-256 identity of a file selected from search results.
 - `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
@@ -57,7 +57,7 @@ From the UI you can:
 - Register exact secret files only. Folders and links are rejected; the UI detects key names but never displays or stores secret values.
 - Control executable and script suffixes such as `.exe;.cmd;.bat;.ps1;.py;.js;.mjs` and test the saved catalog with the same `find_tool` resolver used by the agent.
 - Enter suffix patterns such as `.json;.ai.md;.md;.txt`.
-- Edit exact filenames, ignore rules, and safety limits.
+- Edit exact filenames, ignore rules, snippets per file, and safety limits. Additional ignore patterns accept semicolons or one pattern per line.
 - Save only after full schema validation; the previous file is retained as `search.config.json.bak`.
 - Run a local test search using the saved configuration.
 
@@ -93,6 +93,8 @@ Edit the local `config/search.config.json` to define named sources, directories,
 ```
 
 `roots` are searched recursively. `files` are exact grants and do not need to match an extension or filename rule. Set `enabled` to `false` to retain an entry without scanning or granting it; existing string entries and objects without `enabled` remain enabled for backward compatibility. A disabled row deactivates that grant rather than creating a deny rule, so the same path can remain accessible when it is also covered by another enabled parent folder or duplicate grant. `extensions` accepts either an array of suffixes or a semicolon-separated string; `.json`, `*.json`, `**.json`, and `**/*.json` all normalize to the same `.json` suffix rule. `fileNames` contains exact names matched anywhere beneath a root.
+
+Search scans every eligible line so all query terms may match on one line or across the file. It returns the highest-quality snippet for each ranked file, favoring useful headings and prose over badges, image markup, and URL-heavy lines. `limits.maxMatchesPerFile` controls how many snippets are retained inside each file result and defaults to `1`; values above one add entries under `additionalMatches` without repeating the file as another top-level result. `matchCount` reports all matching lines, `fileMatchedTerms` reports terms found across the file, and `duplicateCount` reports byte-identical copies omitted from that result. Hashing is performed only after a file matches.
 
 Tool access is configured separately in the same file:
 
@@ -169,7 +171,7 @@ Secret access is configured separately and accepts exact files only:
 
 Use `find_secret` first. Prefer passing the returned path directly to a program through options such as `--env-file`, `--key-file`, or a tool-specific configuration argument. Call `read_secret` only when the program requires individual values, and request the minimum keys needed. MCP results can be retained by a client task log, so do not retrieve values unnecessarily or repeat them in chat, commands, files, or diagnostics.
 
-Git tracks only the empty [configuration example](config/search.config.example.json), never the active configuration or its backup. Edit [config/.agent-searchignore](config/.agent-searchignore) using Git-ignore syntax to exclude generated or irrelevant directories. Negated `!patterns` are supported.
+Git tracks only the empty [configuration example](config/search.config.example.json), never the active configuration or its backup. Edit [config/.agent-searchignore](config/.agent-searchignore) using Git-ignore syntax to exclude generated or irrelevant directories. Negated `!patterns` are supported. In the UI, the separate **Additional ignore patterns** field accepts semicolons or newlines; the JSON form is an array with one Git-ignore pattern per item.
 
 `fetch` is intentionally allowlisted: it only reads eligible files beneath configured roots or exact files listed by the human. It rejects relative paths, links, known credential locations and secret file types, binary files, ignored files, and oversized files.
 
@@ -203,7 +205,7 @@ See [the MiniMax H3 workflow example](docs/AI_WORKFLOW_EXAMPLE.md) for the inten
 - Secret inspection returns only aliases, paths, formats, and field names. `read_secret` is the only MCP method that returns values, and only for an exact configured alias and explicitly selected key/value fields.
 - No persistent index, cache, telemetry, or network requests.
 - Configuration reloads on every call, so human edits take effect without restarting the server.
-- Search stops at configured file, result, size, and time limits and reports partial results honestly.
+- Search stops at configured file, result, size, and time limits and reports partial results honestly. Top-level result limits count unique files, not matching lines.
 - Long matching lines are bounded by `limits.maxLineChars`; `fetch` still returns the complete allowed document.
 - Fetched documentation and stored prompts cannot override system or current user instructions.
 - MCP stdout contains protocol messages only; diagnostics use stderr.

@@ -27,7 +27,7 @@
   "prompts": [],
   "limits": {
     "maxResults": 50,
-    "maxMatchesPerFile": 3,
+    "maxMatchesPerFile": 1,
     "maxLineChars": 1000,
     "maxFileBytes": 2000000,
     "maxFetchBytes": 4000000,
