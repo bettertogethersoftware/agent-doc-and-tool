@@ -168,12 +168,16 @@ function markDirty() {
   }
   state.dirty = true;
   elements.dirtyState.textContent = "Unsaved changes";
+  elements.dirtyState.classList.add("is-dirty");
+  elements.saveConfig.classList.add("is-dirty");
   elements.saveConfig.disabled = false;
 }
 
 function markClean() {
   state.dirty = false;
   elements.dirtyState.textContent = "No unsaved changes";
+  elements.dirtyState.classList.remove("is-dirty");
+  elements.saveConfig.classList.remove("is-dirty");
   elements.saveConfig.disabled = false;
 }
 

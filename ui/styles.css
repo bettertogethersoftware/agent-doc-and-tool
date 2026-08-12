@@ -314,6 +314,17 @@ code {
   background: var(--accent-strong);
 }
 
+.button.primary.is-dirty {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #1d0907;
+  box-shadow: 0 6px 18px rgb(255 141 127 / 14%);
+}
+
+.button.primary.is-dirty:hover:not(:disabled) {
+  background: #ffaaa0;
+}
+
 .button.secondary,
 .button.ghost {
   border-color: var(--line-strong);
@@ -1010,6 +1021,10 @@ code {
 .actionbar-status.is-warning p,
 .actionbar-status.is-error strong,
 .actionbar-status.is-error p {
+  color: var(--danger);
+}
+
+.actionbar-dirty strong.is-dirty {
   color: var(--danger);
 }
 
