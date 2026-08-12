@@ -21,7 +21,8 @@ function createFakeChild() {
 }
 
 async function createUiFixture(t) {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-ui-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-doc-ui-test-"));
   const docsRoot = path.join(temporaryRoot, "allowed docs");
   const exactFile = path.join(temporaryRoot, "dropped exact file.txt");
   const toolPath = path.join(docsRoot, "ffprobe.exe");
@@ -75,7 +76,7 @@ async function createUiFixture(t) {
   t.after(async () => {
     await ui.close();
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
@@ -106,8 +107,12 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /Register tools without running them/);
   assert.match(pageText, /Keep reusable prompts close to your agent/);
   assert.match(pageText, /Register exact credential files/);
+  assert.match(pageText, /Document name or alias/);
   assert.match(pageText, /id="max-matches-per-file"/);
   assert.match(pageText, /Separate patterns with semicolons/);
+  assert.match(pageText, /id="validate-paths"/);
+  assert.match(pageText, /Validate all paths/);
+  assert.match(pageText, /id="ignore-file-state"/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -122,6 +127,70 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.deepEqual(payload.check.prompts.entries[0].keywords, ["cinematic", "music video", "youtube", "feature length"]);
   assert.deepEqual(payload.check.secrets.files[0].fields, ["hostname", "password"]);
   assert.doesNotMatch(JSON.stringify(payload), /ui-fixture-password/);
+});
+
+test("configuration UI validates saved and unsaved paths without modifying configuration", async (t) => {
+  const fixture = await createUiFixture(t);
+  const missingFile = path.join(path.dirname(fixture.configPath), "missing-document.txt");
+  const missingDirectory = path.join(path.dirname(fixture.configPath), "missing-disabled-directory");
+  const configBefore = await fs.readFile(fixture.configPath, "utf8");
+
+  const response = await fetch(new URL("api/validate-paths", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      entries: [
+        { id: "document-directory", kind: "directory", path: fixture.docsRoot, enabled: true },
+        { id: "document-file", kind: "file", path: fixture.exactFile, enabled: true },
+        { id: "wrong-directory-type", kind: "directory", path: fixture.exactFile, enabled: true },
+        { id: "wrong-file-type", kind: "file", path: fixture.docsRoot, enabled: true },
+        { id: "missing-file", kind: "file", path: missingFile, enabled: true },
+        { id: "disabled-missing-directory", kind: "directory", path: missingDirectory, enabled: false },
+        { id: "unsaved-relative-file", kind: "file", path: path.basename(fixture.exactFile), enabled: true },
+        { id: "empty-file", kind: "file", path: "", enabled: true }
+      ]
+    })
+  });
+  const payload = await response.json();
+  const entries = new Map(payload.entries.map((entry) => [entry.id, entry]));
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.summary, {
+    total: 8,
+    valid: 3,
+    invalid: 5,
+    enabledInvalid: 4,
+    disabledInvalid: 1
+  });
+  assert.equal(entries.get("document-directory").valid, true);
+  assert.equal(entries.get("document-directory").actualType, "directory");
+  assert.equal(entries.get("document-file").valid, true);
+  assert.equal(entries.get("wrong-directory-type").code, "PATH_TYPE_MISMATCH");
+  assert.equal(entries.get("wrong-directory-type").actualType, "file");
+  assert.equal(entries.get("wrong-file-type").code, "PATH_TYPE_MISMATCH");
+  assert.equal(entries.get("wrong-file-type").actualType, "directory");
+  assert.equal(entries.get("missing-file").code, "PATH_UNAVAILABLE");
+  assert.equal(entries.get("disabled-missing-directory").enabled, false);
+  assert.equal(entries.get("disabled-missing-directory").valid, false);
+  assert.equal(entries.get("unsaved-relative-file").valid, true);
+  assert.equal(entries.get("unsaved-relative-file").path, fixture.exactFile);
+  assert.equal(entries.get("empty-file").code, "PATH_EMPTY");
+  assert.equal(await fs.readFile(fixture.configPath, "utf8"), configBefore);
+
+  const duplicateResponse = await fetch(new URL("api/validate-paths", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      entries: [
+        { id: "duplicate", kind: "file", path: fixture.exactFile },
+        { id: "duplicate", kind: "directory", path: fixture.docsRoot }
+      ]
+    })
+  });
+  const duplicatePayload = await duplicateResponse.json();
+  assert.equal(duplicateResponse.status, 400);
+  assert.equal(duplicatePayload.error.code, "UI_PATH_ENTRY_ID_DUPLICATE");
 });
 
 test("configuration UI inspects and finds secret metadata without returning values", async (t) => {
@@ -305,7 +374,7 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   const fixture = await createUiFixture(t);
   const nextConfig = structuredClone(fixture.config);
   nextConfig.sources.local.roots[0].enabled = false;
-  nextConfig.sources.local.files.push({ path: fixture.exactFile, enabled: false });
+  nextConfig.sources.local.files.push({ name: "disabled-exact-document", path: fixture.exactFile, enabled: false });
   nextConfig.tools.directories[0].enabled = false;
   nextConfig.tools.files.push({ name: "disabled-ffprobe", path: fixture.toolPath, priority: 100, enabled: false });
   nextConfig.secrets.files[0].enabled = false;
@@ -323,12 +392,14 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   const saved = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
   assert.equal(saved.sources.local.roots[0].enabled, false);
   assert.equal(saved.sources.local.files[0].enabled, false);
+  assert.equal(saved.sources.local.files[0].name, "disabled-exact-document");
   assert.equal(saved.tools.directories[0].enabled, false);
   assert.equal(saved.tools.files[0].enabled, false);
   assert.equal(saved.secrets.files[0].enabled, false);
   assert.equal(saved.prompts[0].enabled, false);
   assert.equal(savePayload.check.sources.local.roots[0].available, null);
   assert.equal(savePayload.check.sources.local.files[0].available, null);
+  assert.equal(savePayload.check.sources.local.files[0].name, "disabled-exact-document");
   assert.equal(savePayload.check.tools.directories[0].available, null);
   assert.equal(savePayload.check.tools.files[0].available, null);
   assert.equal(savePayload.check.secrets.files[0].available, null);
@@ -358,4 +429,80 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   assert.equal((await toolResponse.json()).results.length, 0);
   assert.equal((await secretResponse.json()).results.length, 0);
   assert.equal((await promptResponse.json()).results.length, 0);
+});
+
+test("configuration API accepts selected document grant names without broadening", async (t) => {
+  const fixture = await createUiFixture(t);
+  const nextConfig = structuredClone(fixture.config);
+  nextConfig.sources.local.files.push({
+    name: "ui-exact-document",
+    path: fixture.exactFile,
+    enabled: true
+  });
+  const saveResponse = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: nextConfig })
+  });
+  assert.equal(saveResponse.status, 200);
+
+  const searchResponse = await fetch(new URL("api/search", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({
+      query: "dropped exact fixture",
+      directories: [],
+      files: ["UI-EXACT-DOCUMENT"]
+    })
+  });
+  const searchPayload = await searchResponse.json();
+  assert.equal(searchResponse.status, 200);
+  assert.equal(searchPayload.scope.mode, "selected");
+  assert.deepEqual(searchPayload.scope.directories, []);
+  assert.deepEqual(searchPayload.scope.files, [{
+    name: "ui-exact-document",
+    path: fixture.exactFile
+  }]);
+  assert.deepEqual(searchPayload.results.map((entry) => entry.path), [fixture.exactFile]);
+
+  const invalidResponse = await fetch(new URL("api/search", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ query: "error", directories: "ui-fixture" })
+  });
+  const invalidPayload = await invalidResponse.json();
+  assert.equal(invalidResponse.status, 400);
+  assert.equal(invalidPayload.error.code, "SEARCH_SCOPE_INVALID");
+});
+
+test("configuration API rejects ambiguous document grant identifiers", async (t) => {
+  const fixture = await createUiFixture(t);
+  const duplicateDirectoryConfig = structuredClone(fixture.config);
+  duplicateDirectoryConfig.sources.local.roots.push({
+    name: "UI-FIXTURE",
+    path: fixture.docsRoot,
+    priority: 50
+  });
+  const directoryResponse = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: duplicateDirectoryConfig })
+  });
+  const directoryPayload = await directoryResponse.json();
+  assert.equal(directoryResponse.status, 400);
+  assert.equal(directoryPayload.error.code, "CONFIG_DOCUMENT_DIRECTORY_NAME_DUPLICATE");
+
+  const duplicateFileConfig = structuredClone(fixture.config);
+  duplicateFileConfig.sources.local.files.push(
+    { name: "first-exact", path: fixture.exactFile },
+    { name: "FIRST-EXACT", path: path.join(fixture.docsRoot, "workflow.json") }
+  );
+  const fileResponse = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: duplicateFileConfig })
+  });
+  const filePayload = await fileResponse.json();
+  assert.equal(fileResponse.status, 400);
+  assert.equal(filePayload.error.code, "CONFIG_DOCUMENT_FILE_NAME_DUPLICATE");
 });

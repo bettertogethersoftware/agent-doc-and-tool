@@ -7,7 +7,13 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { DEFAULT_CONFIG_PATH, expandPathVariables, parseConfig, PROJECT_ROOT } from "./config.mjs";
+import {
+  DEFAULT_CONFIG_PATH,
+  expandPathVariables,
+  parseConfig,
+  PROJECT_ROOT,
+  resolveConfiguredPath
+} from "./config.mjs";
 import { AgentDocError, errorPayload } from "./errors.mjs";
 import { findPrompts } from "./prompt-service.mjs";
 import { checkConfiguration, searchDocuments } from "./search-service.mjs";
@@ -17,6 +23,7 @@ import { findTools } from "./tool-service.mjs";
 const UI_DIRECTORY = path.join(PROJECT_ROOT, "ui");
 const WINDOWS_DROP_TARGET = path.join(PROJECT_ROOT, "scripts", "windows-drop-target.ps1");
 const MAX_REQUEST_BYTES = 6_000_000;
+const MAX_PATH_VALIDATION_ENTRIES = 1_000;
 const NATIVE_DROP_TIMEOUT_MS = 120_000;
 const DEFAULT_PORT = 43120;
 const LOOPBACK_HOST = "127.0.0.1";
@@ -285,6 +292,131 @@ export async function classifyDroppedPaths(pathsInput) {
   return { items, errors };
 }
 
+async function verifyReadablePath(resolvedPath, expectedKind) {
+  const pathStat = await fs.lstat(resolvedPath);
+  if (pathStat.isSymbolicLink()) {
+    return {
+      valid: false,
+      code: "PATH_LINK_NOT_ALLOWED",
+      message: "Links and junctions are not valid configured paths.",
+      actualType: "link"
+    };
+  }
+
+  const actualType = pathStat.isDirectory() ? "directory" : pathStat.isFile() ? "file" : "other";
+  if (actualType !== expectedKind) {
+    return {
+      valid: false,
+      code: "PATH_TYPE_MISMATCH",
+      message: expectedKind === "directory"
+        ? `Expected a directory but found ${actualType === "file" ? "a file" : "an unsupported filesystem entry"}.`
+        : `Expected a regular file but found ${actualType === "directory" ? "a directory" : "an unsupported filesystem entry"}.`,
+      actualType
+    };
+  }
+
+  const realPath = await fs.realpath(resolvedPath);
+  if (expectedKind === "directory") {
+    const directory = await fs.opendir(realPath);
+    await directory.close();
+  } else {
+    const file = await fs.open(realPath, "r");
+    await file.close();
+  }
+
+  return { valid: true, code: "PATH_VALID", message: `Valid ${expectedKind}.`, actualType, path: realPath };
+}
+
+export async function validateUiPaths(entriesInput, options = {}) {
+  if (!Array.isArray(entriesInput)) {
+    throw new AgentDocError("UI_PATH_ENTRIES_INVALID", "Path validation entries must be provided as an array.");
+  }
+  if (entriesInput.length > MAX_PATH_VALIDATION_ENTRIES) {
+    throw new AgentDocError(
+      "UI_PATH_ENTRIES_LIMIT",
+      `At most ${MAX_PATH_VALIDATION_ENTRIES} paths can be validated at once.`
+    );
+  }
+
+  const configuredPath = options.configPath ?? DEFAULT_CONFIG_PATH;
+  const configPath = path.resolve(expandPathVariables(configuredPath));
+  const configDirectory = path.dirname(configPath);
+  const seenIds = new Set();
+  const entries = [];
+
+  for (const [index, entry] of entriesInput.entries()) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new AgentDocError("UI_PATH_ENTRY_INVALID", `Path validation entry ${index + 1} must be an object.`);
+    }
+    if (typeof entry.id !== "string" || !entry.id.trim() || entry.id.length > 200) {
+      throw new AgentDocError("UI_PATH_ENTRY_ID_INVALID", `Path validation entry ${index + 1} needs an id of at most 200 characters.`);
+    }
+    const id = entry.id.trim();
+    if (seenIds.has(id)) {
+      throw new AgentDocError("UI_PATH_ENTRY_ID_DUPLICATE", `Path validation id '${id}' is used more than once.`);
+    }
+    seenIds.add(id);
+
+    if (!["directory", "file"].includes(entry.kind)) {
+      throw new AgentDocError("UI_PATH_ENTRY_KIND_INVALID", `Path validation entry '${id}' must expect a directory or file.`);
+    }
+    if (typeof entry.path !== "string" || entry.path.length > 32_768) {
+      throw new AgentDocError("UI_PATH_ENTRY_PATH_INVALID", `Path validation entry '${id}' needs a string path of at most 32768 characters.`);
+    }
+    if (entry.enabled !== undefined && typeof entry.enabled !== "boolean") {
+      throw new AgentDocError("UI_PATH_ENTRY_ENABLED_INVALID", `Path validation entry '${id}' has an invalid enabled state.`);
+    }
+
+    const inputPath = entry.path.trim();
+    const base = { id, kind: entry.kind, inputPath, enabled: entry.enabled !== false };
+    if (!inputPath) {
+      entries.push({
+        ...base,
+        path: null,
+        valid: false,
+        code: "PATH_EMPTY",
+        message: entry.kind === "directory" ? "Directory path is required." : "File path is required.",
+        actualType: null
+      });
+      continue;
+    }
+
+    let resolvedPath;
+    try {
+      resolvedPath = resolveConfiguredPath(inputPath, configDirectory);
+      const result = await verifyReadablePath(resolvedPath, entry.kind);
+      entries.push({ ...base, path: result.path ?? resolvedPath, ...result });
+    } catch (error) {
+      entries.push({
+        ...base,
+        path: resolvedPath ?? null,
+        valid: false,
+        code: "PATH_UNAVAILABLE",
+        message: error instanceof Error ? error.message : String(error),
+        actualType: null
+      });
+    }
+  }
+
+  const validCount = entries.filter((entry) => entry.valid).length;
+  const invalidEntries = entries.filter((entry) => !entry.valid);
+  const enabledInvalidCount = invalidEntries.filter((entry) => entry.enabled).length;
+  const disabledInvalidCount = invalidEntries.length - enabledInvalidCount;
+  return {
+    schemaVersion: "1.0",
+    ok: true,
+    configPath,
+    entries,
+    summary: {
+      total: entries.length,
+      valid: validCount,
+      invalid: invalidEntries.length,
+      enabledInvalid: enabledInvalidCount,
+      disabledInvalid: disabledInvalidCount
+    }
+  };
+}
+
 export function createNativeDropTargetManager({
   platform = process.platform,
   powershellPath = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
@@ -522,11 +654,20 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
         return;
       }
 
+      if (route === "/api/validate-paths" && request.method === "POST") {
+        const body = await readJsonBody(request);
+        sendJson(response, 200, await validateUiPaths(body?.entries, { configPath: resolvedConfigPath }));
+        return;
+      }
+
       if (route === "/api/search" && request.method === "POST") {
         const body = await readJsonBody(request);
         sendJson(response, 200, await searchDocuments({
           query: typeof body?.query === "string" ? body.query : "",
-          source: typeof body?.source === "string" ? body.source : "local"
+          source: typeof body?.source === "string" ? body.source : "local",
+          maxResults: body?.maxResults,
+          directories: body?.directories,
+          files: body?.files
         }, { configPath: resolvedConfigPath }));
         return;
       }

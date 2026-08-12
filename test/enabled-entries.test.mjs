@@ -10,13 +10,15 @@ import {
   listSecretCatalog,
   listToolCatalog
 } from "../src/catalog-service.mjs";
+import { parseConfig } from "../src/config.mjs";
 import { findPrompts, readPrompt } from "../src/prompt-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "../src/search-service.mjs";
 import { findSecrets, readSecret } from "../src/secret-service.mjs";
 import { findTools } from "../src/tool-service.mjs";
 
 async function createFixture(t) {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-entry-toggle-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-entry-toggle-test-"));
   const enabledDocs = path.join(temporaryRoot, "enabled-docs");
   const disabledDocs = path.join(temporaryRoot, "disabled-docs");
   const enabledTools = path.join(temporaryRoot, "enabled-tools");
@@ -69,9 +71,9 @@ async function createFixture(t) {
         extensions: ".md;.txt",
         fileNames: ["README.md"],
         files: [
-          { path: enabledExactDocument, enabled: true },
-          { path: disabledExactDocument, enabled: false },
-          { path: `${missingPath}.txt`, enabled: false }
+          { name: "enabled-exact-document", path: enabledExactDocument, enabled: true },
+          { name: "disabled-exact-document", path: disabledExactDocument, enabled: false },
+          { name: "disabled-missing-document", path: `${missingPath}.txt`, enabled: false }
         ]
       }
     },
@@ -116,7 +118,7 @@ async function createFixture(t) {
 
   t.after(async () => {
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
@@ -144,11 +146,96 @@ test("document catalog lists enabled folders and exact files only", async (t) =>
     path: fixture.enabledDocs,
     priority: 100
   }]);
-  assert.deepEqual(listed.files, [{ path: fixture.enabledExactDocument }]);
+  assert.deepEqual(listed.files, [{
+    name: "enabled-exact-document",
+    path: fixture.enabledExactDocument
+  }]);
   assert.equal(listed.meta.enabledOnly, true);
   assert.equal(listed.meta.directoriesReturned, 1);
   assert.equal(listed.meta.filesReturned, 1);
   assert.doesNotMatch(JSON.stringify(listed), /disabled-docs|disabled-exact|does-not-exist/);
+});
+
+test("exact document grants require a name and object shape", async () => {
+  const baseConfig = {
+    version: 1,
+    defaultSource: "local",
+    sources: {
+      local: {
+        roots: [],
+        extensions: ".md",
+        fileNames: ["README.md"],
+        files: []
+      }
+    }
+  };
+
+  for (const invalidFile of [{ path: "C:\\docs\\guide.md" }, "C:\\docs\\guide.md"]) {
+    await assert.rejects(
+      parseConfig({
+        ...baseConfig,
+        sources: { local: { ...baseConfig.sources.local, files: [invalidFile] } }
+      }, "C:\\config\\search.config.json"),
+      (error) => error?.code === "CONFIG_SCHEMA_INVALID"
+    );
+  }
+});
+
+test("document grant names and exact-file paths are unique within each source", async () => {
+  const baseConfig = {
+    version: 1,
+    defaultSource: "local",
+    sources: {
+      local: {
+        roots: [],
+        extensions: ".md",
+        fileNames: ["README.md"],
+        files: []
+      }
+    }
+  };
+  const cases = [
+    {
+      roots: [
+        { name: "Project-Docs", path: "C:\\docs\\one" },
+        { name: "project-docs", path: "C:\\docs\\two" }
+      ],
+      files: [],
+      code: "CONFIG_DOCUMENT_DIRECTORY_NAME_DUPLICATE"
+    },
+    {
+      roots: [],
+      files: [
+        { name: "Release-Notes", path: "C:\\docs\\one.md" },
+        { name: "release-notes", path: "C:\\docs\\two.md" }
+      ],
+      code: "CONFIG_DOCUMENT_FILE_NAME_DUPLICATE"
+    },
+    {
+      roots: [],
+      files: [
+        { name: "release-notes-one", path: "C:\\docs\\same.md" },
+        { name: "release-notes-two", path: "C:\\docs\\same.md" }
+      ],
+      code: "CONFIG_DOCUMENT_FILE_PATH_DUPLICATE"
+    }
+  ];
+
+  for (const fixture of cases) {
+    await assert.rejects(
+      parseConfig({
+        ...baseConfig,
+        sources: {
+          local: {
+            ...baseConfig.sources.local,
+            roots: fixture.roots,
+            files: fixture.files
+          }
+        }
+      }, "C:\\config\\search.config.json"),
+      (error) => error?.code === fixture.code
+    );
+  }
 });
 
 test("tool catalog lists enabled directories and exact files only", async (t) => {
@@ -291,6 +378,7 @@ test("configuration checks retain disabled entries without probing missing paths
     assert.equal(Object.hasOwn(entry, "error"), false);
   }
   assert.equal(checked.prompts.enabledCount, 1);
+  assert.equal(disabledDocument.name, "disabled-missing-document");
   assert.equal(checked.prompts.disabledCount, 1);
   assert.equal(checked.prompts.entries.find((entry) => entry.name === "disabled-prompt").enabled, false);
 });

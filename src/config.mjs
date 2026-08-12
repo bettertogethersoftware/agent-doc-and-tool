@@ -26,6 +26,7 @@ export const DEFAULT_SECRET_MAX_FILE_BYTES = 256_000;
 export const MAX_PROMPT_NAME_CHARS = 200;
 export const MAX_PROMPT_CONTENT_CHARS = 200_000;
 export const MAX_PROMPT_TOTAL_CHARS = 5_000_000;
+export const MAX_SEARCH_SCOPE_GRANTS = 500;
 const MAX_PROMPT_KEYWORDS = 100;
 const MAX_PROMPT_KEYWORD_CHARS = 200;
 
@@ -39,13 +40,11 @@ const RootEntrySchema = z.union([
   }).strict()
 ]);
 
-const DocumentFileEntrySchema = z.union([
-  z.string().trim().min(1),
-  z.object({
-    path: z.string().trim().min(1),
-    enabled: z.boolean().default(true)
-  }).strict()
-]);
+const DocumentFileEntrySchema = z.object({
+  name: z.string().trim().min(1),
+  path: z.string().trim().min(1),
+  enabled: z.boolean().default(true)
+}).strict();
 
 const ExtensionListSchema = z.union([
   z.string().trim().min(1),
@@ -225,10 +224,20 @@ export function normalizeExtensionPatterns(value) {
 }
 
 function normalizeSource(name, rawSource, configDirectory) {
+  const rootNames = new Set();
   const roots = rawSource.roots.map((entry, index) => {
     const root = typeof entry === "string" ? { path: entry, priority: 0 } : entry;
+    const rootName = root.name ?? `${name}-root-${index + 1}`;
+    const comparableName = rootName.toLowerCase();
+    if (rootNames.has(comparableName)) {
+      throw new AgentDocError(
+        "CONFIG_DOCUMENT_DIRECTORY_NAME_DUPLICATE",
+        `Document directory name '${rootName}' is configured more than once in source '${name}'.`
+      );
+    }
+    rootNames.add(comparableName);
     return {
-      name: root.name ?? `${name}-root-${index + 1}`,
+      name: rootName,
       path: resolveConfiguredPath(root.path, configDirectory),
       priority: root.priority ?? 0,
       enabled: root.enabled !== false
@@ -236,16 +245,27 @@ function normalizeSource(name, rawSource, configDirectory) {
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
   const files = [];
-  const seenFiles = new Set();
-  for (const entry of rawSource.files) {
-    const file = typeof entry === "string" ? { path: entry, enabled: true } : entry;
+  const fileNames = new Set();
+  const filePaths = new Set();
+  for (const file of rawSource.files) {
     const resolvedPath = resolveConfiguredPath(file.path, configDirectory);
+    const comparableName = file.name.toLowerCase();
     const comparablePath = process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
-    if (seenFiles.has(comparablePath)) {
-      continue;
+    if (fileNames.has(comparableName)) {
+      throw new AgentDocError(
+        "CONFIG_DOCUMENT_FILE_NAME_DUPLICATE",
+        `Exact document file name '${file.name}' is configured more than once in source '${name}'.`
+      );
     }
-    seenFiles.add(comparablePath);
-    files.push({ path: resolvedPath, enabled: file.enabled !== false });
+    if (filePaths.has(comparablePath)) {
+      throw new AgentDocError(
+        "CONFIG_DOCUMENT_FILE_PATH_DUPLICATE",
+        `Exact document file path is configured more than once in source '${name}': ${resolvedPath}`
+      );
+    }
+    fileNames.add(comparableName);
+    filePaths.add(comparablePath);
+    files.push({ name: file.name, path: resolvedPath, enabled: file.enabled !== false });
   }
 
   return {
@@ -479,7 +499,7 @@ export function getSource(config, sourceInput = undefined) {
   const enabledSource = {
     ...source,
     roots: source.roots.filter((root) => root.enabled),
-    files: source.files.filter((file) => file.enabled).map((file) => file.path)
+    files: source.files.filter((file) => file.enabled)
   };
   if (sourceName !== config.defaultSource) {
     return enabledSource;
@@ -511,6 +531,150 @@ export function getSource(config, sourceInput = undefined) {
         roots: [...enabledSource.roots, ...documentationRoots]
           .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
       };
+}
+
+function normalizeSearchScopeNames(value, field) {
+  if (!Array.isArray(value)) {
+    throw new AgentDocError("SEARCH_SCOPE_INVALID", `Search scope field '${field}' must be an array of configured grant names.`, {
+      field
+    });
+  }
+  if (value.length > MAX_SEARCH_SCOPE_GRANTS) {
+    throw new AgentDocError(
+      "SEARCH_SCOPE_INVALID",
+      `Search scope field '${field}' can contain at most ${MAX_SEARCH_SCOPE_GRANTS} names.`,
+      { field, limit: MAX_SEARCH_SCOPE_GRANTS }
+    );
+  }
+
+  const names = [];
+  const seen = new Set();
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      throw new AgentDocError("SEARCH_SCOPE_INVALID", `Search scope field '${field}' must contain non-empty configured grant names.`, {
+        field
+      });
+    }
+    const name = entry.trim();
+    const comparableName = name.toLowerCase();
+    if (seen.has(comparableName)) {
+      continue;
+    }
+    seen.add(comparableName);
+    names.push(name);
+  }
+  return names;
+}
+
+function resolveSelectedEntries(entries, requestedNames) {
+  const entriesByExactName = new Map(entries.map((entry) => [entry.name, entry]));
+  const entriesByComparableName = new Map(entries.map((entry) => [entry.name.toLowerCase(), entry]));
+  const selectedNames = new Set();
+  const unknown = [];
+  const disabled = [];
+
+  for (const requestedName of requestedNames) {
+    const entry = entriesByExactName.get(requestedName)
+      ?? entriesByComparableName.get(requestedName.toLowerCase());
+    if (!entry) {
+      unknown.push(requestedName);
+      continue;
+    }
+    if (!entry.enabled) {
+      disabled.push(entry.name);
+      continue;
+    }
+    selectedNames.add(entry.name.toLowerCase());
+  }
+
+  return {
+    entries: entries.filter((entry) => selectedNames.has(entry.name.toLowerCase())),
+    unknown,
+    disabled
+  };
+}
+
+function publicDocumentDirectory(directory) {
+  return {
+    name: directory.name,
+    path: directory.path,
+    priority: directory.priority
+  };
+}
+
+function publicDocumentFile(file) {
+  return {
+    name: file.name,
+    path: file.path
+  };
+}
+
+export function resolveDocumentSearchScope(config, {
+  source: sourceInput = undefined,
+  directories = undefined,
+  files = undefined
+} = {}) {
+  const selectedMode = directories !== undefined || files !== undefined;
+  if (!selectedMode) {
+    const source = getSource(config, sourceInput);
+    return {
+      source,
+      scope: {
+        mode: "all-enabled",
+        directories: source.roots.map(publicDocumentDirectory),
+        files: source.files.map(publicDocumentFile)
+      }
+    };
+  }
+
+  const requestedDirectories = normalizeSearchScopeNames(directories ?? [], "directories");
+  const requestedFiles = normalizeSearchScopeNames(files ?? [], "files");
+  if (requestedDirectories.length === 0 && requestedFiles.length === 0) {
+    throw new AgentDocError(
+      "SEARCH_SCOPE_EMPTY",
+      "Scoped search requires at least one document directory or exact file."
+    );
+  }
+
+  const configuredSource = getConfiguredSource(config, sourceInput);
+  const resolvedDirectories = resolveSelectedEntries(configuredSource.roots, requestedDirectories);
+  const resolvedFiles = resolveSelectedEntries(configuredSource.files, requestedFiles);
+  if (resolvedDirectories.unknown.length > 0 || resolvedFiles.unknown.length > 0) {
+    throw new AgentDocError(
+      "SEARCH_SCOPE_NOT_FOUND",
+      "One or more requested document grants are not configured.",
+      {
+        unknownDirectories: resolvedDirectories.unknown,
+        unknownFiles: resolvedFiles.unknown,
+        availableDirectories: configuredSource.roots.filter((entry) => entry.enabled).map((entry) => entry.name),
+        availableFiles: configuredSource.files.filter((entry) => entry.enabled).map((entry) => entry.name)
+      }
+    );
+  }
+  if (resolvedDirectories.disabled.length > 0 || resolvedFiles.disabled.length > 0) {
+    throw new AgentDocError(
+      "SEARCH_SCOPE_DISABLED",
+      "One or more requested document grants are disabled.",
+      {
+        disabledDirectories: resolvedDirectories.disabled,
+        disabledFiles: resolvedFiles.disabled
+      }
+    );
+  }
+
+  const source = {
+    ...configuredSource,
+    roots: resolvedDirectories.entries,
+    files: resolvedFiles.entries
+  };
+  return {
+    source,
+    scope: {
+      mode: "selected",
+      directories: source.roots.map(publicDocumentDirectory),
+      files: source.files.map(publicDocumentFile)
+    }
+  };
 }
 
 export function matchesConfiguredDocument(filePath, source, caseSensitive) {

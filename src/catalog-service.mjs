@@ -12,7 +12,10 @@ export async function listDocumentCatalog({ source: sourceInput = undefined } = 
     }));
   const files = source.files
     .filter((file) => file.enabled)
-    .map((file) => ({ path: file.path }));
+    .map((file) => ({
+      name: file.name,
+      path: file.path
+    }));
 
   return {
     schemaVersion: "1.0",

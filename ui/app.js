@@ -32,6 +32,7 @@ const elements = {
   fileNames: document.querySelector("#file-names"),
   caseSensitive: document.querySelector("#case-sensitive"),
   ignoreFile: document.querySelector("#ignore-file"),
+  ignoreFileState: document.querySelector("#ignore-file-state"),
   ignorePatterns: document.querySelector("#ignore-patterns"),
   maxResults: document.querySelector("#max-results"),
   maxMatchesPerFile: document.querySelector("#max-matches-per-file"),
@@ -40,6 +41,7 @@ const elements = {
   maxLineChars: document.querySelector("#max-line-chars"),
   maxFileBytes: document.querySelector("#max-file-bytes"),
   reloadConfig: document.querySelector("#reload-config"),
+  validatePaths: document.querySelector("#validate-paths"),
   saveConfig: document.querySelector("#save-config"),
   dirtyState: document.querySelector("#dirty-state"),
   searchForm: document.querySelector("#search-form"),
@@ -97,7 +99,8 @@ const state = {
   sourceKey: "local",
   activeTab: "prompts",
   dirty: false,
-  toastTimer: null
+  toastTimer: null,
+  pathValidationCounter: 0
 };
 
 function deepClone(value) {
@@ -226,6 +229,10 @@ function uniqueRootName(baseName) {
   return uniqueNameInList(elements.rootsList, baseName);
 }
 
+function uniqueDocumentFileName(baseName) {
+  return uniqueNameInList(elements.filesList, baseName);
+}
+
 function uniqueToolDirectoryName(baseName) {
   return uniqueNameInList(elements.toolDirectoriesList, baseName);
 }
@@ -255,26 +262,93 @@ function refreshEntryEnabledState(row, pathState) {
   const enabledInput = row.querySelector('[data-field="enabled"]');
   const enabled = enabledInput?.checked !== false;
   const enabledLabel = row.querySelector('[data-role="enabled-label"]');
+  const validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  const activeText = pathState?.dataset.activeText ?? "";
   row.classList.toggle("is-disabled", !enabled);
   if (enabledLabel) {
     enabledLabel.textContent = enabled ? "Enabled" : "Disabled";
   }
   if (pathState) {
     pathState.textContent = enabled
-      ? (pathState.dataset.activeText ?? "")
-      : "Disabled · this saved grant is inactive";
+      ? activeText
+      : activeText
+        ? `Disabled · ${activeText}`
+        : "Disabled · this saved grant is inactive";
     row.classList.toggle("has-path-state", pathState.textContent.length > 0);
-    pathState.classList.toggle(
-      "is-missing",
-      enabled && pathState.dataset.activeMissing === "true"
-    );
+    pathState.classList.toggle("is-valid", validationStatus === "valid");
+    pathState.classList.toggle("is-invalid", validationStatus === "invalid");
+    pathState.classList.toggle("is-pending", validationStatus === "pending");
+    row.classList.toggle("is-path-valid", validationStatus === "valid");
+    row.classList.toggle("is-path-invalid", validationStatus === "invalid");
   }
 }
 
-function setEntryPathState(row, pathState, text = "", missing = false) {
+function setEntryPathState(row, pathState, text = "", status = "idle", title = "") {
+  const normalizedStatus = status === true ? "invalid" : status === false ? "idle" : status;
+  const pathInput = row.querySelector('[data-field="path"]');
   pathState.dataset.activeText = text;
-  pathState.dataset.activeMissing = missing ? "true" : "false";
+  pathState.dataset.activeStatus = normalizedStatus;
+  pathState.title = title;
+  if (normalizedStatus === "invalid") {
+    pathInput?.setAttribute("aria-invalid", "true");
+  } else {
+    pathInput?.removeAttribute("aria-invalid");
+  }
   refreshEntryEnabledState(row, pathState);
+}
+
+function availabilityState(availability, expectedKind) {
+  if (!availability || availability.available === null) {
+    return { text: "Path has not been validated", status: "pending", title: "" };
+  }
+  if (availability.available === true) {
+    return {
+      text: expectedKind === "directory" ? "Valid directory" : "Valid file",
+      status: "valid",
+      title: availability.path ?? ""
+    };
+  }
+  if (availability.type === "link") {
+    return {
+      text: "Invalid · links and junctions are not allowed",
+      status: "invalid",
+      title: availability.error ?? ""
+    };
+  }
+  if (availability.type && availability.type !== expectedKind) {
+    return {
+      text: expectedKind === "directory" ? "Invalid · expected a directory" : "Invalid · expected a regular file",
+      status: "invalid",
+      title: availability.error ?? ""
+    };
+  }
+  return {
+    text: "Invalid · path is unavailable",
+    status: "invalid",
+    title: availability.error ?? ""
+  };
+}
+
+function applyEntryAvailability(row, pathState, availability, expectedKind) {
+  const next = availabilityState(availability, expectedKind);
+  setEntryPathState(row, pathState, next.text, next.status, next.title);
+}
+
+function initializePathValidation(row, pathState, pathInput, kind) {
+  state.pathValidationCounter += 1;
+  row.dataset.pathValidationId = `path-${state.pathValidationCounter}`;
+  row.dataset.pathKind = kind;
+  pathInput.addEventListener("input", () => {
+    delete pathState.dataset.validDetail;
+    const hasPath = pathInput.value.trim().length > 0;
+    setEntryPathState(
+      row,
+      pathState,
+      hasPath ? "Not validated · path changed" : `${kind === "directory" ? "Directory" : "File"} path is required`,
+      hasPath ? "pending" : "invalid"
+    );
+  });
+  pathInput.addEventListener("blur", () => validatePathRows([row]));
 }
 
 function initializeEntryToggle(row, pathState, enabled) {
@@ -296,10 +370,9 @@ function appendRoot(root = {}, availability = undefined) {
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "allowed-folder");
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
-  if (availability && availability.available === false) {
-    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a directory", true);
-  }
+  applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
+  initializePathValidation(row, pathState, pathInput, "directory");
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -315,17 +388,17 @@ function appendRoot(root = {}, availability = undefined) {
   return row;
 }
 
-function appendFile(file = "", availability = undefined) {
+function appendFile(file = {}, availability = undefined) {
   const fragment = elements.fileTemplate.content.cloneNode(true);
   const row = fragment.querySelector(".entry-row");
+  const nameInput = row.querySelector('[data-field="name"]');
   const pathInput = row.querySelector('[data-field="path"]');
   const pathState = row.querySelector('[data-role="state"]');
-  const normalized = typeof file === "string" ? { path: file, enabled: true } : file;
-  pathInput.value = normalized.path ?? "";
-  if (availability && availability.available === false) {
-    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular file", true);
-  }
-  initializeEntryToggle(row, pathState, entryEnabled(normalized));
+  nameInput.value = file.name ?? "";
+  pathInput.value = file.path ?? "";
+  applyEntryAvailability(row, pathState, availability, "file");
+  initializeEntryToggle(row, pathState, entryEnabled(file));
+  initializePathValidation(row, pathState, pathInput, "file");
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -359,10 +432,9 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   priorityInput.value = normalized.priority ?? 0;
   recursiveInput.checked = normalized.recursive !== false;
   includeDocsInput.checked = normalized.includeDocs !== false;
-  if (availability && availability.available === false) {
-    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular folder", true);
-  }
+  applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
+  initializePathValidation(row, pathState, pathInput, "directory");
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -390,10 +462,9 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "tool-file");
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
-  if (availability && availability.available === false) {
-    setEntryPathState(row, pathState, availability.error ? "Unavailable" : "Not a regular file", true);
-  }
+  applyEntryAvailability(row, pathState, availability, "file");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
+  initializePathValidation(row, pathState, pathInput, "file");
 
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
@@ -426,24 +497,30 @@ function appendSecretFile(secretFile = {}, inspection = undefined) {
     setEntryPathState(
       row,
       pathState,
-      inspection.error ? `Unavailable · ${inspection.error}` : "Not a regular secret file",
-      true
+      inspection.error ? "Invalid · secret file is unavailable" : "Invalid · expected a regular secret file",
+      "invalid",
+      inspection.error ?? ""
     );
   } else if (inspection?.format === "env") {
     const fields = inspection.fields?.length ? inspection.fields.join(", ") : "no fields detected";
-    setEntryPathState(row, pathState, `Key/value · ${fields} · values hidden`);
+    pathState.dataset.validDetail = `key/value · ${fields} · values hidden`;
+    setEntryPathState(row, pathState, `Valid file · ${pathState.dataset.validDetail}`, "valid", inspection.path ?? "");
   } else if (inspection?.format === "opaque") {
-    setEntryPathState(row, pathState, "Opaque token, password, or key · value hidden");
+    pathState.dataset.validDetail = "opaque value · value hidden";
+    setEntryPathState(row, pathState, `Valid file · ${pathState.dataset.validDetail}`, "valid", inspection.path ?? "");
+  } else {
+    applyEntryAvailability(row, pathState, inspection, "file");
   }
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
+  initializePathValidation(row, pathState, pathInput, "file");
 
   const markForReinspection = () => {
-    setEntryPathState(row, pathState, "Save configuration to validate and detect fields");
+    delete pathState.dataset.validDetail;
+    setEntryPathState(row, pathState, "Not validated · save to refresh detected fields", "pending");
   };
   for (const input of row.querySelectorAll("input, select")) {
     attachConfigurationInput(input);
   }
-  pathInput.addEventListener("input", markForReinspection);
   formatInput.addEventListener("change", markForReinspection);
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
     row.remove();
@@ -491,6 +568,177 @@ function updateEmptyStates() {
   elements.secretFilesEmpty.hidden = elements.secretFilesList.children.length > 0;
 }
 
+function setIgnoreFilePathState(text, status = "idle", title = "") {
+  const field = elements.ignoreFile.closest(".field");
+  elements.ignoreFileState.textContent = text;
+  elements.ignoreFileState.dataset.validationStatus = status;
+  elements.ignoreFileState.title = title;
+  field?.classList.toggle("is-path-valid", status === "valid");
+  field?.classList.toggle("is-path-invalid", status === "invalid");
+  if (status === "invalid") {
+    elements.ignoreFile.setAttribute("aria-invalid", "true");
+  } else {
+    elements.ignoreFile.removeAttribute("aria-invalid");
+  }
+}
+
+function validationResultText(result) {
+  if (result.valid) {
+    return result.kind === "directory" ? "Valid directory" : "Valid file";
+  }
+  if (result.code === "PATH_EMPTY") {
+    return result.kind === "directory" ? "Invalid · directory path is required" : "Invalid · file path is required";
+  }
+  if (result.code === "PATH_TYPE_MISMATCH") {
+    return result.kind === "directory" ? "Invalid · expected a directory" : "Invalid · expected a regular file";
+  }
+  if (result.code === "PATH_LINK_NOT_ALLOWED") {
+    return "Invalid · links and junctions are not allowed";
+  }
+  if (/ENOENT|no such file|cannot find|does not exist/i.test(result.message ?? "")) {
+    return "Invalid · path does not exist";
+  }
+  if (/EACCES|EPERM|access.*denied|permission/i.test(result.message ?? "")) {
+    return "Invalid · path is not readable";
+  }
+  return "Invalid · path is unavailable";
+}
+
+function pathValidationTarget(row) {
+  const pathInput = row.querySelector('[data-field="path"]');
+  const pathState = row.querySelector('[data-role="state"]');
+  return {
+    id: row.dataset.pathValidationId,
+    kind: row.dataset.pathKind,
+    path: pathInput.value.trim(),
+    enabled: row.querySelector('[data-field="enabled"]')?.checked !== false,
+    setChecking() {
+      setEntryPathState(row, pathState, "Checking path…", "pending");
+    },
+    apply(result) {
+      if (pathInput.value.trim() !== result.inputPath) {
+        return;
+      }
+      setEntryPathState(
+        row,
+        pathState,
+        result.valid && pathState.dataset.validDetail
+          ? `${validationResultText(result)} · ${pathState.dataset.validDetail}`
+          : validationResultText(result),
+        result.valid ? "valid" : "invalid",
+        result.valid ? result.path : result.message
+      );
+    },
+    fail(message) {
+      setEntryPathState(row, pathState, "Path check failed", "pending", message);
+    }
+  };
+}
+
+function ignoreFileValidationTarget() {
+  const inputPath = elements.ignoreFile.value.trim();
+  if (!inputPath) {
+    setIgnoreFilePathState("Optional path is not configured.");
+    return null;
+  }
+  return {
+    id: "ignore-file",
+    kind: "file",
+    path: inputPath,
+    enabled: true,
+    setChecking() {
+      setIgnoreFilePathState("Checking path…", "pending");
+    },
+    apply(result) {
+      if (elements.ignoreFile.value.trim() !== result.inputPath) {
+        return;
+      }
+      setIgnoreFilePathState(
+        validationResultText(result),
+        result.valid ? "valid" : "invalid",
+        result.valid ? result.path : result.message
+      );
+    },
+    fail(message) {
+      setIgnoreFilePathState("Path check failed", "pending", message);
+    }
+  };
+}
+
+function allPathValidationRows() {
+  return [
+    ...elements.rootsList.querySelectorAll(".entry-row"),
+    ...elements.filesList.querySelectorAll(".entry-row"),
+    ...elements.toolDirectoriesList.querySelectorAll(".entry-row"),
+    ...elements.toolFilesList.querySelectorAll(".entry-row"),
+    ...elements.secretFilesList.querySelectorAll(".entry-row")
+  ];
+}
+
+async function validatePathTargets(targets, announce = false) {
+  const usableTargets = targets.filter(Boolean);
+  if (usableTargets.length === 0) {
+    if (announce) {
+      setPageStatus("ready", "No paths to validate", "Add a directory or exact file, or configure an ignore file path.");
+      showToast("No directory or file paths are currently configured.");
+    }
+    return null;
+  }
+
+  for (const target of usableTargets) {
+    target.setChecking();
+  }
+
+  try {
+    const payload = await api("/api/validate-paths", {
+      method: "POST",
+      body: {
+        entries: usableTargets.map(({ id, kind, path: inputPath, enabled }) => ({ id, kind, path: inputPath, enabled }))
+      }
+    });
+    const targetById = new Map(usableTargets.map((target) => [target.id, target]));
+    for (const result of payload.entries) {
+      targetById.get(result.id)?.apply(result);
+    }
+
+    if (payload.summary.invalid > 0) {
+      const description = `${payload.summary.invalid} invalid: ${payload.summary.enabledInvalid} enabled and ${payload.summary.disabledInvalid} disabled.`;
+      setPageStatus("warning", "Path validation found issues", description);
+      if (announce) {
+        showToast(`${payload.summary.invalid} path(s) need attention.`, "error");
+      }
+    } else if (announce) {
+      setPageStatus("ready", "All paths are valid", `${payload.summary.valid} path(s) are readable and have the expected type.`);
+      showToast(`Validated ${payload.summary.valid} path(s).`);
+    }
+    return payload;
+  } catch (error) {
+    for (const target of usableTargets) {
+      target.fail(error.message);
+    }
+    if (announce) {
+      setPageStatus("error", "Could not validate paths", error.message);
+      showToast(error.message, "error");
+    }
+    return null;
+  }
+}
+
+function validatePathRows(rows, announce = false) {
+  return validatePathTargets(rows.map(pathValidationTarget), announce);
+}
+
+async function validateAllPaths() {
+  setBusy(elements.validatePaths, true, "Validating…");
+  try {
+    const targets = allPathValidationRows().map(pathValidationTarget);
+    targets.push(ignoreFileValidationTarget());
+    await validatePathTargets(targets, true);
+  } finally {
+    setBusy(elements.validatePaths, false);
+  }
+}
+
 function configuredSource(config) {
   const requested = config.defaultSource ?? "local";
   const matchingKey = Object.keys(config.sources ?? {}).find((key) => key.toLowerCase() === requested.toLowerCase());
@@ -528,7 +776,9 @@ function renderConfig(config, check) {
     appendRoot(root, availability);
   }
   for (const [index, file] of (source.files ?? []).entries()) {
-    appendFile(file, checkedSource?.files?.[index]);
+    const availability = checkedSource?.files?.find((entry) => entry.name === file.name)
+      ?? checkedSource?.files?.[index];
+    appendFile(file, availability);
   }
   for (const [index, directory] of (tools.directories ?? []).entries()) {
     const directoryName = typeof directory === "string" ? `tool-directory-${index + 1}` : directory.name;
@@ -558,6 +808,11 @@ function renderConfig(config, check) {
   elements.fileNames.value = (source.fileNames ?? []).join(";");
   elements.caseSensitive.checked = config.caseSensitive === true;
   elements.ignoreFile.value = config.ignoreFile ?? "";
+  if (elements.ignoreFile.value.trim()) {
+    setIgnoreFilePathState("Valid file", "valid", check?.ignoreFile ?? elements.ignoreFile.value.trim());
+  } else {
+    setIgnoreFilePathState("Optional path is not configured.");
+  }
   elements.ignorePatterns.value = (config.ignore ?? []).join("\n");
   elements.maxResults.value = config.limits?.maxResults ?? 50;
   elements.maxMatchesPerFile.value = config.limits?.maxMatchesPerFile ?? 1;
@@ -604,6 +859,17 @@ function positiveInteger(input, label) {
   return value;
 }
 
+function requireUniqueNames(entries, label) {
+  const names = new Set();
+  for (const entry of entries) {
+    const comparableName = entry.name.toLowerCase();
+    if (names.has(comparableName)) {
+      throw new Error(`${label} name '${entry.name}' is used more than once.`);
+    }
+    names.add(comparableName);
+  }
+}
+
 function collectConfig() {
   const next = deepClone(state.config);
   const source = next.sources[state.sourceKey];
@@ -622,17 +888,21 @@ function collectConfig() {
       enabled: row.querySelector('[data-field="enabled"]').checked
     };
   });
+  requireUniqueNames(source.roots, "Allowed folder");
 
   source.files = [...elements.filesList.querySelectorAll(".entry-row")].map((row, index) => {
+    const name = row.querySelector('[data-field="name"]').value.trim();
     const filePath = row.querySelector('[data-field="path"]').value.trim();
-    if (!filePath) {
-      throw new Error(`Exact file ${index + 1} needs a path.`);
+    if (!name || !filePath) {
+      throw new Error(`Exact file ${index + 1} needs a name and path.`);
     }
     return {
+      name,
       path: filePath,
       enabled: row.querySelector('[data-field="enabled"]').checked
     };
   });
+  requireUniqueNames(source.files, "Exact file");
 
   next.tools = {
     directories: [...elements.toolDirectoriesList.querySelectorAll(".entry-row")].map((row, index) => {
@@ -815,8 +1085,11 @@ async function pickPath(kind, target = "documents") {
       const row = appendRoot({ name: friendlyPathName(payload.path, "allowed-folder"), path: payload.path, priority: 100 });
       row.querySelector('[data-field="name"]').focus();
     } else {
-      const row = appendFile(payload.path);
-      row.querySelector('[data-field="path"]').focus();
+      const row = appendFile({
+        name: uniqueDocumentFileName(friendlyPathName(payload.path, "document-file")),
+        path: payload.path
+      });
+      row.querySelector('[data-field="name"]').focus();
     }
     markDirty();
   } catch (error) {
@@ -850,7 +1123,8 @@ function addDroppedItems(items, errors = []) {
         duplicates += 1;
         continue;
       }
-      appendFile(item.path);
+      const fileName = uniqueDocumentFileName(friendlyPathName(item.path, "document-file"));
+      appendFile({ name: fileName, path: item.path });
       existingFiles.add(comparable);
       added += 1;
     }
@@ -1347,13 +1621,27 @@ for (const input of [
   attachConfigurationInput(input);
 }
 
+elements.ignoreFile.addEventListener("input", () => {
+  setIgnoreFilePathState(
+    elements.ignoreFile.value.trim() ? "Not validated · path changed" : "Optional path is not configured.",
+    elements.ignoreFile.value.trim() ? "pending" : "idle"
+  );
+});
+elements.ignoreFile.addEventListener("blur", () => {
+  const target = ignoreFileValidationTarget();
+  if (target) {
+    validatePathTargets([target]);
+  }
+});
+
 elements.addFolder.addEventListener("click", () => {
   const row = appendRoot({ name: `allowed-folder-${elements.rootsList.children.length + 1}`, path: "", priority: 100 });
   row.querySelector('[data-field="path"]').focus();
   markDirty();
 });
 elements.addFile.addEventListener("click", () => {
-  const row = appendFile();
+  const name = uniqueDocumentFileName(`document-file-${elements.filesList.children.length + 1}`);
+  const row = appendFile({ name, path: "" });
   row.querySelector('[data-field="path"]').focus();
   markDirty();
 });
@@ -1397,6 +1685,7 @@ elements.reloadConfig.addEventListener("click", () => {
     loadConfig();
   }
 });
+elements.validatePaths.addEventListener("click", validateAllPaths);
 elements.saveConfig.addEventListener("click", saveConfig);
 elements.searchForm.addEventListener("submit", runSearch);
 elements.toolSearchForm.addEventListener("submit", runToolSearch);

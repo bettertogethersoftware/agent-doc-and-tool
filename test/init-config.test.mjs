@@ -7,7 +7,8 @@ import test from "node:test";
 import { ensureLocalConfig } from "../src/init-config.mjs";
 
 test("local configuration is created once and never overwritten", async (t) => {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-config-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-doc-config-test-"));
   const examplePath = path.join(temporaryRoot, "search.config.example.json");
   const configPath = path.join(temporaryRoot, "nested", "search.config.json");
   const example = '{"version":1,"sources":{}}\n';
@@ -15,7 +16,7 @@ test("local configuration is created once and never overwritten", async (t) => {
 
   t.after(async () => {
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });

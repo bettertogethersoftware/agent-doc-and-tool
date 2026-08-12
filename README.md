@@ -2,9 +2,9 @@
 
 Read-only local documentation, tool, reusable-prompt, and exact secret-file access for AI agents. The package exposes eleven MCP tools:
 
-- `list(source)` returns only the enabled document folders and enabled exact files configured for a source. Folder entries include their configured name, resolved path, and priority. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
-- `search(query, source)` scans human-configured directories for allowed suffix patterns and exact filenames, plus explicitly listed files. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed. Each result includes the full path, 1-based line number, bounded line text, file-level match counts, and optional nested secondary snippets.
-- `fetch(path, source)` returns the complete text and SHA-256 identity of a file selected from search results.
+- `list()` returns only the enabled document folders and enabled exact files. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
+- `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
+- `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
 - `list_tool()` returns only enabled tool directories and exact tool files. Directory entries include name, resolved path, priority, recursion, and documentation-search settings; exact-file entries include name, resolved path, and priority. It does not enumerate, verify, invoke, or execute tools.
 - `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
@@ -72,7 +72,7 @@ The four catalog methods provide a broad view of the grants that are currently e
 
 | MCP method | Input | Enabled entries returned | Deliberately not performed |
 | --- | --- | --- | --- |
-| `list` | `{"source":"local"}` | Document directories with `name`, `path`, and `priority`; exact document files with `path` | Recursive file enumeration or document-content search |
+| `list` | `{}` | Document directories with `name`, `path`, and `priority`; exact document files with `name` and `path` | Recursive file enumeration or document-content search |
 | `list_tool` | `{}` | Tool directories with `name`, `path`, `priority`, `recursive`, and `includeDocs`; exact tool files with `name`, `path`, and `priority` | Directory enumeration, file verification, help calls, invocation, or execution |
 | `list_prompt` | `{}` | Reusable prompts with `name` and discovery `keywords` | Prompt-body retrieval or preview generation |
 | `list_secret` | `{}` | Exact secret-file grants with `name`, `path`, and configured `format` | Opening secret files, detecting fields, or returning values |
@@ -81,23 +81,20 @@ Only document directories, tool directories, and exact tool files have a configu
 
 #### `list`
 
-Use `list` to inspect enabled document grants for one configured source.
+Use `list` to inspect enabled document grants.
 
 Request:
 
 ```json
-{
-  "source": "local"
-}
+{}
 ```
 
-`source` is optional and defaults to `local`. A successful response has this shape:
+A successful response has this shape:
 
 ```json
 {
   "schemaVersion": "1.0",
   "ok": true,
-  "source": "local",
   "directories": [
     {
       "name": "project-docs",
@@ -107,6 +104,7 @@ Request:
   ],
   "files": [
     {
+      "name": "release-notes",
       "path": "C:\\path\\to\\exact-document.md"
     }
   ],
@@ -223,23 +221,63 @@ Use `list_secret` with an empty object. An enabled secret catalog exposes grant 
 
 ### `search`
 
-Search enabled document roots and enabled exact document files. When the selected source is the configured default source, the search also includes enabled tool directories whose `includeDocs` setting allows documentation search.
-
-Request:
+Search enabled document roots and enabled exact document files. An unscoped request uses the complete default document allowlist and also includes enabled tool directories whose `includeDocs` setting allows documentation search:
 
 ```json
 {
   "query": "minimax h3",
-  "source": "local",
   "maxResults": 10
+}
+```
+
+To search selected document grants, call `list`, keep only document-content terms in `query`, and pass the chosen configured names through `directories` and `files`:
+
+```json
+{
+  "query": "runtime error",
+  "directories": [
+    "bts-app-logs"
+  ],
+  "files": [
+    "bts-app-mywebviewplugin-log"
+  ],
+  "maxResults": 50
 }
 ```
 
 | Input field | Required | Rules |
 | --- | --- | --- |
-| `query` | Yes | Non-empty text, at most 500 characters. Punctuation, symbols, case, and letter-number boundaries are normalized into search terms. |
-| `source` | No | Configured source name; defaults to `local`. |
+| `query` | Yes | Non-empty document-content terms, at most 500 characters. Punctuation, symbols, case, and letter-number boundaries are normalized into search terms. Do not put grant names here merely to constrain scope. |
 | `maxResults` | No | Positive integer from 1 to 500, additionally capped by `limits.maxResults`. |
+| `directories` | No | At most 500 configured document-directory names returned by `list`. Values are names, not paths. Supplying this or `files` activates selected mode. |
+| `files` | No | At most 500 configured exact-document-file names returned by `list`. Values are names, not paths. Supplying this or `directories` activates selected mode. |
+
+When neither selector is supplied, `scope.mode` is `all-enabled`. When either selector is supplied, `scope.mode` is `selected`; an omitted selector category means none from that category. One empty array is valid when the other contains at least one name, but two explicit empty arrays return `SEARCH_SCOPE_EMPTY`. Selected mode searches only the named document grants and never implicitly adds unselected documentation-enabled tool directories.
+
+Names resolve exactly, with a unique case-insensitive exact match accepted for convenience. Repeated request names are deduplicated. Paths, wildcards, substrings, fuzzy names, unknown grants, and disabled grants are not accepted as selectors. The server validates the complete scope before scanning: `SEARCH_SCOPE_NOT_FOUND`, `SEARCH_SCOPE_DISABLED`, and `SEARCH_SCOPE_INVALID` fail atomically and never broaden or partially execute the search.
+
+A successful response confirms the canonical names and resolved paths that were searched:
+
+```json
+{
+  "scope": {
+    "mode": "selected",
+    "directories": [
+      {
+        "name": "bts-app-logs",
+        "path": "C:\\path\\to\\BTS\\Logs",
+        "priority": 100
+      }
+    ],
+    "files": [
+      {
+        "name": "bts-app-mywebviewplugin-log",
+        "path": "C:\\path\\to\\MyWebViewPlugin.log"
+      }
+    ]
+  }
+}
+```
 
 All normalized query terms must occur somewhere in a file for that file to qualify. Results are ranked per unique file, and byte-identical matching files are collapsed. Each top-level result contains:
 
@@ -248,14 +286,15 @@ All normalized query terms must occur somewhere in a file for that file to quali
 - `lineText`, `lineTextLength`, `lineTextStartColumn`, and `lineTextTruncated`: bounded preview details.
 - `matchType`: `exact_phrase`, `all_terms_line`, or `all_terms_file`.
 - `matchedTerms`: terms matched by the primary line.
-- `sourceRoot` and `relativePath`: grant provenance.
+- `grant`: configured provenance with `type` (`directory` or `file`) and canonical `name`.
+- `sourceRoot` and `relativePath`: enumeration-root and relative-path details.
 - `pathMatchedTerms` and `fileMatchedTerms`: path-level and whole-file coverage.
 - `matchCount` and `returnedMatchCount`: total matching lines and snippets returned.
 - `additionalMatches`: optional secondary snippets from the same file.
 - `duplicateCount`: byte-identical copies omitted from top-level results.
 - `score`: internal ranking score.
 
-The response also includes `queryPlan`, `warnings`, and `meta`. Search metadata reports the enumeration backend, elapsed time, truncation, unique-file and snippet counts, and scan counters such as files considered, read, matched, ignored, linked, oversized, binary, duplicated, or affected by permission errors.
+The response also includes `queryPlan`, `scope`, `warnings`, and `meta`. Search metadata reports `scopeMode`, selected directory/file counts, the enumeration backend, elapsed time, truncation, unique-file and snippet counts, and scan counters such as files considered, read, matched, ignored, linked, oversized, binary, duplicated, or affected by permission errors.
 
 Warnings use `code`, `message`, and an optional `path`. A successful response can still be partial when `meta.truncated` is true because a result, file, or time limit was reached.
 
@@ -267,18 +306,16 @@ Request:
 
 ```json
 {
-  "path": "C:\\full\\path\\returned-by-search\\README.md",
-  "source": "local"
+  "path": "C:\\full\\path\\returned-by-search\\README.md"
 }
 ```
 
-`path` is required and must be absolute. `source` is optional and defaults to `local`. A successful response contains:
+`path` is required and must be absolute. A successful response contains:
 
 ```json
 {
   "schemaVersion": "1.0",
   "ok": true,
-  "source": "local",
   "path": "C:\\full\\path\\README.md",
   "encoding": "utf-8",
   "hasBom": false,
@@ -289,7 +326,7 @@ Request:
 }
 ```
 
-`fetch` rejects relative paths, missing or non-regular files, disallowed links or junctions, ignored files, files outside the selected grant, configured secret paths, binary content, and files larger than `limits.maxFetchBytes`.
+`fetch` rejects relative paths, missing or non-regular files, disallowed links or junctions, ignored files, files outside the configured document grants, configured secret paths, binary content, and files larger than `limits.maxFetchBytes`.
 
 ### `find_tool`
 
@@ -460,7 +497,7 @@ Use the catalog methods for orientation, then narrow and retrieve only what the 
 list_tool   -> find_tool   -> search/fetch nearby documentation -> authorized help/preflight/execution
 list_prompt -> find_prompt -> read_prompt for one selected prompt
 list_secret -> find_secret -> read_secret only when individual values are required
-list        -> search      -> fetch one selected document
+list        -> search with optional directory/file names -> fetch one selected document
 ```
 
 The catalog methods themselves do not authorize later execution or secret access. Normal user authorization and safety checks still apply to every subsequent operation.
@@ -480,13 +517,14 @@ From the UI you can:
 - Switch between **Prompts**, **Documents**, **Tools**, and **Secrets** tabs while saving everything to the same private local configuration.
 - Enable or disable any document folder, exact document, tool folder, exact tool, reusable prompt, or secret file without deleting it. Disabled entries are excluded before discovery or filesystem scanning begins.
 - Drop several files or folders at once. On Windows, click **Open Windows drop box**, then drag from File Explorer into the separate window so complete local paths are preserved.
-- Browse for or paste recursively searched folders and exact files.
+- Browse for or paste recursively searched folders and named exact files. Document directory names and exact-file names must be unique within their respective categories.
 - Register tool folders recursively or exact tool files. Tool folders include matching documentation by default, so a project folder can expose both a script and its nearby `README.md`.
 - Create reusable prompts with a unique name or alias, optional semicolon-separated discovery keywords, and an editable multiline text area. The saved prompt can be discovered and read through MCP without creating a separate file.
 - Register exact secret files only. Folders and links are rejected; the UI detects key names but never displays or stores secret values.
 - Control executable and script suffixes such as `.exe;.cmd;.bat;.ps1;.py;.js;.mjs` and test the saved catalog with the same `find_tool` resolver used by the agent.
 - Enter suffix patterns such as `.json;.ai.md;.md;.txt`.
 - Edit exact filenames, ignore rules, snippets per file, and safety limits. Additional ignore patterns accept semicolons or one pattern per line.
+- Validate every current directory and file path without saving. The UI checks unsaved and disabled Document, Tool, and Secret rows plus the optional ignore file, reports expected-type, missing, link, and readability failures on each row, and rechecks an edited path when its field loses focus.
 - Save only after full schema validation; the previous file is retained as `search.config.json.bak`.
 - Run a local test search using the saved configuration.
 
@@ -512,6 +550,7 @@ Edit the local `config/search.config.json` to define named sources, directories,
       "fileNames": ["README.md"],
       "files": [
         {
+          "name": "one-exact-document",
           "path": "C:\\path\\to\\one\\exact-file.json",
           "enabled": true
         }
@@ -521,7 +560,7 @@ Edit the local `config/search.config.json` to define named sources, directories,
 }
 ```
 
-`roots` are searched recursively. `files` are exact grants and do not need to match an extension or filename rule. Set `enabled` to `false` to retain an entry without scanning or granting it; existing string entries and objects without `enabled` remain enabled for backward compatibility. A disabled row deactivates that grant rather than creating a deny rule, so the same path can remain accessible when it is also covered by another enabled parent folder or duplicate grant. `extensions` accepts either an array of suffixes or a semicolon-separated string; `.json`, `*.json`, `**.json`, and `**/*.json` all normalize to the same `.json` suffix rule. `fileNames` contains exact names matched anywhere beneath a root.
+`roots` are searched recursively. Root names must be unique case-insensitively within their source. Every `files` entry requires a human-readable `name` and exact `path`; exact-file names and paths must each be unique within their source, and exact grants do not need to match an extension or filename rule. `enabled` defaults to `true`, or set it to `false` to retain an entry without scanning or granting it. Path-only objects and string file entries are invalid. A disabled row deactivates that grant rather than creating a deny rule, so the same physical file can remain accessible when it is covered by another enabled parent folder. `extensions` accepts either an array of suffixes or a semicolon-separated string; `.json`, `*.json`, `**.json`, and `**/*.json` all normalize to the same `.json` suffix rule. `fileNames` contains exact names matched anywhere beneath a root.
 
 Search scans every eligible line so all query terms may match on one line or across the file. It returns the highest-quality snippet for each ranked file, favoring useful headings and prose over badges, image markup, and URL-heavy lines. `limits.maxMatchesPerFile` controls how many snippets are retained inside each file result and defaults to `1`; values above one add entries under `additionalMatches` without repeating the file as another top-level result. `matchCount` reports all matching lines, `fileMatchedTerms` reports terms found across the file, and `duplicateCount` reports byte-identical copies omitted from that result. Hashing is performed only after a file matches.
 

@@ -5,7 +5,13 @@ import { performance } from "node:perf_hooks";
 
 import createIgnore from "ignore";
 
-import { getSource, isConfiguredSecretPath, loadConfig, matchesConfiguredDocument } from "./config.mjs";
+import {
+  getSource,
+  isConfiguredSecretPath,
+  loadConfig,
+  matchesConfiguredDocument,
+  resolveDocumentSearchScope
+} from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
 import { inspectConfiguredSecrets } from "./secret-service.mjs";
 import { canonicalize, countLines, createQueryPlan, decodeText, sha256, splitLines } from "./text.mjs";
@@ -210,7 +216,11 @@ async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefin
         relativePath: toPortableRelative(relativePath),
         root: root.name,
         priority: root.priority,
-        explicit: false
+        explicit: false,
+        grant: {
+          type: "directory",
+          name: root.name
+        }
       };
     }
   }
@@ -353,7 +363,11 @@ async function *enumerateRoot(root, source, state, seenPaths) {
       relativePath: toPortableRelative(relativePath),
       root: root.name,
       priority: root.priority,
-      explicit: false
+      explicit: false,
+      grant: {
+        type: "directory",
+        name: root.name
+      }
     };
   }
 }
@@ -363,21 +377,22 @@ async function *specificFiles(source, state, seenPaths) {
     if (shouldStop(state)) {
       return;
     }
+    const configuredPath = configuredFile.path;
     state.stats.filesConsidered += 1;
-    if (isProtectedPath(configuredFile) || isConfiguredSecretPath(configuredFile, state.config)) {
+    if (isProtectedPath(configuredPath) || isConfiguredSecretPath(configuredPath, state.config)) {
       state.stats.skippedIgnored += 1;
-      addWarning(state, "PROTECTED_FILE_SKIPPED", "Configured file is blocked by the protected-path policy.", configuredFile);
+      addWarning(state, "PROTECTED_FILE_SKIPPED", "Configured file is blocked by the protected-path policy.", configuredPath);
       continue;
     }
 
     try {
-      const fileStat = await fs.lstat(configuredFile);
+      const fileStat = await fs.lstat(configuredPath);
       if (fileStat.isSymbolicLink() || !fileStat.isFile()) {
         state.stats.skippedLinks += 1;
-        addWarning(state, "SPECIFIC_FILE_INVALID", "Configured file must be a regular non-link file.", configuredFile);
+        addWarning(state, "SPECIFIC_FILE_INVALID", "Configured file must be a regular non-link file.", configuredPath);
         continue;
       }
-      const realPath = await fs.realpath(configuredFile);
+      const realPath = await fs.realpath(configuredPath);
       const comparable = comparablePath(realPath);
       if (seenPaths.has(comparable)) {
         continue;
@@ -388,10 +403,14 @@ async function *specificFiles(source, state, seenPaths) {
         relativePath: path.basename(realPath),
         root: "specific-files",
         priority: 1_000,
-        explicit: true
+        explicit: true,
+        grant: {
+          type: "file",
+          name: configuredFile.name
+        }
       };
     } catch (error) {
-      addWarning(state, "SPECIFIC_FILE_UNAVAILABLE", error instanceof Error ? error.message : String(error), configuredFile);
+      addWarning(state, "SPECIFIC_FILE_UNAVAILABLE", error instanceof Error ? error.message : String(error), configuredPath);
     }
   }
 }
@@ -554,6 +573,7 @@ function matchText(text, candidate, queryPlan, config) {
     path: candidate.path,
     ...primary,
     sourceRoot: candidate.root,
+    grant: candidate.grant,
     relativePath: candidate.relativePath,
     pathMatchedTerms,
     fileMatchedTerms: queryPlan.terms.filter((term) => fileTerms.has(term)),
@@ -620,7 +640,13 @@ function collectMatchedFile(result, resultsByHash, state) {
   }
 }
 
-export async function searchDocuments({ query, source: sourceInput = undefined, maxResults = undefined }, options = {}) {
+export async function searchDocuments({
+  query,
+  source: sourceInput = undefined,
+  maxResults = undefined,
+  directories = undefined,
+  files = undefined
+}, options = {}) {
   if (typeof query !== "string" || query.trim().length === 0) {
     throw new AgentDocError("QUERY_EMPTY", "Search query is required.");
   }
@@ -630,7 +656,11 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
 
   const started = performance.now();
   const config = await loadConfig(options.configPath);
-  const source = getSource(config, sourceInput);
+  const { source, scope } = resolveDocumentSearchScope(config, {
+    source: sourceInput,
+    directories,
+    files
+  });
   const queryPlan = createQueryPlan(query, config.caseSensitive);
   const resultLimit = Math.min(maxResults ?? config.limits.maxResults, config.limits.maxResults);
   const state = createState(config);
@@ -676,6 +706,7 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
     ok: true,
     source: source.name,
     query,
+    scope,
     queryPlan,
     results: returnedResults,
     meta: {
@@ -684,6 +715,9 @@ export async function searchDocuments({ query, source: sourceInput = undefined, 
       enumerationBackends: [...state.enumerationBackends],
       indexed: false,
       networkUsed: false,
+      scopeMode: scope.mode,
+      directoriesSelected: scope.directories.length,
+      filesSelected: scope.files.length,
       configPath: config.configPath,
       elapsedMs: Math.round(performance.now() - started),
       truncated: state.truncated,
@@ -728,7 +762,7 @@ async function resolveAllowedFetchPath(requestedPath, source, config) {
 
   for (const configuredFile of source.files) {
     try {
-      if (samePath(realPath, await fs.realpath(configuredFile))) {
+      if (samePath(realPath, await fs.realpath(configuredFile.path))) {
         return realPath;
       }
     } catch {
@@ -841,12 +875,13 @@ export async function checkConfiguration(options = {}) {
     const files = [];
     for (const file of source.files) {
       if (!file.enabled) {
-        files.push({ path: file.path, enabled: false, available: null, type: "disabled" });
+        files.push({ name: file.name, path: file.path, enabled: false, available: null, type: "disabled" });
         continue;
       }
       try {
         const fileStat = await fs.lstat(file.path);
         files.push({
+          name: file.name,
           path: file.path,
           enabled: true,
           available: fileStat.isFile() && !fileStat.isSymbolicLink(),
@@ -854,6 +889,7 @@ export async function checkConfiguration(options = {}) {
         });
       } catch (error) {
         files.push({
+          name: file.name,
           path: file.path,
           enabled: true,
           available: false,

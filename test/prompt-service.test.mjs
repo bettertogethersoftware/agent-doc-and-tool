@@ -38,7 +38,8 @@ function baseConfig(prompts = []) {
 }
 
 async function createFixture(t) {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-prompt-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-prompt-test-"));
   const configPath = path.join(temporaryRoot, "search.config.json");
   const content = [
     "Create a cinematic YouTube music video.",
@@ -52,7 +53,7 @@ async function createFixture(t) {
 
   t.after(async () => {
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });

@@ -8,7 +8,8 @@ import { fetchDocument, searchDocuments } from "../src/search-service.mjs";
 import { findTools } from "../src/tool-service.mjs";
 
 async function createToolFixture(t) {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-tool-search-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-tool-search-test-"));
   const binaryDirectory = path.join(temporaryRoot, "media bin");
   const musicDirectory = path.join(temporaryRoot, "music tools");
   const nestedDirectory = path.join(binaryDirectory, "nested");
@@ -75,7 +76,7 @@ async function createToolFixture(t) {
 
   t.after(async () => {
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });

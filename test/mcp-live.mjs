@@ -23,13 +23,18 @@ try {
   await client.connect(transport);
   const listed = await client.listTools();
   assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "list", "list_prompt", "list_secret", "list_tool", "read_prompt", "read_secret", "search"]);
+  const toolsByName = new Map(listed.tools.map((tool) => [tool.name, tool]));
+  assert.deepEqual(Object.keys(toolsByName.get("list").inputSchema.properties), []);
+  assert.deepEqual(Object.keys(toolsByName.get("search").inputSchema.properties).sort(), ["directories", "files", "maxResults", "query"]);
+  assert.deepEqual(Object.keys(toolsByName.get("fetch").inputSchema.properties), ["path"]);
 
   const listCall = await client.callTool({
     name: "list",
-    arguments: { source: "local" }
+    arguments: {}
   });
   const listPayload = JSON.parse(listCall.content[0].text);
   assert.equal(listPayload.ok, true);
+  assert.equal(Object.hasOwn(listPayload, "source"), false);
   assert.equal(listPayload.meta.enabledOnly, true);
   assert.ok(Array.isArray(listPayload.directories));
   assert.ok(Array.isArray(listPayload.files));
@@ -59,19 +64,25 @@ try {
 
   const searchCall = await client.callTool({
     name: "search",
-    arguments: { query, source: "local", maxResults: 10 }
+    arguments: { query, maxResults: 10 }
   });
   const searchPayload = JSON.parse(searchCall.content[0].text);
   assert.equal(searchPayload.ok, true);
+  assert.equal(Object.hasOwn(searchPayload, "source"), false);
+  assert.equal(searchPayload.scope.mode, "all-enabled");
+  assert.equal(searchPayload.meta.scopeMode, "all-enabled");
+  assert.equal(searchPayload.meta.directoriesSelected, searchPayload.scope.directories.length);
+  assert.equal(searchPayload.meta.filesSelected, searchPayload.scope.files.length);
   assert.ok(searchPayload.results.length > 0, `No live local-document result for '${query}'.`);
 
   const selected = searchPayload.results[0];
   const fetchCall = await client.callTool({
     name: "fetch",
-    arguments: { path: selected.path, source: "local" }
+    arguments: { path: selected.path }
   });
   const fetchPayload = JSON.parse(fetchCall.content[0].text);
   assert.equal(fetchPayload.ok, true);
+  assert.equal(Object.hasOwn(fetchPayload, "source"), false);
   assert.ok(fetchPayload.content.length > 0);
 
   process.stdout.write(`${JSON.stringify({

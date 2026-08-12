@@ -86,7 +86,8 @@
         </div>
       </div>
       <div class="table-head file-grid" aria-hidden="true">
-        <span>Exact file path</span>
+        <span>Name or alias</span>
+        <span>File path</span>
         <span>Status</span>
         <span></span>
       </div>
@@ -136,7 +137,8 @@
         <div class="field-grid">
           <label class="field">
             <span>Ignore file</span>
-            <input id="ignore-file" type="text" spellcheck="false" placeholder=".agent-searchignore">
+            <input id="ignore-file" type="text" spellcheck="false" placeholder=".agent-searchignore" aria-describedby="ignore-file-state">
+            <small id="ignore-file-state" class="field-path-state" data-validation-status="idle">Optional path has not been validated.</small>
           </label>
           <label class="field">
             <span>Additional ignore patterns</span>
@@ -436,6 +438,7 @@
       </div>
       <div class="button-row">
         <button id="reload-config" class="button ghost" type="button">Reload</button>
+        <button id="validate-paths" class="button secondary" type="button">Validate all paths</button>
         <button id="save-config" class="button primary" type="button">Save configuration</button>
       </div>
     </div>
@@ -448,16 +451,17 @@
       <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable document folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove folder">×</button>
-      <div class="path-state" data-role="state"></div>
+      <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
     </div>
   </template>
 
   <template id="file-row-template">
     <div class="entry-row file-grid">
+      <label><span class="sr-only">Document name or alias</span><input data-field="name" type="text" placeholder="runtime-logs" required></label>
       <label><span class="sr-only">Exact file path</span><input data-field="path" type="text" spellcheck="false" placeholder="C:\path\to\file.json" required></label>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable exact document file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove file">×</button>
-      <div class="path-state" data-role="state"></div>
+      <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
     </div>
   </template>
 
@@ -472,7 +476,7 @@
       </div>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool folder">×</button>
-      <div class="path-state" data-role="state"></div>
+      <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
     </div>
   </template>
 
@@ -483,7 +487,7 @@
       <label><span class="sr-only">Priority</span><input data-field="priority" type="number" min="-10000" max="10000" value="100" required></label>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable exact tool file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove exact tool file">×</button>
-      <div class="path-state" data-role="state"></div>
+      <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
     </div>
   </template>
 
@@ -501,7 +505,7 @@
       </label>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable secret file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove secret file">×</button>
-      <div class="path-state secret-state" data-role="state"></div>
+      <div class="path-state secret-state" data-role="state" role="status" aria-live="polite"></div>
     </div>
   </template>
 

@@ -9,7 +9,8 @@ import { findSecrets, inspectSecretPath, parseSecretText, readSecret } from "../
 import { findTools } from "../src/tool-service.mjs";
 
 async function createSecretFixture(t) {
-  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-doc-secret-test-"));
+  const systemTemporaryRoot = await fs.realpath(os.tmpdir());
+  const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-doc-secret-test-"));
   const envPath = path.join(temporaryRoot, "ftp-credentials.txt");
   const tokenPath = path.join(temporaryRoot, "service-token.txt");
   const readmePath = path.join(temporaryRoot, "README.md");
@@ -33,7 +34,7 @@ async function createSecretFixture(t) {
         roots: [{ name: "secret-fixture", path: temporaryRoot, priority: 100 }],
         extensions: ".md;.txt",
         fileNames: ["README.md"],
-        files: [envPath]
+        files: [{ name: "credential-document", path: envPath }]
       }
     },
     ignore: [],
@@ -65,7 +66,7 @@ async function createSecretFixture(t) {
 
   t.after(async () => {
     const resolvedTemporaryRoot = path.resolve(temporaryRoot);
-    const resolvedSystemTemp = path.resolve(os.tmpdir());
+    const resolvedSystemTemp = systemTemporaryRoot;
     const relative = path.relative(resolvedSystemTemp, resolvedTemporaryRoot);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
     await fs.rm(resolvedTemporaryRoot, { recursive: true, force: true });
