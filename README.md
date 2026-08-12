@@ -5,7 +5,7 @@ Read-only local documentation, tool, reusable-prompt, and exact secret-file acce
 - `list()` returns only the enabled document folders and enabled exact files, including enabled scanned document selections saved beneath tool folders. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
 - `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
 - `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
-- `list_tool()` returns only enabled tool directories and manually added exact tool files. A tool directory can also return its human note, selected scanned tool files, and selected scanned document files with their direct paths. It does not enumerate, verify, invoke, or execute tools.
+- `list_tool()` returns only enabled tool directories and manually added exact tool files. A returned tool directory can also include its human note, selected scanned tool files, and selected scanned document files with their direct paths. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. It does not enumerate, verify, invoke, or execute tools.
 - `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
@@ -183,6 +183,19 @@ An enabled tool catalog response has this shape:
 ```
 
 `files` continues to contain manually added exact tool files. Saved scan selections stay nested under the tool folder that owns their human note and scan controls. The optional `humanNote` and the scan arrays are omitted when empty. No `origin` field is returned. A selected scanned tool is also discoverable by `find_tool`; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
+
+For an unfamiliar saved custom tool, keep the direct tool/document relationship rather than performing a broad machine search:
+
+```text
+list_tool({})
+  -> read the parent folder's human note and direct scanned tool path
+  -> identify a sibling scanned document alias, when one is present
+search({ query: "usage and arguments", directories: [], files: ["folder-readme"] })
+  -> fetch the returned absolute document path
+  -> use find_tool only when verification or invocation metadata is needed
+```
+
+The nested tool and document aliases are unique case-insensitively within their respective grant categories. Agents should use a document alias, not its path, in the `search.files` selector; `fetch` still requires the absolute path returned by `search`.
 
 #### `list_prompt`
 
@@ -513,7 +526,7 @@ Do not repeat, log, persist, or expose returned values to unrelated tools. Prefe
 Use the catalog methods for orientation, then narrow and retrieve only what the task needs:
 
 ```text
-list_tool   -> find_tool   -> search/fetch nearby documentation -> authorized help/preflight/execution
+list_tool   -> direct saved path or find_tool -> search/fetch selected sibling documentation -> authorized help/preflight/execution
 list_prompt -> find_prompt -> read_prompt for one selected prompt
 list_secret -> find_secret -> read_secret only when individual values are required
 list        -> search with optional directory/file names -> fetch one selected document
@@ -696,7 +709,7 @@ $agentDocRoot = (Get-Location).Path
 codex mcp add local_doc_search --env "AGENT_DOC_SEARCH_CONFIG=$agentDocRoot\config\search.config.json" -- node "$agentDocRoot\src\server.mjs"
 ```
 
-The companion [agent-doc-and-tool skill](skills/agent-doc-and-tool/SKILL.md) teaches Codex to inventory enabled grants, search before guessing, fetch authoritative local documentation, resolve local tools that are not reliably on `PATH`, apply explicitly requested reusable prompts, and use exact secret grants without exposing values. A newly registered MCP server or changed MCP tool contract becomes available after starting a new Codex task or restarting the local client.
+The companion [agent-doc-and-tool skill](skills/agent-doc-and-tool/SKILL.md) teaches Codex to inventory enabled grants and saved scan selections, use direct selected-tool paths, search selected sibling documentation by alias before guessing about a custom tool, fetch authoritative local documentation, resolve local tools that are not reliably on `PATH`, apply explicitly requested reusable prompts, and use exact secret grants without exposing values. A newly registered MCP server or changed MCP tool contract becomes available after starting a new Codex task or restarting the local client.
 
 The first-class `local_doc_search` methods must appear in the current agent task's tool catalog before the agent can call them directly. A shell CLI or standalone stdio MCP client can verify the same server as a clearly labelled fallback, but it does not prove that those methods are attached to the already-running task. Preserve an existing skill junction or symlink when updating the skill; update and validate its repository source instead of creating a second stale copy.
 
