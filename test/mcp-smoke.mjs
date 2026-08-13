@@ -110,7 +110,10 @@ try {
   assert.equal(Object.hasOwn(listPayload, "humanNote"), false);
   assert.equal(Object.hasOwn(listPayload, "source"), false);
   assert.equal(Object.hasOwn(listCall.structuredContent, "source"), false);
-  assert.deepEqual(listPayload.directories, [{ name: "smoke", path: docsRoot, priority: 100 }]);
+  assert.deepEqual(listPayload.directories, [
+    { name: "smoke", path: docsRoot, priority: 100 },
+    { name: "smoke-tools", path: docsRoot, priority: 100 }
+  ]);
   assert.deepEqual(listPayload.files, [{
     name: "smoke-exact-workflow",
     path: exactDocumentPath
@@ -209,6 +212,28 @@ try {
     "directory",
     "file"
   ]));
+
+  const toolDirectorySearchCall = await client.callTool({
+    name: "search",
+    arguments: {
+      query: "minimax h3",
+      directories: ["smoke-tools"]
+    }
+  });
+  const toolDirectorySearchPayload = JSON.parse(toolDirectorySearchCall.content[0].text);
+  assert.equal(toolDirectorySearchPayload.ok, true);
+  assert.equal(toolDirectorySearchPayload.scope.mode, "selected");
+  assert.deepEqual(toolDirectorySearchPayload.scope.directories, [{
+    name: "smoke-tools",
+    path: docsRoot,
+    priority: 100
+  }]);
+  assert.deepEqual(toolDirectorySearchPayload.scope.files, []);
+  assert.deepEqual(toolDirectorySearchPayload.results.map((entry) => entry.path), [readmePath]);
+  assert.deepEqual(toolDirectorySearchPayload.results[0].grant, {
+    type: "directory",
+    name: "smoke-tools"
+  });
 
   const emptyScopeCall = await client.callTool({
     name: "search",

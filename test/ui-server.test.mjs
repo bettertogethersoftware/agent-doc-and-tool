@@ -112,6 +112,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.equal(app.status, 200);
   const appText = await app.text();
   assert.match(pageText, /Agent Docs &amp; Tools configuration/);
+  assert.match(pageText, /<div class="brand">/);
+  assert.doesNotMatch(pageText, /<a class="brand"/);
   assert.match(stylesText, /\.shell\s*\{[\s\S]*?width:\s*calc\(100%\s*-\s*32px\)/);
   assert.match(stylesText, /\.catalog-instruction-panel\s*\{/);
   assert.match(stylesText, /\.catalog-workspace\s*\{/);

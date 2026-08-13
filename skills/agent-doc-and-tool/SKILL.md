@@ -64,8 +64,11 @@ an empty object:
 Review the returned `directories` names and paths and the returned exact
 `files` names and paths after reading the top-level Documents `instruction`. Only enabled
 entries are returned. `list` reports configured grants; it does not
-recursively enumerate every file below a directory. Use `search` to find
-documents by content.
+recursively enumerate every file below a directory. An enabled Tool folder
+with `includeDocs` also appears as a document directory, usually using its
+Tool name, and can be passed through `search.directories`. If a Document
+folder has the same name, use the collision-safe name returned by `list`
+(for example, `tool:media-tools`). Use `search` to find documents by content.
 
 An enabled `scannedDocumentFiles` selection saved beneath a Tool folder also
 appears here as an exact document `file`. Use its returned `name` in the
@@ -92,8 +95,10 @@ or silently broaden an unavailable or ambiguous scoped request. Verify the
 canonical names and paths in the returned `scope` before relying on results.
 
 1. Call `search` before guessing about an unfamiliar local tool or workflow.
-   When `list_tool` identifies a sibling saved document alias, scope the search
-   to that alias; otherwise omit `directories` and `files` for a broad search:
+   When `list_tool` identifies an enabled Tool folder with `includeDocs`, its
+   listed document-directory name can scope the search through `directories`.
+   Prefer a sibling saved document alias through `files` when one exact document
+   is known; otherwise omit `directories` and `files` for a broad search:
 
    ```json
    {"query":"minimax h3"}

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { listDocumentCatalog } from "../src/catalog-service.mjs";
 import { checkConfiguration, fetchDocument, searchDocuments } from "../src/search-service.mjs";
 
 async function createFixture(t) {
@@ -200,7 +201,7 @@ test("unscoped search preserves all-enabled behavior and reports its resolved sc
   assert.equal(result.scope.mode, "all-enabled");
   assert.deepEqual(result.scope.directories.map((entry) => entry.name), [
     "bts-app-logs",
-    "tool:scope-tools",
+    "scope-tools",
     "other-app-logs"
   ]);
   assert.deepEqual(result.scope.files.map((entry) => entry.name), [
@@ -238,6 +239,62 @@ test("directory-only scope resolves canonical names and excludes every other gra
   assert.deepEqual(result.results[0].grant, { type: "directory", name: "bts-app-logs" });
   assert.equal(result.meta.directoriesSelected, 1);
   assert.equal(result.meta.filesSelected, 0);
+});
+
+test("documentation-enabled Tool folders are listed and accept their Tool name as a selected document scope", async (t) => {
+  const fixture = await createScopedFixture(t);
+
+  const catalog = await listDocumentCatalog({}, { configPath: fixture.configPath });
+  assert.ok(catalog.directories.some((entry) => (
+    entry.name === "scope-tools" && entry.path === path.dirname(fixture.toolReadme)
+  )));
+
+  const result = await searchDocuments({
+    query: "implicit tool documentation",
+    directories: ["SCOPE-TOOLS"]
+  }, { configPath: fixture.configPath });
+
+  assert.equal(result.scope.mode, "selected");
+  assert.deepEqual(result.scope.directories, [{
+    name: "scope-tools",
+    path: path.dirname(fixture.toolReadme),
+    priority: 75
+  }]);
+  assert.deepEqual(result.scope.files, []);
+  assert.deepEqual(result.results.map((entry) => entry.path), [fixture.toolReadme]);
+  assert.deepEqual(result.results[0].grant, { type: "directory", name: "scope-tools" });
+});
+
+test("a colliding Tool documentation grant receives a stable selectable directory name", async (t) => {
+  const fixture = await createScopedFixture(t);
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.sources.local.roots.push({
+    name: "scope-tools",
+    path: fixture.primaryRoot,
+    priority: 60,
+    enabled: true
+  });
+  await fs.writeFile(fixture.configPath, JSON.stringify(config, null, 2), "utf8");
+
+  const catalog = await listDocumentCatalog({}, { configPath: fixture.configPath });
+  assert.ok(catalog.directories.some((entry) => (
+    entry.name === "scope-tools" && entry.path === fixture.primaryRoot
+  )));
+  assert.ok(catalog.directories.some((entry) => (
+    entry.name === "tool:scope-tools" && entry.path === path.dirname(fixture.toolReadme)
+  )));
+
+  const result = await searchDocuments({
+    query: "implicit tool documentation",
+    directories: ["TOOL:SCOPE-TOOLS"]
+  }, { configPath: fixture.configPath });
+
+  assert.deepEqual(result.scope.directories, [{
+    name: "tool:scope-tools",
+    path: path.dirname(fixture.toolReadme),
+    priority: 75
+  }]);
+  assert.deepEqual(result.results.map((entry) => entry.path), [fixture.toolReadme]);
 });
 
 test("exact-file-only scope searches a named file outside every directory", async (t) => {

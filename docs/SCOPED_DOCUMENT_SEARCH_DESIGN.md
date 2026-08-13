@@ -86,7 +86,7 @@ is simpler for MCP clients and agents to construct reliably.
 | --- | --- | --- |
 | query | Yes | Document-content terms to find. Grant names should not be placed here merely to constrain the search. |
 | maxResults | No | Positive result limit, capped by the human configuration. |
-| directories | No | Configured document-directory names returned by list. Values are names, not paths. |
+| directories | No | Configured document-directory names returned by list, including enabled Tool folders with includeDocs. Values are names, not paths. |
 | files | No | Configured exact-document-file names returned by list. Values are names, not paths. |
 
 The public MCP schema should remain a strict object. Unknown properties should
@@ -141,9 +141,9 @@ Selected-mode rules:
    all-enabled search.
 8. Unselected document directories and exact document files must not be
    scanned.
-9. Selected mode must not implicitly add documentation-enabled tool
-   directories. A future contract can expose those through an explicit
-   selector namespace if required.
+9. An enabled Tool folder with `includeDocs` is an explicit document-directory
+   grant. It is searched only when its name from `list` is selected; it is
+   never added implicitly to an unrelated selected search.
 10. The query, result limit, ranking, safety rules, and scan limits apply to the
     combined selected set.
 
@@ -528,8 +528,9 @@ query:
 
 directories:
 
-> Optional configured document-directory names returned by list. Supplying
-> this or files activates selected mode. Values are names, not paths.
+> Optional configured document-directory names returned by list, including
+> enabled Tool folders with includeDocs. Supplying this or files activates
+> selected mode. Values are names, not paths.
 
 files:
 
@@ -640,7 +641,8 @@ Suggested skill guidance:
 - Binary and oversized files remain skipped.
 - File-count and timeout limits remain active.
 - A selector cannot be used as an arbitrary path escape.
-- Scoped mode does not add an unselected documentation-enabled tool directory.
+- Scoped mode does not add an unselected documentation-enabled tool directory;
+  a Tool directory is searched only when its listed name is explicitly selected.
 
 ### Agent workflow
 
@@ -704,7 +706,7 @@ This design does not add:
 - Semantic interpretation of phrases such as "all BTS logs" inside the MCP
   server.
 - Nested-subdirectory selectors below a configured root.
-- Scope selection for tool directories, prompts, or secret files.
+- Scope selection for prompts or secret files.
 - A new index, database, or network search backend.
 
 Those capabilities can be designed separately if a concrete need appears.

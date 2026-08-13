@@ -145,15 +145,22 @@ async function createFixture(t) {
   };
 }
 
-test("document catalog lists enabled folders and exact files only", async (t) => {
+test("document catalog lists enabled document and Tool-derived folders plus exact files only", async (t) => {
   const fixture = await createFixture(t);
   const listed = await listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath });
 
-  assert.deepEqual(listed.directories, [{
-    name: "enabled-docs",
-    path: fixture.enabledDocs,
-    priority: 100
-  }]);
+  assert.deepEqual(listed.directories, [
+    {
+      name: "enabled-docs",
+      path: fixture.enabledDocs,
+      priority: 100
+    },
+    {
+      name: "enabled-tools",
+      path: fixture.enabledTools,
+      priority: 100
+    }
+  ]);
   assert.deepEqual(listed.files, [{
     name: "enabled-exact-document",
     path: fixture.enabledExactDocument
@@ -161,7 +168,7 @@ test("document catalog lists enabled folders and exact files only", async (t) =>
   assert.equal(listed.instruction, fixture.instructions.documents);
   assert.equal(Object.hasOwn(listed, "humanNote"), false);
   assert.equal(listed.meta.enabledOnly, true);
-  assert.equal(listed.meta.directoriesReturned, 1);
+  assert.equal(listed.meta.directoriesReturned, 2);
   assert.equal(listed.meta.filesReturned, 1);
   assert.doesNotMatch(JSON.stringify(listed), /disabled-docs|disabled-exact|does-not-exist/);
 });

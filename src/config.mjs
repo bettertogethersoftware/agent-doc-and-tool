@@ -583,6 +583,58 @@ export function getScannedDocumentFiles(config) {
   ));
 }
 
+function getToolDocumentationRoots(config, source) {
+  // Tool folders that explicitly allow documentation are document grants too.
+  // Give them their Tool name when it is unambiguous so an agent can carry the
+  // name returned by list_tool directly into search.directories. A document
+  // root with the same name retains that name; the Tool grant receives a
+  // stable, visible prefix instead of making either selector ambiguous.
+  const usedNames = new Set(source.roots.map((root) => root.name.toLowerCase()));
+  const roots = [];
+
+  for (const directory of config.tools.directories) {
+    if (!directory.enabled || !directory.includeDocs) {
+      continue;
+    }
+
+    let name = directory.name;
+    if (usedNames.has(name.toLowerCase())) {
+      const prefixedName = `tool:${directory.name}`;
+      name = prefixedName;
+      let suffix = 2;
+      while (usedNames.has(name.toLowerCase())) {
+        name = `${prefixedName}-${suffix}`;
+        suffix += 1;
+      }
+    }
+    usedNames.add(name.toLowerCase());
+
+    roots.push({
+      name,
+      path: directory.path,
+      priority: directory.priority,
+      enabled: true,
+      excludedScannedDocumentPaths: directory.scannedDocumentFiles
+        .filter((file) => !file.enabled)
+        .map((file) => file.path)
+    });
+  }
+
+  return roots;
+}
+
+function deduplicateDocumentRootsByPath(roots) {
+  const paths = new Set();
+  return roots.filter((root) => {
+    const comparablePath = process.platform === "win32" ? root.path.toLowerCase() : root.path;
+    if (paths.has(comparablePath)) {
+      return false;
+    }
+    paths.add(comparablePath);
+    return true;
+  });
+}
+
 export function getExactToolFiles(config) {
   return [
     ...config.tools.files.map((file) => ({
@@ -614,55 +666,29 @@ export function getConfiguredSource(config, sourceInput = undefined) {
   }
 
   const scannedDocumentFiles = getScannedDocumentFiles(config);
-  return scannedDocumentFiles.length === 0
+  const toolDocumentationRoots = getToolDocumentationRoots(config, source);
+  return scannedDocumentFiles.length === 0 && toolDocumentationRoots.length === 0
     ? source
     : {
         ...source,
+        // Keep document roots before Tool-derived roots here. getSource later
+        // de-duplicates equal paths in this order, preserving the existing
+        // all-enabled behavior while still letting selected mode address each
+        // explicit grant by name.
+        roots: [...source.roots, ...toolDocumentationRoots],
         files: [...source.files, ...scannedDocumentFiles]
       };
 }
 
 export function getSource(config, sourceInput = undefined) {
   const source = getConfiguredSource(config, sourceInput);
-  const sourceName = source.name;
   const enabledSource = {
     ...source,
-    roots: source.roots.filter((root) => root.enabled),
+    roots: deduplicateDocumentRootsByPath(source.roots.filter((root) => root.enabled))
+      .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name)),
     files: source.files.filter((file) => file.enabled)
   };
-  if (sourceName !== config.defaultSource) {
-    return enabledSource;
-  }
-
-  const configuredRootPaths = new Set(enabledSource.roots.map((root) => (
-    process.platform === "win32" ? root.path.toLowerCase() : root.path
-  )));
-  const documentationRoots = config.tools.directories
-    .filter((directory) => directory.enabled && directory.includeDocs)
-    .filter((directory) => {
-      const comparable = process.platform === "win32" ? directory.path.toLowerCase() : directory.path;
-      if (configuredRootPaths.has(comparable)) {
-        return false;
-      }
-      configuredRootPaths.add(comparable);
-      return true;
-    })
-    .map((directory) => ({
-      name: `tool:${directory.name}`,
-      path: directory.path,
-      priority: directory.priority,
-      excludedScannedDocumentPaths: directory.scannedDocumentFiles
-        .filter((file) => !file.enabled)
-        .map((file) => file.path)
-    }));
-
-  return documentationRoots.length === 0
-    ? enabledSource
-    : {
-        ...enabledSource,
-        roots: [...enabledSource.roots, ...documentationRoots]
-          .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
-      };
+  return enabledSource;
 }
 
 function normalizeSearchScopeNames(value, field) {
