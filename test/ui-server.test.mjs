@@ -36,6 +36,12 @@ async function createUiFixture(t) {
 
   const config = {
     version: 1,
+    instructions: {
+      documents: "Use the configured document grants only.\nAsk before publishing.",
+      tools: "Use the configured tool grants only.\nAsk before publishing.",
+      prompts: "Use the configured prompt grants only.\nAsk before publishing.",
+      secrets: "Use the configured secret grants only.\nAsk before publishing."
+    },
     defaultSource: "local",
     sources: {
       local: {
@@ -99,28 +105,98 @@ test("configuration UI serves locally and protects its API", async (t) => {
   const page = await fetch(fixture.ui.url);
   assert.equal(page.status, 200);
   const pageText = await page.text();
+  const styles = await fetch(new URL("styles.css", fixture.ui.url));
+  assert.equal(styles.status, 200);
+  const stylesText = await styles.text();
+  const app = await fetch(new URL("app.js", fixture.ui.url));
+  assert.equal(app.status, 200);
+  const appText = await app.text();
   assert.match(pageText, /Agent Docs &amp; Tools configuration/);
+  assert.match(stylesText, /\.shell\s*\{[\s\S]*?width:\s*calc\(100%\s*-\s*32px\)/);
+  assert.match(stylesText, /\.catalog-instruction-panel\s*\{/);
+  assert.match(stylesText, /\.catalog-workspace\s*\{/);
+  assert.match(stylesText, /\.button\.action-import/);
+  assert.match(stylesText, /\.button\.action-test/);
+  assert.match(stylesText, /\.button\.action-validate/);
+  assert.match(stylesText, /\.button\.action-danger/);
+  assert.match(stylesText, /\.instruction-disclosure/);
+  assert.match(stylesText, /\.prompt-workspace-grid/);
+  assert.match(stylesText, /\.prompt-editor-panel/);
+  assert.match(stylesText, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.doesNotMatch(pageText, /human-readme-panel|README for every catalog|human-note/);
+  for (const [catalog, method] of [["documents", "list"], ["tools", "list_tool"], ["prompts", "list_prompt"], ["secrets", "list_secret"]]) {
+    assert.match(pageText, new RegExp(`id="${catalog}-instruction"[^>]*maxlength="5000"`));
+    assert.match(pageText, new RegExp(`id="${catalog}-instruction-summary"`));
+    assert.match(pageText, new RegExp(`${catalog.toUpperCase()} · ${method.toUpperCase()}`));
+  }
+  assert.match(pageText, /id="documents-panel" class="tab-panel catalog-workspace documents-workspace"/);
+  assert.match(pageText, /id="tools-panel" class="tab-panel catalog-workspace"/);
+  assert.match(pageText, /id="secrets-panel" class="tab-panel catalog-workspace"/);
+  assert.ok(pageText.indexOf('id="documents-instruction"') > pageText.indexOf('id="documents-panel"'));
+  assert.ok(pageText.indexOf('id="tools-instruction"') > pageText.indexOf('id="tools-panel"'));
+  assert.ok(pageText.indexOf('id="prompts-instruction"') > pageText.indexOf('id="prompts-panel"'));
+  assert.ok(pageText.indexOf('id="secrets-instruction"') > pageText.indexOf('id="secrets-panel"'));
+  assert.match(appText, /documentsInstruction:\s*document\.querySelector\("#documents-instruction"\)/);
+  assert.match(appText, /toolsInstruction:\s*document\.querySelector\("#tools-instruction"\)/);
+  assert.match(appText, /promptsInstruction:\s*document\.querySelector\("#prompts-instruction"\)/);
+  assert.match(appText, /secretsInstruction:\s*document\.querySelector\("#secrets-instruction"\)/);
+  assert.match(appText, /next\.instructions\s*=\s*\{/);
+  assert.doesNotMatch(appText, /humanReadmePanel|elements\.humanNote/);
+  assert.doesNotMatch(appText, /\bnoteInput\b/);
   assert.match(pageText, /id="prompts-tab" class="tab is-active"/);
   assert.ok(pageText.indexOf('id="prompts-tab"') < pageText.indexOf('id="documents-tab"'));
+  assert.ok(pageText.indexOf('id="secrets-tab"') < pageText.indexOf('id="help-tab"'));
+  assert.match(pageText, /id="help-tab"[^>]*aria-controls="help-panel"/);
+  assert.match(pageText, /id="help-tab" class="tab tab-utility"/);
+  assert.match(pageText, /id="help-panel"[^>]*aria-labelledby="help-tab"[^>]*hidden/);
+  assert.match(appText, /helpTab:\s*document\.querySelector\("#help-tab"\)/);
+  assert.match(appText, /helpPanel:\s*document\.querySelector\("#help-panel"\)/);
+  assert.match(appText, /const tabOrder = \["prompts", "documents", "tools", "secrets", "help"\]/);
   assert.match(pageText, /data-field="keywords"/);
-  assert.match(pageText, /Drag and drop with the Windows drop box/);
-  assert.match(pageText, /Register tools without running them/);
-  assert.match(pageText, /Keep reusable prompts close to your agent/);
-  assert.match(pageText, /Register exact credential files/);
+  assert.match(pageText, /id="prompt-catalog-filter"/);
+  assert.match(pageText, /id="prompt-status-filter"/);
+  assert.match(pageText, /id="prompt-editor-panel"/);
+  assert.match(pageText, /id="prompt-editor-content"/);
+  assert.match(pageText, /data-action="select"/);
+  assert.match(pageText, /<textarea data-field="content" hidden><\/textarea>/);
+  assert.match(appText, /selectedPromptId:\s*null/);
+  assert.match(appText, /function updatePromptCatalog\(\)/);
+  assert.match(appText, /function syncPromptEditor\(\)/);
+  assert.match(pageText, /Drop from File Explorer/);
+  const toolsPanelText = pageText.slice(pageText.indexOf('id="tools-panel"'), pageText.indexOf('id="prompts-panel"'));
+  const promptsPanelText = pageText.slice(pageText.indexOf('id="prompts-panel"'), pageText.indexOf('id="secrets-panel"'));
+  const secretsPanelText = pageText.slice(pageText.indexOf('id="secrets-panel"'), pageText.indexOf('id="help-panel"'));
+  const helpPanelText = pageText.slice(pageText.indexOf('id="help-panel"'), pageText.indexOf("</main>"));
+  assert.doesNotMatch(toolsPanelText, /TOOL HELP/);
+  assert.doesNotMatch(promptsPanelText, /PROMPT HELP/);
+  assert.doesNotMatch(secretsPanelText, /SECRET HELP/);
+  assert.match(helpPanelText, /PROMPT HELP/);
+  assert.match(helpPanelText, /DOCUMENT HELP/);
+  assert.match(helpPanelText, /TOOL HELP/);
+  assert.match(helpPanelText, /SECRET HELP/);
+  assert.match(helpPanelText, /Use reusable prompts safely/);
+  assert.match(helpPanelText, /Search only approved local documents/);
+  assert.match(helpPanelText, /Discover tools before running them/);
+  assert.match(helpPanelText, /Grant exact credential files carefully/);
+  assert.match(helpPanelText, /<code>list<\/code> inventories enabled grants/);
+  assert.doesNotMatch(pageText, /Register tools without running them/);
+  assert.doesNotMatch(pageText, /Keep reusable prompts close to your agent/);
+  assert.doesNotMatch(pageText, /Register exact credential files/);
   assert.match(pageText, /Document name or alias/);
   assert.match(pageText, /id="max-matches-per-file"/);
   assert.match(pageText, /Separate patterns with semicolons/);
   assert.match(pageText, /id="validate-paths"/);
-  assert.match(pageText, /Validate all paths/);
+  assert.match(pageText, /Validate paths/);
   assert.match(pageText, /id="ignore-file-state"/);
   assert.match(pageText, /data-action="scan-tool"/);
   assert.match(pageText, /data-action="scan-document"/);
   assert.match(pageText, /data-role="scan-results"/);
   assert.match(pageText, /data-role="tool-scan-result-content"/);
   assert.match(pageText, /data-role="document-scan-result-content"/);
-  assert.match(pageText, /data-role="folder-human-note"/);
-  assert.match(pageText, /Human note for agent/);
-  assert.match(pageText, /Saved with this folder and returned to the agent by/);
+  assert.match(pageText, /data-role="folder-instruction"/);
+  assert.match(pageText, /Folder Instruction/);
+  assert.match(pageText, /Saved with this folder and returned as its <code>instruction<\/code> by/);
+  assert.match(pageText, /data-field="recursive"/);
   assert.doesNotMatch(pageText, /UI preview only for now/);
   assert.doesNotMatch(pageText, /Scan results for this folder/);
   assert.doesNotMatch(pageText, /Scan Tool results/);
@@ -133,6 +209,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   const response = await fetch(new URL("api/config", fixture.ui.url), { headers: apiHeaders(fixture.ui) });
   const payload = await response.json();
   assert.equal(payload.ok, true);
+  assert.deepEqual(payload.config.instructions, fixture.config.instructions);
   assert.equal(payload.config.sources.local.extensions, "**.json;**.ai.md");
   assert.deepEqual(payload.check.sources.local.extensions, [".json", ".ai.md"]);
   assert.equal(payload.check.tools.directories[0].recursive, true);
@@ -291,11 +368,13 @@ test("configuration UI scans attached folders by matching rules, bypasses global
   const documentDirectory = path.join(scanRoot, "docs");
   const readmePath = path.join(scanRoot, "README.md");
   const apiPath = path.join(documentDirectory, "api.md");
+  const rootToolPath = path.join(scanRoot, "root-tool.exe");
   await fs.mkdir(toolDirectory, { recursive: true });
   await fs.mkdir(documentDirectory, { recursive: true });
   await fs.writeFile(readmePath, "Attached folder readme.\n", "utf8");
   await fs.writeFile(apiPath, "Nested attached folder documentation.\n", "utf8");
-  await Promise.all(Array.from({ length: 100 }, (_unused, index) => (
+  await fs.writeFile(rootToolPath, "fixture\n", "utf8");
+  await Promise.all(Array.from({ length: 99 }, (_unused, index) => (
     fs.writeFile(path.join(toolDirectory, `tool-${String(index).padStart(3, "0")}.exe`), "fixture\n", "utf8")
   )));
 
@@ -324,13 +403,12 @@ test("configuration UI scans attached folders by matching rules, bypasses global
   const toolPayload = await toolResponse.json();
   assert.equal(toolResponse.status, 200);
   assert.equal(toolPayload.ok, true);
-  assert.equal(toolPayload.meta.alwaysRecursive, true);
+  assert.equal(toolPayload.meta.recursive, false);
   assert.equal(toolPayload.meta.resultLimit, 100);
-  assert.equal(toolPayload.results.length, 100);
+  assert.deepEqual(toolPayload.results.map((entry) => entry.path), [rootToolPath]);
   assert.equal(toolPayload.meta.hasMore, false);
   assert.equal(toolPayload.meta.truncated, false);
   assert.ok(toolPayload.results.every((entry) => path.isAbsolute(entry.path) && entry.path.endsWith(".exe")));
-  assert.ok(toolPayload.results.some((entry) => entry.path === path.join(toolDirectory, "tool-000.exe")));
 
   const documentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
     method: "POST",
@@ -339,10 +417,35 @@ test("configuration UI scans attached folders by matching rules, bypasses global
   });
   const documentPayload = await documentResponse.json();
   assert.equal(documentResponse.status, 200);
-  assert.equal(documentPayload.meta.alwaysRecursive, true);
-  assert.deepEqual(new Set(documentPayload.results.map((entry) => entry.path)), new Set([readmePath, apiPath]));
+  assert.equal(documentPayload.meta.recursive, false);
+  assert.deepEqual(documentPayload.results.map((entry) => entry.path), [readmePath]);
 
-  await fs.writeFile(path.join(toolDirectory, "tool-100.exe"), "fixture\n", "utf8");
+  draftConfig.tools.directories[0].recursive = true;
+  const recursiveToolResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "tool", directoryPath: scanRoot, config: draftConfig })
+  });
+  const recursiveToolPayload = await recursiveToolResponse.json();
+  assert.equal(recursiveToolResponse.status, 200);
+  assert.equal(recursiveToolPayload.meta.recursive, true);
+  assert.equal(recursiveToolPayload.results.length, 100);
+  assert.equal(recursiveToolPayload.meta.hasMore, false);
+  assert.equal(recursiveToolPayload.meta.truncated, false);
+  assert.ok(recursiveToolPayload.results.some((entry) => entry.path === rootToolPath));
+  assert.ok(recursiveToolPayload.results.some((entry) => entry.path === path.join(toolDirectory, "tool-000.exe")));
+
+  const recursiveDocumentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "document", directoryPath: scanRoot, config: draftConfig })
+  });
+  const recursiveDocumentPayload = await recursiveDocumentResponse.json();
+  assert.equal(recursiveDocumentResponse.status, 200);
+  assert.equal(recursiveDocumentPayload.meta.recursive, true);
+  assert.deepEqual(new Set(recursiveDocumentPayload.results.map((entry) => entry.path)), new Set([readmePath, apiPath]));
+
+  await fs.writeFile(path.join(toolDirectory, "tool-099.exe"), "fixture\n", "utf8");
   const limitedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
     method: "POST",
     headers: apiHeaders(fixture.ui, true),
@@ -423,6 +526,7 @@ test("native picker dialogs use a topmost owner window", () => {
 test("configuration UI validates, saves, backs up, and searches", async (t) => {
   const fixture = await createUiFixture(t);
   const nextConfig = structuredClone(fixture.config);
+  nextConfig.instructions.tools = "Prefer local tools.\n\nAsk before publishing.";
   nextConfig.sources.local.fileNames.push("AGENTS.md");
   nextConfig.limits.maxResults = 25;
   await Promise.all(Array.from({ length: 21 }, (_unused, index) => (
@@ -442,8 +546,12 @@ test("configuration UI validates, saves, backs up, and searches", async (t) => {
   assert.equal(saveResponse.status, 200);
   assert.equal(savePayload.ok, true);
   assert.equal(savePayload.backupCreated, true);
-  assert.equal(JSON.parse(await fs.readFile(fixture.configPath, "utf8")).sources.local.fileNames.at(-1), "AGENTS.md");
-  assert.equal(JSON.parse(await fs.readFile(`${fixture.configPath}.bak`, "utf8")).sources.local.fileNames.at(-1), "README.md");
+  const savedConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  const backupConfig = JSON.parse(await fs.readFile(`${fixture.configPath}.bak`, "utf8"));
+  assert.deepEqual(savedConfig.instructions, nextConfig.instructions);
+  assert.deepEqual(backupConfig.instructions, fixture.config.instructions);
+  assert.equal(savedConfig.sources.local.fileNames.at(-1), "AGENTS.md");
+  assert.equal(backupConfig.sources.local.fileNames.at(-1), "README.md");
 
   const searchResponse = await fetch(new URL("api/search", fixture.ui.url), {
     method: "POST",
@@ -467,6 +575,26 @@ test("configuration UI validates, saves, backs up, and searches", async (t) => {
   assert.equal(toolPayload.ok, true);
   assert.equal(toolPayload.meta.executed, false);
   assert.equal(toolPayload.results[0].path, fixture.toolPath);
+});
+
+test("configuration UI rejects an over-limit catalog Instruction without replacing the saved configuration", async (t) => {
+  const fixture = await createUiFixture(t);
+  const configBefore = await fs.readFile(fixture.configPath, "utf8");
+  const nextConfig = structuredClone(fixture.config);
+  nextConfig.instructions.tools = "x".repeat(5_001);
+
+  const response = await fetch(new URL("api/config", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ config: nextConfig })
+  });
+  const payload = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error.code, "CONFIG_SCHEMA_INVALID");
+  assert.ok(payload.error.details.issues.some((issue) => issue.path === "instructions.tools"));
+  assert.equal(await fs.readFile(fixture.configPath, "utf8"), configBefore);
 });
 
 test("configuration UI saves disabled states across every tab", async (t) => {
@@ -530,7 +658,7 @@ test("configuration UI saves disabled states across every tab", async (t) => {
   assert.equal((await promptResponse.json()).results.length, 0);
 });
 
-test("configuration UI saves a folder note and selected scanned tool and document grants", async (t) => {
+test("configuration UI saves a Folder Instruction and selected scanned tool and document grants", async (t) => {
   const fixture = await createUiFixture(t);
   const scannedToolPath = path.join(fixture.docsRoot, "generate_video.py");
   const scannedDocumentPath = path.join(fixture.docsRoot, "custom-tool.md");
@@ -540,7 +668,7 @@ test("configuration UI saves a folder note and selected scanned tool and documen
   ]);
 
   const nextConfig = structuredClone(fixture.config);
-  nextConfig.tools.directories[0].humanNote = "This folder contains custom media utilities.";
+  nextConfig.tools.directories[0].instruction = "This folder contains custom media utilities.";
   nextConfig.tools.directories[0].scannedToolFiles = [{
     name: "ui-tools-generate-video",
     path: scannedToolPath,
@@ -563,7 +691,7 @@ test("configuration UI saves a folder note and selected scanned tool and documen
   assert.equal(savePayload.ok, true);
 
   const saved = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
-  assert.equal(saved.tools.directories[0].humanNote, "This folder contains custom media utilities.");
+  assert.equal(saved.tools.directories[0].instruction, "This folder contains custom media utilities.");
   assert.deepEqual(saved.tools.directories[0].scannedToolFiles, [{
     name: "ui-tools-generate-video",
     path: scannedToolPath,

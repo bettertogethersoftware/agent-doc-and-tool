@@ -1,5 +1,11 @@
 {
   "version": 1,
+  "instructions": {
+    "documents": "",
+    "tools": "",
+    "prompts": "",
+    "secrets": ""
+  },
   "defaultSource": "local",
   "sources": {
     "local": {

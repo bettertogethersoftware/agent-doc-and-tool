@@ -27,8 +27,21 @@ export const MAX_PROMPT_NAME_CHARS = 200;
 export const MAX_PROMPT_CONTENT_CHARS = 200_000;
 export const MAX_PROMPT_TOTAL_CHARS = 5_000_000;
 export const MAX_SEARCH_SCOPE_GRANTS = 500;
+export const MAX_INSTRUCTION_CHARS = 5_000;
+// Kept for callers that imported the previous constant. New configuration and
+// response contracts use "instruction" instead of "humanNote".
+export const MAX_HUMAN_NOTE_CHARS = MAX_INSTRUCTION_CHARS;
 const MAX_PROMPT_KEYWORDS = 100;
 const MAX_PROMPT_KEYWORD_CHARS = 200;
+const CATALOG_INSTRUCTION_KEYS = ["documents", "tools", "prompts", "secrets"];
+
+const InstructionTextSchema = z.string().max(MAX_INSTRUCTION_CHARS);
+const CatalogInstructionsSchema = z.object({
+  documents: InstructionTextSchema.optional(),
+  tools: InstructionTextSchema.optional(),
+  prompts: InstructionTextSchema.optional(),
+  secrets: InstructionTextSchema.optional()
+}).strict();
 
 const RootEntrySchema = z.union([
   z.string().trim().min(1),
@@ -80,7 +93,10 @@ const ToolDirectoryEntrySchema = z.union([
     recursive: z.boolean().default(true),
     includeDocs: z.boolean().default(true),
     enabled: z.boolean().default(true),
-    humanNote: z.string().max(5_000).default(""),
+    instruction: InstructionTextSchema.optional(),
+    // Accept the former field when loading an existing private configuration.
+    // The UI writes only "instruction" going forward.
+    humanNote: InstructionTextSchema.optional(),
     scannedToolFiles: z.array(ScannedToolFileEntrySchema).max(100).default([]),
     scannedDocumentFiles: z.array(ScannedDocumentFileEntrySchema).max(100).default([])
   }).strict()
@@ -148,6 +164,11 @@ const LimitsSchema = z.object({
 
 const ConfigSchema = z.object({
   version: z.literal(1),
+  instructions: CatalogInstructionsSchema.optional(),
+  // Read transitional and legacy shapes so an existing configuration is not
+  // discarded before its next UI save.
+  humanNotes: CatalogInstructionsSchema.optional(),
+  humanNote: InstructionTextSchema.optional(),
   defaultSource: z.string().trim().min(1).default("local"),
   sources: z.record(z.string().trim().min(1), SourceSchema),
   ignoreFile: z.string().trim().min(1).optional(),
@@ -315,7 +336,7 @@ function normalizeTools(rawTools, configDirectory) {
       recursive: directory.recursive !== false,
       includeDocs: directory.includeDocs !== false,
       enabled: directory.enabled !== false,
-      humanNote: directory.humanNote?.trim() ?? "",
+      instruction: (directory.instruction ?? directory.humanNote ?? "").trim(),
       scannedToolFiles: (directory.scannedToolFiles ?? []).map((file) => ({
         name: file.name,
         path: resolveConfiguredPath(file.path, configDirectory),
@@ -479,6 +500,18 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
   const tools = normalizeTools(parsed.data.tools, configDirectory);
   validateScannedDocumentFileNames(sources, parsed.data.defaultSource.toLowerCase(), tools);
 
+  const legacyInstruction = parsed.data.humanNote?.trim() ?? "";
+  const transitionalInstructions = parsed.data.humanNotes ?? {};
+  const configuredInstructions = parsed.data.instructions ?? {};
+  const instructions = Object.fromEntries(CATALOG_INSTRUCTION_KEYS.map((catalog) => {
+    const value = Object.hasOwn(configuredInstructions, catalog)
+      ? configuredInstructions[catalog]
+      : Object.hasOwn(transitionalInstructions, catalog)
+        ? transitionalInstructions[catalog]
+        : legacyInstruction;
+    return [catalog, value?.trim() ?? ""];
+  }));
+
   const ignorePatterns = [...parsed.data.ignore];
   let ignoreFile = null;
   if (parsed.data.ignoreFile) {
@@ -494,6 +527,7 @@ export async function parseConfig(rawConfig, configPathInput = DEFAULT_CONFIG_PA
 
   return {
     version: parsed.data.version,
+    instructions,
     configPath,
     configDirectory,
     defaultSource: parsed.data.defaultSource.toLowerCase(),

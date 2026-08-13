@@ -20,6 +20,7 @@ export async function listDocumentCatalog({ source: sourceInput = undefined } = 
   return {
     schemaVersion: "1.0",
     ok: true,
+    instruction: config.instructions.documents,
     source: source.name,
     directories,
     files,
@@ -47,6 +48,7 @@ export async function listPromptCatalog(options = {}) {
   return {
     schemaVersion: "1.0",
     ok: true,
+    instruction: config.instructions.prompts,
     prompts,
     meta: {
       backend: "configuration",
@@ -73,6 +75,7 @@ export async function listSecretCatalog(options = {}) {
   return {
     schemaVersion: "1.0",
     ok: true,
+    instruction: config.instructions.secrets,
     files,
     meta: {
       backend: "configuration",
@@ -111,7 +114,7 @@ export async function listToolCatalog(options = {}) {
         priority: directory.priority,
         recursive: directory.recursive,
         includeDocs: directory.includeDocs,
-        ...(directory.humanNote ? { humanNote: directory.humanNote } : {}),
+        ...(directory.instruction ? { instruction: directory.instruction } : {}),
         ...(scannedToolFiles.length > 0 ? { scannedToolFiles } : {}),
         ...(scannedDocumentFiles.length > 0 ? { scannedDocumentFiles } : {})
       };
@@ -129,6 +132,7 @@ export async function listToolCatalog(options = {}) {
   return {
     schemaVersion: "1.0",
     ok: true,
+    instruction: config.instructions.tools,
     directories,
     files,
     meta: {

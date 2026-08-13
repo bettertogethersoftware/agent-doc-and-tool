@@ -42,6 +42,12 @@ async function createFixture(t) {
   const enabledSecret = path.join(temporaryRoot, "enabled-secret.txt");
   const disabledSecret = path.join(temporaryRoot, "disabled-secret.txt");
   const missingPath = path.join(temporaryRoot, "does-not-exist");
+  const instructions = {
+    documents: "Use enabled document grants only.\nAsk before publishing.",
+    tools: "Use enabled tool grants only.\nAsk before publishing.",
+    prompts: "Use enabled prompt grants only.\nAsk before publishing.",
+    secrets: "Use enabled secret grants only.\nAsk before publishing."
+  };
 
   await Promise.all([
     fs.writeFile(enabledDocument, "Enabled document marker.\n", "utf8"),
@@ -60,6 +66,7 @@ async function createFixture(t) {
   const configPath = path.join(temporaryRoot, "search.config.json");
   await fs.writeFile(configPath, `${JSON.stringify({
     version: 1,
+    instructions,
     defaultSource: "local",
     sources: {
       local: {
@@ -126,6 +133,7 @@ async function createFixture(t) {
 
   return {
     configPath,
+    instructions,
     enabledDocs,
     enabledTools,
     disabledDocs,
@@ -150,6 +158,8 @@ test("document catalog lists enabled folders and exact files only", async (t) =>
     name: "enabled-exact-document",
     path: fixture.enabledExactDocument
   }]);
+  assert.equal(listed.instruction, fixture.instructions.documents);
+  assert.equal(Object.hasOwn(listed, "humanNote"), false);
   assert.equal(listed.meta.enabledOnly, true);
   assert.equal(listed.meta.directoriesReturned, 1);
   assert.equal(listed.meta.filesReturned, 1);
@@ -179,6 +189,63 @@ test("exact document grants require a name and object shape", async () => {
       (error) => error?.code === "CONFIG_SCHEMA_INVALID"
     );
   }
+});
+
+test("catalog Instructions remain independent, trim text, and migrate legacy notes", async () => {
+  const baseConfig = {
+    version: 1,
+    defaultSource: "local",
+    sources: {
+      local: {
+        roots: [],
+        extensions: ".md",
+        fileNames: ["README.md"],
+        files: []
+      }
+    }
+  };
+
+  const blank = await parseConfig(baseConfig, "C:\\config\\search.config.json");
+  assert.deepEqual(blank.instructions, {
+    documents: "",
+    tools: "",
+    prompts: "",
+    secrets: ""
+  });
+
+  const legacy = await parseConfig({
+    ...baseConfig,
+    humanNote: "  Prefer local workflows.\n\nAsk before publishing.  "
+  }, "C:\\config\\search.config.json");
+  assert.deepEqual(legacy.instructions, {
+    documents: "Prefer local workflows.\n\nAsk before publishing.",
+    tools: "Prefer local workflows.\n\nAsk before publishing.",
+    prompts: "Prefer local workflows.\n\nAsk before publishing.",
+    secrets: "Prefer local workflows.\n\nAsk before publishing."
+  });
+
+  const independent = await parseConfig({
+    ...baseConfig,
+    humanNote: "legacy fallback",
+    instructions: {
+      documents: "  Search the approved documents first.  ",
+      tools: "  Read the tool README before use.  ",
+      prompts: "  Confirm the selected reusable prompt.  ",
+      secrets: "  Prefer the granted file path.  "
+    }
+  }, "C:\\config\\search.config.json");
+  assert.deepEqual(independent.instructions, {
+    documents: "Search the approved documents first.",
+    tools: "Read the tool README before use.",
+    prompts: "Confirm the selected reusable prompt.",
+    secrets: "Prefer the granted file path."
+  });
+
+  await assert.rejects(
+    parseConfig({ ...baseConfig, instructions: { tools: "x".repeat(5_001) } }, "C:\\config\\search.config.json"),
+    (error) => error?.code === "CONFIG_SCHEMA_INVALID"
+      && error.details?.issues?.some((issue) => issue.path === "instructions.tools")
+  );
 });
 
 test("document grant names and exact-file paths are unique within each source", async () => {
@@ -254,6 +321,7 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
     path: fixture.enabledExactTool,
     priority: 100
   }]);
+  assert.equal(listed.instruction, fixture.instructions.tools);
   assert.equal(listed.meta.enabledOnly, true);
   assert.equal(listed.meta.executed, false);
   assert.equal(listed.meta.directoriesReturned, 1);
@@ -291,7 +359,10 @@ test("saved scan selections are listed as direct tools and searchable exact docu
 
   const listedTools = await listToolCatalog({ configPath: fixture.configPath });
   const listedDirectory = listedTools.directories.find((entry) => entry.name === "enabled-tools");
-  assert.equal(listedDirectory.humanNote, directory.humanNote);
+  assert.equal(listedTools.instruction, fixture.instructions.tools);
+  assert.equal(listedDirectory.instruction, directory.humanNote);
+  assert.equal(Object.hasOwn(listedDirectory, "humanNote"), false);
+  assert.notEqual(listedTools.instruction, listedDirectory.instruction);
   assert.deepEqual(listedDirectory.scannedToolFiles, [{
     name: "enabled-tools-generate-video",
     path: scanToolPath,
@@ -427,6 +498,7 @@ test("prompt catalog lists enabled names and keywords without content", async (t
     name: "enabled-prompt",
     keywords: ["enabled", "reusable"]
   }]);
+  assert.equal(listed.instruction, fixture.instructions.prompts);
   assert.equal(listed.meta.enabledOnly, true);
   assert.equal(listed.meta.promptContentReturned, false);
   assert.equal(listed.meta.promptsReturned, 1);
@@ -442,11 +514,30 @@ test("secret catalog lists enabled grants without reading values", async (t) => 
     path: fixture.enabledSecret,
     format: "env"
   }]);
+  assert.equal(listed.instruction, fixture.instructions.secrets);
   assert.equal(listed.meta.enabledOnly, true);
   assert.equal(listed.meta.filesRead, 0);
   assert.equal(listed.meta.sensitiveValuesReturned, false);
   assert.equal(listed.meta.filesReturned, 1);
   assert.doesNotMatch(JSON.stringify(listed), /disabled-secret|does-not-exist|enabled-value|disabled-value/);
+});
+
+test("all catalog methods return empty Instructions when no instructions are configured", async (t) => {
+  const fixture = await createFixture(t);
+  const rawConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  delete rawConfig.instructions;
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(rawConfig, null, 2)}\n`, "utf8");
+
+  const catalogs = await Promise.all([
+    listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath }),
+    listToolCatalog({ configPath: fixture.configPath }),
+    listPromptCatalog({ configPath: fixture.configPath }),
+    listSecretCatalog({ configPath: fixture.configPath })
+  ]);
+  for (const catalog of catalogs) {
+    assert.equal(catalog.instruction, "");
+    assert.equal(Object.hasOwn(catalog, "humanNote"), false);
+  }
 });
 
 test("disabled document grants are neither searched nor fetched", async (t) => {

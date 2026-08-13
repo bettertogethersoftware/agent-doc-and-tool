@@ -163,6 +163,7 @@ async function verifyMatchingFile(filePath, realRoot, state) {
 
 async function *walkAttachedDirectory(directory, matchesFile, state) {
   const realRoot = await resolveScanDirectory(directory, state);
+  const recursive = directory.recursive !== false;
   if (!realRoot) {
     return;
   }
@@ -204,6 +205,9 @@ async function *walkAttachedDirectory(directory, matchesFile, state) {
         continue;
       }
       if (entry.isDirectory()) {
+        if (!recursive) {
+          continue;
+        }
         if (PROTECTED_DIRECTORY_NAMES.has(entry.name.toLowerCase())) {
           state.stats.skippedIgnored += 1;
           continue;
@@ -291,7 +295,7 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
       resultLimit: RESULT_LIMIT,
       hasMore: state.hasMore,
       truncated: state.truncated,
-      alwaysRecursive: true,
+      recursive: directory.recursive,
       configPath: config.configPath,
       elapsedMs: Math.round(performance.now() - started),
       warningCount: state.warningCount,

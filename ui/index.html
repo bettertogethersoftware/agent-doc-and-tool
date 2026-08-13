@@ -15,11 +15,12 @@
         <small>Local configuration console</small>
       </span>
     </a>
-    <nav class="tabs" role="tablist" aria-label="Configuration sections">
+    <nav class="tabs" role="tablist" aria-label="Configuration sections and help">
       <button id="prompts-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prompts-panel">Prompts</button>
       <button id="documents-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="documents-panel" tabindex="-1">Documents</button>
       <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
       <button id="secrets-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="secrets-panel" tabindex="-1">Secrets</button>
+      <button id="help-tab" class="tab tab-utility" type="button" role="tab" aria-selected="false" aria-controls="help-panel" tabindex="-1" aria-label="Open reference" title="Reference">?</button>
     </nav>
     <div class="runtime-state">
       <span class="status-dot" aria-hidden="true"></span>
@@ -30,36 +31,51 @@
   <main class="shell">
     <h1 class="sr-only">Agent Docs &amp; Tools configuration</h1>
 
-    <div id="documents-panel" class="tab-panel" role="tabpanel" aria-labelledby="documents-tab" hidden>
+    <div id="documents-panel" class="tab-panel catalog-workspace documents-workspace" role="tabpanel" aria-labelledby="documents-tab" hidden>
+
+    <details class="panel catalog-instruction-panel instruction-disclosure" aria-labelledby="documents-instruction-heading">
+      <summary>
+        <span>
+          <span class="step">DOCUMENTS · LIST</span>
+          <strong id="documents-instruction-heading">Catalog Instruction</strong>
+        </span>
+        <span id="documents-instruction-summary" class="instruction-summary">No instruction configured</span>
+      </summary>
+      <label class="field catalog-instruction-field" for="documents-instruction">
+        <span>Instruction</span>
+        <textarea id="documents-instruction" rows="2" maxlength="5000" spellcheck="true" placeholder="Describe the context, priorities, or guidance the agent should use when finding local documents."></textarea>
+        <small>Context only — it does not broaden document grants.</small>
+      </label>
+    </details>
 
     <section class="panel drop-panel">
       <div class="panel-heading compact">
         <div>
-          <p class="step">01</p>
-          <h2>Add files or folders</h2>
-          <p>Add several locations at once. Files become exact grants; folders become recursive search roots.</p>
+          <p class="step">ADD SOURCES</p>
+          <h2>Files &amp; folders</h2>
+          <p>Folders are search roots; files are exact grants.</p>
         </div>
       </div>
       <div id="drop-zone" class="drop-zone">
         <div class="drop-symbol" aria-hidden="true">↓</div>
         <div>
-          <strong>Drag and drop with the Windows drop box</strong>
-          <p id="drop-help">Click the button, then drop from File Explorer into the separate window. Direct drops here also work when the browser exposes complete paths.</p>
+          <strong>Drop from File Explorer</strong>
+          <p id="drop-help">Open the drop box for complete local paths, or drop here when the browser provides them.</p>
         </div>
-        <button id="open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+        <button id="open-drop-box" class="button action-import" type="button">Open drop box</button>
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel catalog-list-panel half-panel">
       <div class="panel-heading">
         <div>
-          <p class="step">02</p>
-          <h2>Allowed folders</h2>
-          <p>Every matching document below enabled folders can be searched recursively. Disable a folder to keep it saved without scanning it.</p>
+          <p class="step">DOCUMENT ROOTS</p>
+          <h2>Folders</h2>
+          <p>Searchable sources; disable to retain without scanning.</p>
         </div>
         <div class="button-row">
-          <button id="pick-folder" class="button secondary" type="button">Browse folder</button>
-          <button id="add-folder" class="button secondary" type="button">Add manually</button>
+          <button id="pick-folder" class="button action-browse" type="button">Browse folder</button>
+          <button id="add-folder" class="button action-add" type="button">Add path</button>
         </div>
       </div>
       <div class="table-head roots-grid" aria-hidden="true">
@@ -73,16 +89,16 @@
       <p id="roots-empty" class="empty-state" hidden>No folders are allowed yet.</p>
     </section>
 
-    <section class="panel">
+    <section class="panel catalog-list-panel half-panel">
       <div class="panel-heading">
         <div>
-          <p class="step">03</p>
+          <p class="step">EXACT GRANTS</p>
           <h2>Exact files</h2>
-          <p>Enabled exact files are allowed even when they are outside a folder or do not match a suffix pattern.</p>
+          <p>Direct grants, independent of folder and suffix rules.</p>
         </div>
         <div class="button-row">
-          <button id="pick-file" class="button secondary" type="button">Browse file</button>
-          <button id="add-file" class="button secondary" type="button">Add manually</button>
+          <button id="pick-file" class="button action-browse" type="button">Browse file</button>
+          <button id="add-file" class="button action-add" type="button">Add path</button>
         </div>
       </div>
       <div class="table-head file-grid" aria-hidden="true">
@@ -95,10 +111,10 @@
       <p id="files-empty" class="empty-state" hidden>No exact files are allowed yet.</p>
     </section>
 
-    <section class="panel">
+    <section class="panel wide-panel">
       <div class="panel-heading compact">
         <div>
-          <p class="step">04</p>
+          <p class="step">MATCHING</p>
           <h2>Matching rules</h2>
           <p>Use semicolons between suffix patterns. Glob-style forms are normalized safely.</p>
         </div>
@@ -125,10 +141,10 @@
       </label>
     </section>
 
-    <details class="panel advanced">
+    <details class="panel advanced wide-panel">
       <summary>
         <span>
-          <span class="step">05</span>
+          <span class="step">LIMITS</span>
           <strong>Safety and limits</strong>
         </span>
         <small>Advanced</small>
@@ -157,12 +173,12 @@
       </div>
     </details>
 
-    <section class="panel test-panel">
+    <section class="panel test-panel wide-panel">
       <div class="panel-heading compact">
         <div>
-          <p class="step">06</p>
-          <h2>Test the saved configuration</h2>
-          <p>Run the same local search exposed to the AI agent.</p>
+          <p class="step">READ-ONLY CHECK</p>
+          <h2>Test document search</h2>
+          <p>Uses the same local search exposed to the agent.</p>
         </div>
       </div>
       <form id="search-form" class="search-form">
@@ -170,56 +186,57 @@
           <span>Search phrase</span>
           <input id="search-query" type="search" value="minimax h3" maxlength="500" required>
         </label>
-        <button id="run-search" class="button primary" type="submit">Run test search</button>
+        <button id="run-search" class="button action-test" type="submit">Run test search</button>
       </form>
       <div id="search-summary" class="search-summary" hidden></div>
       <div id="search-results" class="results"></div>
     </section>
     </div>
 
-    <div id="tools-panel" class="tab-panel" role="tabpanel" aria-labelledby="tools-tab" hidden>
-      <section class="panel tool-intro">
-        <div class="panel-heading compact">
-          <div>
-            <p class="step">TOOL ACCESS</p>
-            <h2>Register tools without running them</h2>
-            <p>Tool folders expose matching executables and scripts to <code>find_tool</code>. Documentation is included by default, so the agent can search and fetch a nearby <code>README.md</code> before using a tool.</p>
-          </div>
-        </div>
-        <div class="safety-note">
-          <strong>Discovery only</strong>
-          <span>The MCP server verifies and returns local paths. It never launches a program, changes PATH, or treats discovery as permission to execute.</span>
-        </div>
-      </section>
+    <div id="tools-panel" class="tab-panel catalog-workspace" role="tabpanel" aria-labelledby="tools-tab" hidden>
+      <details class="panel catalog-instruction-panel instruction-disclosure" aria-labelledby="tools-instruction-heading">
+        <summary>
+          <span>
+            <span class="step">TOOLS · LIST_TOOL</span>
+            <strong id="tools-instruction-heading">Catalog Instruction</strong>
+          </span>
+          <span id="tools-instruction-summary" class="instruction-summary">No instruction configured</span>
+        </summary>
+        <label class="field catalog-instruction-field" for="tools-instruction">
+          <span>Instruction</span>
+          <textarea id="tools-instruction" rows="2" maxlength="5000" spellcheck="true" placeholder="Describe the context, priorities, or guidance the agent should use when discovering local tools."></textarea>
+          <small>Context only — it does not execute a tool or broaden grants.</small>
+        </label>
+      </details>
 
       <section class="panel drop-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="step">01</p>
-            <h2>Add tool folders or files</h2>
-            <p>Folders become searchable tool catalogs. Files become exact tool grants.</p>
+            <p class="step">ADD SOURCES</p>
+            <h2>Tool folders &amp; files</h2>
+            <p>Folders are catalogs; files are exact tool grants.</p>
           </div>
         </div>
         <div id="tool-drop-zone" class="drop-zone">
           <div class="drop-symbol" aria-hidden="true">↓</div>
           <div>
-            <strong>Drag and drop with the Windows drop box</strong>
-            <p id="tool-drop-help">Click the button, then drop from File Explorer into the separate window. Direct drops here also work when the browser exposes complete paths.</p>
-          </div>
-          <button id="tool-open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+          <strong>Drop from File Explorer</strong>
+          <p id="tool-drop-help">Open the drop box for complete local paths, or drop here when the browser provides them.</p>
+        </div>
+          <button id="tool-open-drop-box" class="button action-import" type="button">Open drop box</button>
         </div>
       </section>
 
-      <section class="panel">
+    <section class="panel wide-panel">
         <div class="panel-heading">
           <div>
-            <p class="step">02</p>
+            <p class="step">TOOL CATALOGS</p>
             <h2>Tool folders</h2>
-            <p>Matching executables and scripts are discovered throughout each enabled folder tree by default. Each folder keeps its own Tool and Document scan results. The scans always recurse and apply only their matching rules, regardless of the catalog options or general ignore patterns.</p>
+            <p>Each folder holds discovery rules, optional documentation, and saved scans.</p>
           </div>
           <div class="button-row">
-            <button id="pick-tool-folder" class="button secondary" type="button">Browse folder</button>
-            <button id="add-tool-folder" class="button secondary" type="button">Add manually</button>
+            <button id="pick-tool-folder" class="button action-browse" type="button">Browse folder</button>
+            <button id="add-tool-folder" class="button action-add" type="button">Add path</button>
           </div>
         </div>
         <div class="table-head tool-directory-grid" aria-hidden="true">
@@ -234,16 +251,16 @@
         <p id="tool-directories-empty" class="empty-state" hidden>No tool folders are registered yet.</p>
       </section>
 
-      <section class="panel">
+    <section class="panel wide-panel">
         <div class="panel-heading">
           <div>
-            <p class="step">03</p>
+            <p class="step">EXACT GRANTS</p>
             <h2>Exact tool files</h2>
-            <p>Register a specific executable or script even when its parent folder should not be scanned.</p>
+            <p>Direct tool grants outside a scanned folder.</p>
           </div>
           <div class="button-row">
-            <button id="pick-tool-file" class="button secondary" type="button">Browse file</button>
-            <button id="add-tool-file" class="button secondary" type="button">Add manually</button>
+            <button id="pick-tool-file" class="button action-browse" type="button">Browse file</button>
+            <button id="add-tool-file" class="button action-add" type="button">Add path</button>
           </div>
         </div>
         <div class="table-head tool-file-grid" aria-hidden="true">
@@ -257,10 +274,10 @@
         <p id="tool-files-empty" class="empty-state" hidden>No exact tool files are registered yet.</p>
       </section>
 
-      <section class="panel">
+    <section class="panel wide-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="step">04</p>
+            <p class="step">MATCHING</p>
             <h2>Tool matching rules</h2>
             <p>Only matching suffixes are discovered inside tool folders. Exact tool files do not need to match.</p>
           </div>
@@ -268,14 +285,14 @@
         <label class="field">
           <span>Tool suffix patterns</span>
           <input id="tool-extensions" type="text" spellcheck="false" placeholder=".exe;.cmd;.bat;.ps1;.py;.js;.mjs">
-          <small>Use semicolons between values. Scan Tool applies only these suffix rules and always recurses; link and secret safety checks still apply.</small>
+          <small>Use semicolons between values. Scan Tool uses these suffix rules and the folder's Include subfolders flag; Scan Document uses the Documents matching rules and the same flag. Link and secret safety checks still apply.</small>
         </label>
       </section>
 
-      <section class="panel test-panel">
+    <section class="panel test-panel wide-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="step">05</p>
+            <p class="step">READ-ONLY CHECK</p>
             <h2>Test the saved tool catalog</h2>
             <p>Run the same read-only resolver exposed to the AI agent.</p>
           </div>
@@ -285,106 +302,179 @@
             <span>Tool or capability</span>
             <input id="tool-search-query" type="search" value="ffprobe" maxlength="500" required>
           </label>
-          <button id="run-tool-search" class="button primary" type="submit">Find tool</button>
+          <button id="run-tool-search" class="button action-test" type="submit">Find tool</button>
         </form>
         <div id="tool-search-summary" class="search-summary" hidden></div>
         <div id="tool-search-results" class="results"></div>
       </section>
     </div>
 
-    <div id="prompts-panel" class="tab-panel" role="tabpanel" aria-labelledby="prompts-tab">
-      <section class="panel prompt-intro">
-        <div class="panel-heading compact">
+    <div id="prompts-panel" class="tab-panel prompt-workspace" role="tabpanel" aria-labelledby="prompts-tab">
+      <details class="panel catalog-instruction-panel instruction-disclosure" aria-labelledby="prompts-instruction-heading">
+        <summary>
+          <span>
+            <span class="step">PROMPTS · LIST_PROMPT</span>
+            <strong id="prompts-instruction-heading">Catalog Instruction</strong>
+          </span>
+          <span id="prompts-instruction-summary" class="instruction-summary">No instruction configured</span>
+        </summary>
+        <label class="field catalog-instruction-field" for="prompts-instruction">
+          <span>Instruction</span>
+          <textarea id="prompts-instruction" rows="2" maxlength="5000" spellcheck="true" placeholder="Describe the context, priorities, or guidance the agent should use when choosing reusable prompts."></textarea>
+          <small>Returned only with <code>list_prompt</code>. Context only — it does not apply a prompt or broaden the request.</small>
+        </label>
+      </details>
+
+      <section class="panel prompt-catalog" aria-labelledby="prompts-heading">
+        <div class="prompt-catalog-toolbar">
           <div>
-            <p class="step">REUSABLE CONTEXT</p>
-            <h2>Keep reusable prompts close to your agent</h2>
-            <p>Save named prompt text once, then let the agent discover it with <code>find_prompt</code> and retrieve the full text with <code>read_prompt</code>.</p>
+            <p class="step">SAVED PROMPTS</p>
+            <h2 id="prompts-heading">Prompt catalog <span id="prompts-count" class="catalog-count">0 prompts</span></h2>
+            <p>Scan the catalog first; select one item to edit its full text.</p>
+          </div>
+          <div class="prompt-catalog-controls">
+            <label class="sr-only" for="prompt-catalog-filter">Filter saved prompts</label>
+            <input id="prompt-catalog-filter" type="search" maxlength="500" placeholder="Filter name or keyword">
+            <label class="sr-only" for="prompt-status-filter">Filter by status</label>
+            <select id="prompt-status-filter" aria-label="Filter prompts by status">
+              <option value="all">All statuses</option>
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <button id="add-prompt" class="button action-add" type="button">New prompt</button>
           </div>
         </div>
-        <div class="safety-note">
-          <strong>Current request stays in control</strong>
-          <span>A stored prompt supplies reusable task details. It cannot override higher-priority instructions or authorize unrelated actions.</span>
+
+        <div class="prompt-workspace-grid">
+          <section class="prompt-list-pane" aria-label="Saved prompt catalog">
+            <div class="prompt-list-head" aria-hidden="true">
+              <span class="prompt-list-columns">
+                <span>Name</span>
+                <span>Keywords</span>
+                <span>Preview</span>
+              </span>
+              <span>Status</span>
+              <span></span>
+            </div>
+            <div id="prompts-list" class="entry-list prompt-list"></div>
+            <p id="prompts-empty" class="empty-state" hidden>No reusable prompts are saved yet.</p>
+            <p id="prompts-filter-empty" class="empty-state" hidden>No saved prompts match this filter.</p>
+          </section>
+
+          <aside id="prompt-editor-panel" class="prompt-editor-panel" aria-labelledby="prompt-editor-heading">
+            <div id="prompt-editor-empty" class="prompt-editor-empty">
+              <span class="prompt-editor-empty-icon" aria-hidden="true">↗</span>
+              <div>
+                <strong id="prompt-editor-heading">Select a prompt</strong>
+                <p>Its full text opens here without expanding every catalog row.</p>
+              </div>
+            </div>
+            <div id="prompt-editor-body" hidden>
+              <div class="prompt-editor-heading">
+                <div>
+                  <p class="step">SELECTED PROMPT</p>
+                  <h2 id="prompt-editor-title">Prompt editor</h2>
+                  <p id="prompt-editor-meta">0 characters</p>
+                </div>
+                <div class="button-row">
+                  <button id="duplicate-prompt" class="button action-browse" type="button">Duplicate</button>
+                  <button id="delete-prompt" class="button action-danger" type="button">Delete</button>
+                </div>
+              </div>
+              <div class="prompt-editor-fields">
+                <label class="field">
+                  <span>Name or alias</span>
+                  <input id="prompt-editor-name" type="text" maxlength="200" placeholder="youtube-mv" required>
+                </label>
+                <label class="field">
+                  <span>Keywords <small>(optional)</small></span>
+                  <input id="prompt-editor-keywords" type="text" maxlength="10000" placeholder="music video;cinematic;youtube">
+                </label>
+              </div>
+              <label class="field prompt-editor-content">
+                <span>Prompt text</span>
+                <textarea id="prompt-editor-content" rows="16" maxlength="200000" spellcheck="true" placeholder="Write the reusable prompt here…" required></textarea>
+                <small>The body is not searched. The agent receives it only after selecting this exact prompt.</small>
+              </label>
+              <label class="toggle-row prompt-editor-toggle">
+                <input id="prompt-editor-enabled" type="checkbox">
+                <span class="toggle" aria-hidden="true"></span>
+                <span>
+                  <strong>Enabled</strong>
+                  <small>Disabled prompts stay saved but are hidden from the agent.</small>
+                </span>
+              </label>
+            </div>
+          </aside>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="step">01</p>
-            <h2>Reusable prompts</h2>
-            <p>Give each prompt a unique name or alias and optional discovery keywords. Disable an entry to keep the text saved without exposing it to the agent.</p>
-          </div>
-          <div class="button-row">
-            <button id="add-prompt" class="button primary" type="button">Add prompt</button>
-          </div>
+      <details class="panel test-panel prompt-test-panel">
+        <summary>
+          <span>
+            <span class="step">READ-ONLY CHECK</span>
+            <strong>Test saved prompt discovery</strong>
+          </span>
+          <small>Name and keywords only</small>
+        </summary>
+        <div class="prompt-test-body">
+          <form id="prompt-search-form" class="search-form">
+            <label class="field grow">
+              <span>Prompt name, alias, or keywords</span>
+              <input id="prompt-search-query" type="search" value="youtube mv" maxlength="500" required>
+            </label>
+            <button id="run-prompt-search" class="button action-test" type="submit">Find prompt</button>
+          </form>
+          <div id="prompt-search-summary" class="search-summary" hidden></div>
+          <div id="prompt-search-results" class="results"></div>
         </div>
-        <div id="prompts-list" class="entry-list prompt-list"></div>
-        <p id="prompts-empty" class="empty-state" hidden>No reusable prompts are saved yet.</p>
-      </section>
-
-      <section class="panel test-panel">
-        <div class="panel-heading compact">
-          <div>
-            <p class="step">02</p>
-            <h2>Test saved prompt discovery</h2>
-            <p>Find by name, alias, or optional keywords. Every search word must match; prompt body text is never searched.</p>
-          </div>
-        </div>
-        <form id="prompt-search-form" class="search-form">
-          <label class="field grow">
-            <span>Prompt name, alias, or keywords</span>
-            <input id="prompt-search-query" type="search" value="youtube mv" maxlength="500" required>
-          </label>
-          <button id="run-prompt-search" class="button primary" type="submit">Find prompt</button>
-        </form>
-        <div id="prompt-search-summary" class="search-summary" hidden></div>
-        <div id="prompt-search-results" class="results"></div>
-      </section>
+      </details>
     </div>
 
-    <div id="secrets-panel" class="tab-panel" role="tabpanel" aria-labelledby="secrets-tab" hidden>
-      <section class="panel secret-intro">
-        <div class="panel-heading compact">
-          <div>
-            <p class="step">SECRET ACCESS</p>
-            <h2>Register exact credential files</h2>
-            <p>Each grant is one file, never a folder. The UI detects key names such as <code>hostname</code> and <code>password</code>, but it never displays or stores their values.</p>
-          </div>
-        </div>
-        <div class="safety-note secret-note">
-          <strong>Explicit access only</strong>
-          <span>Secret files are excluded from document search, fetch, and tool discovery. <code>find_secret</code> returns metadata; <code>read_secret</code> releases only explicitly requested fields. Prefer giving a program the file path whenever it supports an environment-file or key-file option.</span>
-        </div>
-      </section>
+    <div id="secrets-panel" class="tab-panel catalog-workspace" role="tabpanel" aria-labelledby="secrets-tab" hidden>
+      <details class="panel catalog-instruction-panel instruction-disclosure" aria-labelledby="secrets-instruction-heading">
+        <summary>
+          <span>
+            <span class="step">SECRETS · LIST_SECRET</span>
+            <strong id="secrets-instruction-heading">Catalog Instruction</strong>
+          </span>
+          <span id="secrets-instruction-summary" class="instruction-summary">No instruction configured</span>
+        </summary>
+        <label class="field catalog-instruction-field" for="secrets-instruction">
+          <span>Instruction</span>
+          <textarea id="secrets-instruction" rows="2" maxlength="5000" spellcheck="true" placeholder="Describe the context, priorities, or guidance the agent should use when handling secret grants."></textarea>
+          <small>Context only — it never permits reading or disclosing a value.</small>
+        </label>
+      </details>
 
       <section class="panel drop-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="step">01</p>
-            <h2>Add secret files</h2>
-            <p>Add one or several exact files. Folders and links are rejected.</p>
+            <p class="step">ADD SECRETS</p>
+            <h2>Exact files only</h2>
+            <p>Folders and links are rejected.</p>
           </div>
         </div>
         <div id="secret-drop-zone" class="drop-zone">
           <div class="drop-symbol" aria-hidden="true">↓</div>
           <div>
-            <strong>Drag and drop with the Windows drop box</strong>
-            <p id="secret-drop-help">Click the button, then drop exact secret files from File Explorer. Their values are inspected locally but never shown in this page.</p>
-          </div>
-          <button id="secret-open-drop-box" class="button primary" type="button">Open Windows drop box</button>
+          <strong>Drop from File Explorer</strong>
+          <p id="secret-drop-help">Open the drop box for exact local paths. Values are never shown here.</p>
+        </div>
+          <button id="secret-open-drop-box" class="button action-import" type="button">Open drop box</button>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="step">02</p>
+    <section class="panel wide-panel">
+      <div class="panel-heading">
+        <div>
+            <p class="step">EXACT GRANTS</p>
             <h2>Exact secret files</h2>
-            <p><strong>Auto detect</strong> recognizes strict <code>NAME=value</code> files; everything else is treated as one opaque token, password, or key value.</p>
+            <p>Auto-detect recognizes <code>NAME=value</code>; other files remain opaque.</p>
           </div>
           <div class="button-row">
-            <button id="pick-secret-file" class="button secondary" type="button">Browse file</button>
-            <button id="add-secret-file" class="button secondary" type="button">Add manually</button>
+            <button id="pick-secret-file" class="button action-browse" type="button">Browse file</button>
+            <button id="add-secret-file" class="button action-add" type="button">Add path</button>
           </div>
         </div>
         <div class="table-head secret-file-grid" aria-hidden="true">
@@ -398,10 +488,10 @@
         <p id="secret-files-empty" class="empty-state" hidden>No secret files are registered yet.</p>
       </section>
 
-      <section class="panel test-panel">
+    <section class="panel test-panel wide-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="step">03</p>
+            <p class="step">READ-ONLY CHECK</p>
             <h2>Test secret discovery</h2>
             <p>Verify the alias, path, detected format, and field names. This test never returns values.</p>
           </div>
@@ -411,10 +501,68 @@
             <span>Secret alias, service, or field</span>
             <input id="secret-search-query" type="search" value="hostname" maxlength="500" required>
           </label>
-          <button id="run-secret-search" class="button primary" type="submit">Find secret</button>
+          <button id="run-secret-search" class="button action-test" type="submit">Find secret</button>
         </form>
         <div id="secret-search-summary" class="search-summary" hidden></div>
         <div id="secret-search-results" class="results"></div>
+      </section>
+    </div>
+
+    <div id="help-panel" class="tab-panel help-panel" role="tabpanel" aria-labelledby="help-tab" hidden>
+      <section class="panel prompt-intro" aria-labelledby="prompt-help-heading">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">PROMPT HELP</p>
+            <h2 id="prompt-help-heading">Use reusable prompts safely</h2>
+            <p>The <strong>Prompts</strong> tab stores named reusable text. <code>list_prompt</code> inventories enabled names and keywords, <code>find_prompt</code> narrows the selection, and <code>read_prompt</code> retrieves only the chosen full prompt.</p>
+          </div>
+        </div>
+        <div class="safety-note">
+          <strong>Current request stays in control</strong>
+          <span>A stored prompt supplies reusable task details. It cannot override higher-priority instructions or authorize unrelated actions.</span>
+        </div>
+      </section>
+
+      <section class="panel document-intro" aria-labelledby="document-help-heading">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">DOCUMENT HELP</p>
+            <h2 id="document-help-heading">Search only approved local documents</h2>
+            <p>The <strong>Documents</strong> tab registers recursive folders and exact files. <code>list</code> inventories enabled grants, <code>search</code> scans all enabled grants or selected names, and <code>fetch</code> reads one returned absolute path.</p>
+          </div>
+        </div>
+        <div class="safety-note">
+          <strong>Read-only and allowlisted</strong>
+          <span>Document tools do not index, write, or search outside enabled grants. Registered secret files are always excluded.</span>
+        </div>
+      </section>
+
+      <section class="panel tool-intro" aria-labelledby="tool-help-heading">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">TOOL HELP</p>
+            <h2 id="tool-help-heading">Discover tools before running them</h2>
+            <p>The <strong>Tools</strong> tab registers folders, exact files, Folder Instructions, and saved scan selections. <code>list_tool</code> inventories enabled grants first; <code>find_tool</code> resolves a matching local path only when needed. Included documentation can be searched and fetched before use.</p>
+          </div>
+        </div>
+        <div class="safety-note">
+          <strong>Discovery is not execution</strong>
+          <span>The MCP server returns local paths. It never launches a program, changes <code>PATH</code>, or treats discovery as permission to execute.</span>
+        </div>
+      </section>
+
+      <section class="panel secret-intro" aria-labelledby="secret-help-heading">
+        <div class="panel-heading compact">
+          <div>
+            <p class="step">SECRET HELP</p>
+            <h2 id="secret-help-heading">Grant exact credential files carefully</h2>
+            <p>The <strong>Secrets</strong> tab accepts exact files only. <code>list_secret</code> inventories enabled aliases and paths without opening them, <code>find_secret</code> returns field metadata, and <code>read_secret</code> releases only explicitly requested fields.</p>
+          </div>
+        </div>
+        <div class="safety-note secret-note">
+          <strong>Explicit access only</strong>
+          <span>Secret files are excluded from document search, fetch, and tool discovery. Prefer giving a program the file path whenever it supports an environment-file or key-file option.</span>
+        </div>
       </section>
     </div>
   </main>
@@ -437,9 +585,9 @@
         <span>Saving validates first.</span>
       </div>
       <div class="button-row">
-        <button id="reload-config" class="button ghost" type="button">Reload</button>
-        <button id="validate-paths" class="button secondary" type="button">Validate all paths</button>
-        <button id="save-config" class="button primary" type="button">Save configuration</button>
+        <button id="reload-config" class="button ghost action-reload" type="button">Reload</button>
+        <button id="validate-paths" class="button action-validate" type="button">Validate paths</button>
+        <button id="save-config" class="button primary action-save" type="button">Save configuration</button>
       </div>
     </div>
   </footer>
@@ -474,17 +622,17 @@
         <label class="mini-check"><input data-field="recursive" type="checkbox" checked><span>Include subfolders</span></label>
         <label class="mini-check"><input data-field="includeDocs" type="checkbox" checked><span>Include documentation</span></label>
         <div class="folder-scan-actions" role="group" aria-label="Scan this attached folder">
-          <button class="button secondary folder-scan-button" data-action="scan-tool" type="button">Scan Tool</button>
-          <button class="button secondary folder-scan-button" data-action="scan-document" type="button">Scan Document</button>
+          <button class="button action-scan folder-scan-button" data-action="scan-tool" type="button">Scan Tool</button>
+          <button class="button action-scan folder-scan-button" data-action="scan-document" type="button">Scan Document</button>
         </div>
       </div>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool folder" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool folder">×</button>
       <div class="path-state" data-role="state" role="status" aria-live="polite"></div>
-      <label class="folder-human-note">
-        <span>Human note for agent</span>
-        <textarea data-role="folder-human-note" rows="3" maxlength="5000" spellcheck="true" placeholder="Describe what this folder does or anything else the agent should know."></textarea>
-        <small>Saved with this folder and returned to the agent by <code>list_tool</code> when the folder is enabled.</small>
+      <label class="folder-instruction">
+        <span>Folder Instruction</span>
+        <textarea data-role="folder-instruction" rows="2" maxlength="5000" spellcheck="true" placeholder="Describe what this folder does or anything else the agent should know."></textarea>
+        <small>Saved with this folder and returned as its <code>instruction</code> by <code>list_tool</code> when the folder is enabled.</small>
       </label>
       <div class="folder-scan-results" data-role="scan-results" aria-live="polite" hidden>
         <div class="folder-scan-result-content" data-role="tool-scan-result-content" role="group" aria-label="Scanned tool files"></div>
@@ -524,23 +672,16 @@
 
   <template id="prompt-row-template">
     <article class="entry-row prompt-entry">
-      <div class="prompt-entry-header">
-        <label class="field prompt-name-field">
-          <span>Name or alias</span>
-          <input data-field="name" type="text" maxlength="200" placeholder="youtube-mv" required>
-        </label>
-        <label class="field prompt-keywords-field">
-          <span>Keywords <small>(optional)</small></span>
-          <input data-field="keywords" type="text" maxlength="10000" placeholder="music video;cinematic;youtube">
-        </label>
-        <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable reusable prompt" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
-        <button class="icon-button" data-action="remove" type="button" aria-label="Delete reusable prompt">×</button>
-      </div>
-      <label class="field prompt-content-field">
-        <span>Prompt text</span>
-        <textarea data-field="content" rows="8" maxlength="200000" spellcheck="true" placeholder="Write the reusable prompt here…" required></textarea>
-        <small>The body is not searched. The agent receives it only after selecting this exact prompt.</small>
-      </label>
+      <input data-field="name" type="hidden">
+      <input data-field="keywords" type="hidden">
+      <textarea data-field="content" hidden></textarea>
+      <button class="prompt-entry-select" data-action="select" type="button" aria-label="Edit reusable prompt">
+        <span class="prompt-entry-name" data-role="prompt-name"></span>
+        <span class="prompt-entry-keywords" data-role="prompt-keywords"></span>
+        <span class="prompt-entry-preview" data-role="prompt-preview"></span>
+      </button>
+      <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable reusable prompt" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
+      <button class="icon-button prompt-entry-delete" data-action="remove" type="button" aria-label="Delete reusable prompt">×</button>
     </article>
   </template>
 

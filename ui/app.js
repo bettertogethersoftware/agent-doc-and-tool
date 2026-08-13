@@ -7,14 +7,24 @@ if (!runtime?.token) {
 const elements = {
   configPath: document.querySelector("#config-path"),
   pageStatus: document.querySelector("#page-status"),
+  documentsInstruction: document.querySelector("#documents-instruction"),
+  toolsInstruction: document.querySelector("#tools-instruction"),
+  promptsInstruction: document.querySelector("#prompts-instruction"),
+  secretsInstruction: document.querySelector("#secrets-instruction"),
+  documentsInstructionSummary: document.querySelector("#documents-instruction-summary"),
+  toolsInstructionSummary: document.querySelector("#tools-instruction-summary"),
+  promptsInstructionSummary: document.querySelector("#prompts-instruction-summary"),
+  secretsInstructionSummary: document.querySelector("#secrets-instruction-summary"),
   documentsTab: document.querySelector("#documents-tab"),
   toolsTab: document.querySelector("#tools-tab"),
   promptsTab: document.querySelector("#prompts-tab"),
   secretsTab: document.querySelector("#secrets-tab"),
+  helpTab: document.querySelector("#help-tab"),
   documentsPanel: document.querySelector("#documents-panel"),
   toolsPanel: document.querySelector("#tools-panel"),
   promptsPanel: document.querySelector("#prompts-panel"),
   secretsPanel: document.querySelector("#secrets-panel"),
+  helpPanel: document.querySelector("#help-panel"),
   rootsList: document.querySelector("#roots-list"),
   rootsEmpty: document.querySelector("#roots-empty"),
   filesList: document.querySelector("#files-list"),
@@ -70,8 +80,23 @@ const elements = {
   toolSearchResults: document.querySelector("#tool-search-results"),
   promptsList: document.querySelector("#prompts-list"),
   promptsEmpty: document.querySelector("#prompts-empty"),
+  promptsFilterEmpty: document.querySelector("#prompts-filter-empty"),
+  promptsCount: document.querySelector("#prompts-count"),
   promptTemplate: document.querySelector("#prompt-row-template"),
   addPrompt: document.querySelector("#add-prompt"),
+  promptCatalogFilter: document.querySelector("#prompt-catalog-filter"),
+  promptStatusFilter: document.querySelector("#prompt-status-filter"),
+  promptEditorPanel: document.querySelector("#prompt-editor-panel"),
+  promptEditorEmpty: document.querySelector("#prompt-editor-empty"),
+  promptEditorBody: document.querySelector("#prompt-editor-body"),
+  promptEditorTitle: document.querySelector("#prompt-editor-title"),
+  promptEditorMeta: document.querySelector("#prompt-editor-meta"),
+  promptEditorName: document.querySelector("#prompt-editor-name"),
+  promptEditorKeywords: document.querySelector("#prompt-editor-keywords"),
+  promptEditorContent: document.querySelector("#prompt-editor-content"),
+  promptEditorEnabled: document.querySelector("#prompt-editor-enabled"),
+  duplicatePrompt: document.querySelector("#duplicate-prompt"),
+  deletePrompt: document.querySelector("#delete-prompt"),
   promptSearchForm: document.querySelector("#prompt-search-form"),
   promptSearchQuery: document.querySelector("#prompt-search-query"),
   runPromptSearch: document.querySelector("#run-prompt-search"),
@@ -101,7 +126,9 @@ const state = {
   dirty: false,
   toastTimer: null,
   pathValidationCounter: 0,
-  folderScanResults: new Map()
+  folderScanResults: new Map(),
+  selectedPromptId: null,
+  promptRowCounter: 0
 };
 
 function deepClone(value) {
@@ -449,7 +476,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   const recursiveInput = row.querySelector('[data-field="recursive"]');
   const includeDocsInput = row.querySelector('[data-field="includeDocs"]');
   const pathState = row.querySelector('[data-role="state"]');
-  const noteInput = row.querySelector('[data-role="folder-human-note"]');
+  const instructionInput = row.querySelector('[data-role="folder-instruction"]');
 
   const normalized = typeof directory === "string"
     ? { path: directory, priority: 0, recursive: true, includeDocs: true }
@@ -459,7 +486,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   priorityInput.value = normalized.priority ?? 0;
   recursiveInput.checked = normalized.recursive !== false;
   includeDocsInput.checked = normalized.includeDocs !== false;
-  noteInput.value = normalized.humanNote ?? "";
+  instructionInput.value = normalized.instruction ?? normalized.humanNote ?? "";
   applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "directory");
@@ -473,7 +500,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
     renderFolderScanResults(row);
   });
   priorityInput.addEventListener("input", () => renderFolderScanResults(row));
-  noteInput.addEventListener("input", markDirty);
+  instructionInput.addEventListener("input", markDirty);
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
   }
@@ -844,29 +871,195 @@ function appendSecretFile(secretFile = {}, inspection = undefined) {
   return row;
 }
 
-function appendPrompt(prompt = {}) {
+function promptRowById(promptId = state.selectedPromptId) {
+  if (!promptId) {
+    return null;
+  }
+  return [...elements.promptsList.querySelectorAll(".prompt-entry")]
+    .find((row) => row.dataset.promptId === promptId) ?? null;
+}
+
+function promptPreview(content) {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "No prompt text yet";
+  }
+  return normalized.length > 150 ? `${normalized.slice(0, 147)}…` : normalized;
+}
+
+function promptMetadata(content) {
+  const characterCount = content.length;
+  const lineCount = content ? content.split(/\r?\n/).length : 0;
+  return `${characterCount.toLocaleString()} character${characterCount === 1 ? "" : "s"} · ${lineCount} line${lineCount === 1 ? "" : "s"}`;
+}
+
+function updateInstructionSummary(input, summaryElement) {
+  const summary = input.value.replace(/\s+/g, " ").trim();
+  summaryElement.textContent = summary || "No instruction configured";
+  summaryElement.title = summary;
+}
+
+function updatePromptInstructionSummary() {
+  updateInstructionSummary(elements.promptsInstruction, elements.promptsInstructionSummary);
+}
+
+function updatePromptEntrySummary(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const keywords = splitKeywords(row.querySelector('[data-field="keywords"]').value);
+  const content = row.querySelector('[data-field="content"]').value;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const selection = row.querySelector('[data-action="select"]');
+
+  row.querySelector('[data-role="prompt-name"]').textContent = name || "Untitled prompt";
+  row.querySelector('[data-role="prompt-keywords"]').textContent = keywords.length > 0 ? keywords.join(" · ") : "No keywords";
+  row.querySelector('[data-role="prompt-preview"]').textContent = promptPreview(content);
+  selection.setAttribute("aria-label", `Edit reusable prompt ${name || "untitled prompt"}`);
+  // Keep catalog filtering aligned with prompt discovery: names and discovery
+  // keywords are searchable, while the full body stays an editor-only detail.
+  row.dataset.promptSearch = `${name}\n${keywords.join(" ")}`.toLocaleLowerCase();
+  row.classList.toggle("is-empty-content", !content.trim());
+  row.classList.toggle("is-disabled", !enabled);
+}
+
+function updatePromptCatalog() {
+  const query = elements.promptCatalogFilter.value.trim().toLocaleLowerCase();
+  const status = elements.promptStatusFilter.value;
+  const rows = [...elements.promptsList.querySelectorAll(".prompt-entry")];
+  let visibleCount = 0;
+  let enabledCount = 0;
+
+  for (const row of rows) {
+    const enabled = row.querySelector('[data-field="enabled"]').checked;
+    const matchesText = !query || row.dataset.promptSearch.includes(query);
+    const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
+    const visible = matchesText && matchesStatus;
+    row.hidden = !visible;
+    if (visible) {
+      visibleCount += 1;
+    }
+    if (enabled) {
+      enabledCount += 1;
+    }
+  }
+
+  const total = rows.length;
+  const countLabel = total === 1 ? "1 prompt" : `${total} prompts`;
+  elements.promptsCount.textContent = visibleCount === total
+    ? `${countLabel} · ${enabledCount} enabled`
+    : `${visibleCount}/${total} shown · ${enabledCount} enabled`;
+  elements.promptsEmpty.hidden = total > 0;
+  elements.promptsFilterEmpty.hidden = total === 0 || visibleCount > 0;
+
+  const selectedRow = promptRowById();
+  if (selectedRow?.hidden) {
+    state.selectedPromptId = rows.find((row) => !row.hidden)?.dataset.promptId ?? null;
+    refreshPromptEditor();
+  }
+}
+
+function updatePromptEditorMeta(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const content = row.querySelector('[data-field="content"]').value;
+  elements.promptEditorTitle.textContent = name || "Untitled prompt";
+  elements.promptEditorMeta.textContent = promptMetadata(content);
+}
+
+function refreshPromptEditor() {
+  const selectedRow = promptRowById();
+  elements.promptEditorEmpty.hidden = Boolean(selectedRow);
+  elements.promptEditorBody.hidden = !selectedRow;
+  elements.promptEditorPanel.classList.toggle("has-selection", Boolean(selectedRow));
+
+  for (const row of elements.promptsList.querySelectorAll(".prompt-entry")) {
+    const selected = row === selectedRow;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select"]').setAttribute("aria-pressed", String(selected));
+  }
+
+  if (!selectedRow) {
+    return;
+  }
+
+  elements.promptEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
+  elements.promptEditorKeywords.value = selectedRow.querySelector('[data-field="keywords"]').value;
+  elements.promptEditorContent.value = selectedRow.querySelector('[data-field="content"]').value;
+  elements.promptEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  updatePromptEditorMeta(selectedRow);
+}
+
+function selectPrompt(row, { focus = false } = {}) {
+  state.selectedPromptId = row?.dataset.promptId ?? null;
+  refreshPromptEditor();
+  if (!focus || !row) {
+    return;
+  }
+  const content = row.querySelector('[data-field="content"]').value;
+  const editorField = content.trim() ? elements.promptEditorContent : elements.promptEditorName;
+  editorField.focus();
+  if (editorField === elements.promptEditorName) {
+    editorField.select();
+  }
+}
+
+function syncPromptEditor() {
+  const row = promptRowById();
+  if (!row) {
+    return;
+  }
+  row.querySelector('[data-field="name"]').value = elements.promptEditorName.value;
+  row.querySelector('[data-field="keywords"]').value = elements.promptEditorKeywords.value;
+  row.querySelector('[data-field="content"]').value = elements.promptEditorContent.value;
+  row.querySelector('[data-field="enabled"]').checked = elements.promptEditorEnabled.checked;
+  refreshEntryEnabledState(row, null);
+  updatePromptEntrySummary(row);
+  updatePromptEditorMeta(row);
+  updatePromptCatalog();
+  markDirty();
+}
+
+function appendPrompt(prompt = {}, { select = false, focusEditor = false } = {}) {
   const fragment = elements.promptTemplate.content.cloneNode(true);
   const row = fragment.querySelector(".entry-row");
   const nameInput = row.querySelector('[data-field="name"]');
   const keywordsInput = row.querySelector('[data-field="keywords"]');
   const contentInput = row.querySelector('[data-field="content"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
 
+  state.promptRowCounter += 1;
+  row.dataset.promptId = `prompt-${state.promptRowCounter}`;
   nameInput.value = prompt.name ?? uniquePromptName("reusable-prompt");
   keywordsInput.value = Array.isArray(prompt.keywords) ? prompt.keywords.join(";") : (prompt.keywords ?? "");
   contentInput.value = prompt.content ?? "";
   initializeEntryToggle(row, null, entryEnabled(prompt));
+  updatePromptEntrySummary(row);
 
-  for (const input of row.querySelectorAll("input, textarea")) {
-    attachConfigurationInput(input);
-  }
+  attachConfigurationInput(enabledInput);
+  enabledInput.addEventListener("change", () => {
+    updatePromptEntrySummary(row);
+    updatePromptCatalog();
+    if (row.dataset.promptId === state.selectedPromptId) {
+      elements.promptEditorEnabled.checked = enabledInput.checked;
+      updatePromptEditorMeta(row);
+    }
+  });
+  row.querySelector('[data-action="select"]').addEventListener("click", () => selectPrompt(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const nextRow = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.promptId === state.selectedPromptId;
     row.remove();
+    if (wasSelected) {
+      state.selectedPromptId = nextRow?.dataset.promptId ?? null;
+    }
     updateEmptyStates();
+    refreshPromptEditor();
     markDirty();
   });
 
   elements.promptsList.append(row);
   updateEmptyStates();
+  if (select || !state.selectedPromptId) {
+    selectPrompt(row, { focus: focusEditor });
+  }
   return row;
 }
 
@@ -877,6 +1070,7 @@ function updateEmptyStates() {
   elements.toolFilesEmpty.hidden = elements.toolFilesList.children.length > 0;
   elements.promptsEmpty.hidden = elements.promptsList.children.length > 0;
   elements.secretFilesEmpty.hidden = elements.secretFilesList.children.length > 0;
+  updatePromptCatalog();
 }
 
 function setIgnoreFilePathState(text, status = "idle", title = "") {
@@ -1060,6 +1254,16 @@ function configuredSource(config) {
   return config.sources[matchingKey];
 }
 
+function catalogInstruction(config, catalog) {
+  if (Object.hasOwn(config.instructions ?? {}, catalog)) {
+    return config.instructions[catalog] ?? "";
+  }
+  if (Object.hasOwn(config.humanNotes ?? {}, catalog)) {
+    return config.humanNotes[catalog] ?? "";
+  }
+  return config.humanNote ?? "";
+}
+
 function renderConfig(config, check) {
   const source = configuredSource(config);
   const checkedSource = check?.sources?.[state.sourceKey.toLowerCase()];
@@ -1074,6 +1278,13 @@ function renderConfig(config, check) {
   const checkedSecrets = check?.secrets;
 
   state.folderScanResults.clear();
+  state.selectedPromptId = null;
+  state.promptRowCounter = 0;
+
+  elements.documentsInstruction.value = catalogInstruction(config, "documents");
+  elements.toolsInstruction.value = catalogInstruction(config, "tools");
+  elements.promptsInstruction.value = catalogInstruction(config, "prompts");
+  elements.secretsInstruction.value = catalogInstruction(config, "secrets");
 
   elements.rootsList.replaceChildren();
   elements.filesList.replaceChildren();
@@ -1134,6 +1345,12 @@ function renderConfig(config, check) {
   elements.maxLineChars.value = config.limits?.maxLineChars ?? 1_000;
   elements.maxFileBytes.value = config.limits?.maxFileBytes ?? 2_000_000;
   elements.toolExtensions.value = extensionText(tools.extensions);
+  updateInstructionSummary(elements.documentsInstruction, elements.documentsInstructionSummary);
+  updateInstructionSummary(elements.toolsInstruction, elements.toolsInstructionSummary);
+  updatePromptInstructionSummary();
+  updateInstructionSummary(elements.secretsInstruction, elements.secretsInstructionSummary);
+  updatePromptCatalog();
+  refreshPromptEditor();
 
   const unavailableRoots = checkedSource?.roots?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
   const unavailableFiles = checkedSource?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
@@ -1216,6 +1433,15 @@ function collectConfig() {
   const next = deepClone(state.config);
   const source = next.sources[state.sourceKey];
 
+  next.instructions = {
+    documents: elements.documentsInstruction.value.trim(),
+    tools: elements.toolsInstruction.value.trim(),
+    prompts: elements.promptsInstruction.value.trim(),
+    secrets: elements.secretsInstruction.value.trim()
+  };
+  delete next.humanNotes;
+  delete next.humanNote;
+
   source.roots = [...elements.rootsList.querySelectorAll(".entry-row")].map((row, index) => {
     const name = row.querySelector('[data-field="name"]').value.trim();
     const folderPath = row.querySelector('[data-field="path"]').value.trim();
@@ -1262,11 +1488,11 @@ function collectConfig() {
         includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
         enabled: row.querySelector('[data-field="enabled"]').checked
       };
-      const humanNote = row.querySelector('[data-role="folder-human-note"]').value.trim();
+      const instruction = row.querySelector('[data-role="folder-instruction"]').value.trim();
       const scannedToolFiles = collectScannedToolFiles(row, index);
       const scannedDocumentFiles = collectScannedDocumentFiles(row, index);
-      if (humanNote) {
-        directory.humanNote = humanNote;
+      if (instruction) {
+        directory.instruction = instruction;
       }
       if (scannedToolFiles.length > 0) {
         directory.scannedToolFiles = scannedToolFiles;
@@ -1969,13 +2195,14 @@ async function runPromptSearch(event) {
 }
 
 function activateTab(tabName, focus = false) {
-  const selected = ["prompts", "documents", "tools", "secrets"].includes(tabName) ? tabName : "prompts";
+  const selected = ["prompts", "documents", "tools", "secrets", "help"].includes(tabName) ? tabName : "prompts";
   state.activeTab = selected;
   const tabs = {
     documents: { tab: elements.documentsTab, panel: elements.documentsPanel },
     tools: { tab: elements.toolsTab, panel: elements.toolsPanel },
     prompts: { tab: elements.promptsTab, panel: elements.promptsPanel },
-    secrets: { tab: elements.secretsTab, panel: elements.secretsPanel }
+    secrets: { tab: elements.secretsTab, panel: elements.secretsPanel },
+    help: { tab: elements.helpTab, panel: elements.helpPanel }
   };
   for (const [name, item] of Object.entries(tabs)) {
     const active = name === selected;
@@ -2009,6 +2236,10 @@ function wireDropZone(dropZone, target) {
 }
 
 for (const input of [
+  elements.documentsInstruction,
+  elements.toolsInstruction,
+  elements.promptsInstruction,
+  elements.secretsInstruction,
   elements.extensions,
   elements.fileNames,
   elements.caseSensitive,
@@ -2024,6 +2255,27 @@ for (const input of [
 ]) {
   attachConfigurationInput(input);
 }
+
+elements.documentsInstruction.addEventListener("input", () => {
+  updateInstructionSummary(elements.documentsInstruction, elements.documentsInstructionSummary);
+});
+elements.toolsInstruction.addEventListener("input", () => {
+  updateInstructionSummary(elements.toolsInstruction, elements.toolsInstructionSummary);
+});
+elements.promptsInstruction.addEventListener("input", updatePromptInstructionSummary);
+elements.secretsInstruction.addEventListener("input", () => {
+  updateInstructionSummary(elements.secretsInstruction, elements.secretsInstructionSummary);
+});
+elements.promptCatalogFilter.addEventListener("input", updatePromptCatalog);
+elements.promptStatusFilter.addEventListener("change", updatePromptCatalog);
+for (const input of [
+  elements.promptEditorName,
+  elements.promptEditorKeywords,
+  elements.promptEditorContent
+]) {
+  input.addEventListener("input", syncPromptEditor);
+}
+elements.promptEditorEnabled.addEventListener("change", syncPromptEditor);
 
 elements.ignoreFile.addEventListener("input", () => {
   setIgnoreFilePathState(
@@ -2068,10 +2320,31 @@ elements.addSecretFile.addEventListener("click", () => {
   markDirty();
 });
 elements.addPrompt.addEventListener("click", () => {
+  elements.promptCatalogFilter.value = "";
+  elements.promptStatusFilter.value = "all";
+  updatePromptCatalog();
   const name = uniquePromptName(`reusable-prompt-${elements.promptsList.children.length + 1}`);
-  const row = appendPrompt({ name, content: "", enabled: true });
-  row.querySelector('[data-field="name"]').select();
+  appendPrompt({ name, content: "", enabled: true }, { select: true, focusEditor: true });
   markDirty();
+});
+elements.duplicatePrompt.addEventListener("click", () => {
+  const row = promptRowById();
+  if (!row) {
+    return;
+  }
+  const name = row.querySelector('[data-field="name"]').value.trim() || "reusable-prompt";
+  const duplicate = appendPrompt({
+    name: uniquePromptName(`${name}-copy`),
+    keywords: row.querySelector('[data-field="keywords"]').value,
+    content: row.querySelector('[data-field="content"]').value,
+    enabled: row.querySelector('[data-field="enabled"]').checked
+  }, { select: true, focusEditor: true });
+  duplicate.scrollIntoView({ block: "nearest" });
+  markDirty();
+});
+elements.deletePrompt.addEventListener("click", () => {
+  const row = promptRowById();
+  row?.querySelector('[data-action="remove"]').click();
 });
 elements.pickFolder.addEventListener("click", () => pickPath("directory"));
 elements.pickFile.addEventListener("click", () => pickPath("file"));
@@ -2099,8 +2372,9 @@ elements.documentsTab.addEventListener("click", () => activateTab("documents"));
 elements.toolsTab.addEventListener("click", () => activateTab("tools"));
 elements.promptsTab.addEventListener("click", () => activateTab("prompts"));
 elements.secretsTab.addEventListener("click", () => activateTab("secrets"));
-const tabOrder = ["prompts", "documents", "tools", "secrets"];
-const tabElements = [elements.promptsTab, elements.documentsTab, elements.toolsTab, elements.secretsTab];
+elements.helpTab.addEventListener("click", () => activateTab("help"));
+const tabOrder = ["prompts", "documents", "tools", "secrets", "help"];
+const tabElements = [elements.promptsTab, elements.documentsTab, elements.toolsTab, elements.secretsTab, elements.helpTab];
 for (const [index, tab] of tabElements.entries()) {
   tab.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {

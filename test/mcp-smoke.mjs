@@ -17,6 +17,12 @@ const exactDocumentPath = path.join(temporaryRoot, "exact-workflow.txt");
 const toolPath = path.join(docsRoot, "generate_music_stable_audio3.py");
 const secretPath = path.join(docsRoot, "credentials.env");
 const configPath = path.join(temporaryRoot, "search.config.json");
+const instructions = {
+  documents: "Use the smoke-test document grants only.\nAsk before publishing.",
+  tools: "Use the smoke-test tool grants only.\nAsk before publishing.",
+  prompts: "Use the smoke-test prompt grants only.\nAsk before publishing.",
+  secrets: "Use the smoke-test secret grants only.\nAsk before publishing."
+};
 let client;
 
 try {
@@ -27,6 +33,7 @@ try {
   await fs.writeFile(secretPath, "hostname=ftp.example.test\npassword=mcp-fixture-password\n", "utf8");
   await fs.writeFile(configPath, JSON.stringify({
     version: 1,
+    instructions,
     defaultSource: "local",
     sources: {
       local: {
@@ -84,6 +91,10 @@ try {
   const listed = await client.listTools();
   assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "list", "list_prompt", "list_secret", "list_tool", "read_prompt", "read_secret", "search"]);
   const toolsByName = new Map(listed.tools.map((tool) => [tool.name, tool]));
+  for (const catalogName of ["list", "list_tool", "list_prompt", "list_secret"]) {
+    assert.match(toolsByName.get(catalogName).description, /top-level instruction/i);
+    assert.doesNotMatch(toolsByName.get(catalogName).description, /humanNote/);
+  }
   assert.deepEqual(Object.keys(toolsByName.get("list").inputSchema.properties), []);
   assert.deepEqual(Object.keys(toolsByName.get("search").inputSchema.properties).sort(), ["directories", "files", "maxResults", "query"]);
   assert.deepEqual(Object.keys(toolsByName.get("fetch").inputSchema.properties), ["path"]);
@@ -94,6 +105,9 @@ try {
   });
   const listPayload = JSON.parse(listCall.content[0].text);
   assert.equal(listPayload.ok, true);
+  assert.equal(listPayload.instruction, instructions.documents);
+  assert.equal(listCall.structuredContent.instruction, instructions.documents);
+  assert.equal(Object.hasOwn(listPayload, "humanNote"), false);
   assert.equal(Object.hasOwn(listPayload, "source"), false);
   assert.equal(Object.hasOwn(listCall.structuredContent, "source"), false);
   assert.deepEqual(listPayload.directories, [{ name: "smoke", path: docsRoot, priority: 100 }]);
@@ -108,6 +122,9 @@ try {
     arguments: {}
   });
   const listToolPayload = JSON.parse(listToolCall.content[0].text);
+  assert.equal(listToolPayload.instruction, instructions.tools);
+  assert.equal(listToolCall.structuredContent.instruction, instructions.tools);
+  assert.equal(Object.hasOwn(listToolPayload, "humanNote"), false);
   assert.deepEqual(listToolPayload.directories, [{
     name: "smoke-tools",
     path: docsRoot,
@@ -124,6 +141,9 @@ try {
     arguments: {}
   });
   const listPromptPayload = JSON.parse(listPromptCall.content[0].text);
+  assert.equal(listPromptPayload.instruction, instructions.prompts);
+  assert.equal(listPromptCall.structuredContent.instruction, instructions.prompts);
+  assert.equal(Object.hasOwn(listPromptPayload, "humanNote"), false);
   assert.deepEqual(listPromptPayload.prompts, [
     { name: "youtube-mv", keywords: ["cinematic", "music video"] },
     { name: "short mv", keywords: ["cinematic", "music video"] }
@@ -136,6 +156,9 @@ try {
     arguments: {}
   });
   const listSecretPayload = JSON.parse(listSecretCall.content[0].text);
+  assert.equal(listSecretPayload.instruction, instructions.secrets);
+  assert.equal(listSecretCall.structuredContent.instruction, instructions.secrets);
+  assert.equal(Object.hasOwn(listSecretPayload, "humanNote"), false);
   assert.deepEqual(listSecretPayload.files, [{ name: "smoke-ftp", path: secretPath, format: "auto" }]);
   assert.equal(listSecretPayload.meta.filesRead, 0);
   assert.equal(listSecretPayload.meta.sensitiveValuesReturned, false);
@@ -147,6 +170,8 @@ try {
   });
   const searchPayload = JSON.parse(searchCall.content[0].text);
   assert.equal(searchPayload.ok, true);
+  assert.equal(Object.hasOwn(searchPayload, "instruction"), false);
+  assert.equal(Object.hasOwn(searchPayload, "humanNote"), false);
   assert.equal(Object.hasOwn(searchPayload, "source"), false);
   assert.equal(Object.hasOwn(searchCall.structuredContent, "source"), false);
   assert.equal(searchPayload.results[0].path, readmePath);
@@ -263,6 +288,12 @@ try {
     ok: true,
     tools: listed.tools.map((tool) => tool.name).sort(),
     catalog: {
+      instructions: {
+        documents: listPayload.instruction,
+        tools: listToolPayload.instruction,
+        prompts: listPromptPayload.instruction,
+        secrets: listSecretPayload.instruction
+      },
       documents: {
         directories: listPayload.directories,
         files: listPayload.files

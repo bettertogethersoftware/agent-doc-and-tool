@@ -34,6 +34,9 @@ try {
   });
   const listPayload = JSON.parse(listCall.content[0].text);
   assert.equal(listPayload.ok, true);
+  assert.equal(typeof listPayload.instruction, "string");
+  assert.equal(listCall.structuredContent.instruction, listPayload.instruction);
+  assert.equal(Object.hasOwn(listPayload, "humanNote"), false);
   assert.equal(Object.hasOwn(listPayload, "source"), false);
   assert.equal(listPayload.meta.enabledOnly, true);
   assert.ok(Array.isArray(listPayload.directories));
@@ -42,6 +45,9 @@ try {
   const listToolCall = await client.callTool({ name: "list_tool", arguments: {} });
   const listToolPayload = JSON.parse(listToolCall.content[0].text);
   assert.equal(listToolPayload.ok, true);
+  assert.equal(typeof listToolPayload.instruction, "string");
+  assert.equal(listToolCall.structuredContent.instruction, listToolPayload.instruction);
+  assert.equal(Object.hasOwn(listToolPayload, "humanNote"), false);
   assert.equal(listToolPayload.meta.enabledOnly, true);
   assert.equal(listToolPayload.meta.executed, false);
   assert.ok(Array.isArray(listToolPayload.directories));
@@ -50,6 +56,9 @@ try {
   const listPromptCall = await client.callTool({ name: "list_prompt", arguments: {} });
   const listPromptPayload = JSON.parse(listPromptCall.content[0].text);
   assert.equal(listPromptPayload.ok, true);
+  assert.equal(typeof listPromptPayload.instruction, "string");
+  assert.equal(listPromptCall.structuredContent.instruction, listPromptPayload.instruction);
+  assert.equal(Object.hasOwn(listPromptPayload, "humanNote"), false);
   assert.equal(listPromptPayload.meta.enabledOnly, true);
   assert.equal(listPromptPayload.meta.promptContentReturned, false);
   assert.ok(Array.isArray(listPromptPayload.prompts));
@@ -57,6 +66,9 @@ try {
   const listSecretCall = await client.callTool({ name: "list_secret", arguments: {} });
   const listSecretPayload = JSON.parse(listSecretCall.content[0].text);
   assert.equal(listSecretPayload.ok, true);
+  assert.equal(typeof listSecretPayload.instruction, "string");
+  assert.equal(listSecretCall.structuredContent.instruction, listSecretPayload.instruction);
+  assert.equal(Object.hasOwn(listSecretPayload, "humanNote"), false);
   assert.equal(listSecretPayload.meta.enabledOnly, true);
   assert.equal(listSecretPayload.meta.filesRead, 0);
   assert.equal(listSecretPayload.meta.sensitiveValuesReturned, false);
@@ -68,6 +80,8 @@ try {
   });
   const searchPayload = JSON.parse(searchCall.content[0].text);
   assert.equal(searchPayload.ok, true);
+  assert.equal(Object.hasOwn(searchPayload, "instruction"), false);
+  assert.equal(Object.hasOwn(searchPayload, "humanNote"), false);
   assert.equal(Object.hasOwn(searchPayload, "source"), false);
   assert.equal(searchPayload.scope.mode, "all-enabled");
   assert.equal(searchPayload.meta.scopeMode, "all-enabled");
@@ -89,6 +103,12 @@ try {
     ok: true,
     tools: listed.tools.map((tool) => tool.name).sort(),
     catalog: {
+      instructions: {
+        documents: listPayload.instruction,
+        tools: listToolPayload.instruction,
+        prompts: listPromptPayload.instruction,
+        secrets: listSecretPayload.instruction
+      },
       documents: {
         directories: listPayload.directories,
         files: listPayload.files
