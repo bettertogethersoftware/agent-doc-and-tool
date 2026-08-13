@@ -7,6 +7,7 @@ if (!runtime?.token) {
 const elements = {
   configPath: document.querySelector("#config-path"),
   pageStatus: document.querySelector("#page-status"),
+  actionbar: document.querySelector("#actionbar"),
   documentsInstruction: document.querySelector("#documents-instruction"),
   toolsInstruction: document.querySelector("#tools-instruction"),
   promptsInstruction: document.querySelector("#prompts-instruction"),
@@ -25,12 +26,34 @@ const elements = {
   promptsPanel: document.querySelector("#prompts-panel"),
   secretsPanel: document.querySelector("#secrets-panel"),
   helpPanel: document.querySelector("#help-panel"),
-  rootsList: document.querySelector("#roots-list"),
-  rootsEmpty: document.querySelector("#roots-empty"),
-  filesList: document.querySelector("#files-list"),
-  filesEmpty: document.querySelector("#files-empty"),
+  rootsList: document.querySelector("#document-grants-list"),
+  rootsEmpty: document.querySelector("#document-grants-empty"),
+  filesList: document.querySelector("#document-grants-list"),
+  filesEmpty: document.querySelector("#document-grants-empty"),
   rootTemplate: document.querySelector("#root-row-template"),
   fileTemplate: document.querySelector("#file-row-template"),
+  documentGrantList: document.querySelector("#document-grants-list"),
+  documentGrantsEmpty: document.querySelector("#document-grants-empty"),
+  documentGrantsFilterEmpty: document.querySelector("#document-grants-filter-empty"),
+  documentGrantCount: document.querySelector("#document-grant-count"),
+  documentGrantEnabledCount: document.querySelector("#document-grant-enabled-count"),
+  documentGrantFilter: document.querySelector("#document-grant-filter"),
+  documentGrantTypeFilter: document.querySelector("#document-grant-type-filter"),
+  documentGrantStatusFilter: document.querySelector("#document-grant-status-filter"),
+  documentGrantInspector: document.querySelector("#document-grant-inspector"),
+  documentGrantInspectorEmpty: document.querySelector("#document-grant-inspector-empty"),
+  documentGrantInspectorBody: document.querySelector("#document-grant-inspector-body"),
+  documentEditorTitle: document.querySelector("#document-editor-title"),
+  documentEditorMeta: document.querySelector("#document-editor-meta"),
+  documentEditorKind: document.querySelector("#document-editor-kind"),
+  documentEditorName: document.querySelector("#document-editor-name"),
+  documentEditorPath: document.querySelector("#document-editor-path"),
+  documentEditorPriority: document.querySelector("#document-editor-priority"),
+  documentEditorPriorityField: document.querySelector("#document-editor-priority-field"),
+  documentEditorEnabled: document.querySelector("#document-editor-enabled"),
+  documentEditorPathState: document.querySelector("#document-editor-path-state"),
+  documentEditorScope: document.querySelector("#document-editor-scope"),
+  deleteDocumentGrant: document.querySelector("#delete-document-grant"),
   dropZone: document.querySelector("#drop-zone"),
   dropHelp: document.querySelector("#drop-help"),
   openDropBox: document.querySelector("#open-drop-box"),
@@ -54,6 +77,7 @@ const elements = {
   validatePaths: document.querySelector("#validate-paths"),
   saveConfig: document.querySelector("#save-config"),
   dirtyState: document.querySelector("#dirty-state"),
+  changeSummary: document.querySelector("#change-summary"),
   searchForm: document.querySelector("#search-form"),
   searchQuery: document.querySelector("#search-query"),
   runSearch: document.querySelector("#run-search"),
@@ -61,8 +85,69 @@ const elements = {
   searchResults: document.querySelector("#search-results"),
   toolDirectoriesList: document.querySelector("#tool-directories-list"),
   toolDirectoriesEmpty: document.querySelector("#tool-directories-empty"),
+  toolSourcesFilterEmpty: document.querySelector("#tool-sources-filter-empty"),
+  toolSourceCount: document.querySelector("#tool-source-count"),
+  toolSourceEnabledCount: document.querySelector("#tool-source-enabled-count"),
+  toolSourceFilter: document.querySelector("#tool-source-filter"),
+  toolSourceStatusFilter: document.querySelector("#tool-source-status-filter"),
+  toolSourceInspector: document.querySelector("#tool-source-inspector"),
+  toolSourceInspectorEmpty: document.querySelector("#tool-source-inspector-empty"),
+  toolSourceInspectorBody: document.querySelector("#tool-source-inspector-body"),
+  toolSourceEditorTitle: document.querySelector("#tool-source-editor-title"),
+  toolSourceEditorMeta: document.querySelector("#tool-source-editor-meta"),
+  toolSourceEditorName: document.querySelector("#tool-source-editor-name"),
+  toolSourceEditorPath: document.querySelector("#tool-source-editor-path"),
+  toolSourceEditorPriority: document.querySelector("#tool-source-editor-priority"),
+  toolSourceEditorRecursive: document.querySelector("#tool-source-editor-recursive"),
+  toolSourceEditorIncludeDocs: document.querySelector("#tool-source-editor-include-docs"),
+  toolSourceEditorEnabled: document.querySelector("#tool-source-editor-enabled"),
+  toolSourceEditorPathState: document.querySelector("#tool-source-editor-path-state"),
+  toolSourceEditorInstruction: document.querySelector("#tool-source-editor-instruction"),
+  toolSourceOverviewTab: document.querySelector("#tool-source-overview-tab"),
+  toolSourceToolsTab: document.querySelector("#tool-source-tools-tab"),
+  toolSourceDocumentsTab: document.querySelector("#tool-source-documents-tab"),
+  toolSourceInstructionTab: document.querySelector("#tool-source-instruction-tab"),
+  toolSourceOverview: document.querySelector("#tool-source-overview"),
+  toolSourceResourceGrants: document.querySelector("#tool-source-resource-grants"),
+  toolSourceInstruction: document.querySelector("#tool-source-instruction"),
+  toolSourceToolsTabCount: document.querySelector("#tool-source-tools-tab-count"),
+  toolSourceDocumentsTabCount: document.querySelector("#tool-source-documents-tab-count"),
+  deleteToolSource: document.querySelector("#delete-tool-source"),
+  toolSourceScanTool: document.querySelector("#tool-source-scan-tool"),
+  toolSourceScanDocument: document.querySelector("#tool-source-scan-document"),
+  toolGrantSectionStep: document.querySelector("#tool-grant-section-step"),
+  toolGrantSectionTitle: document.querySelector("#tool-grant-section-title"),
+  toolGrantSectionDescription: document.querySelector("#tool-grant-section-description"),
+  toolGrantFilter: document.querySelector("#tool-grant-filter"),
+  toolGrantStatusFilter: document.querySelector("#tool-grant-status-filter"),
+  toolGrantsList: document.querySelector("#tool-grants-list"),
+  toolGrantsEmpty: document.querySelector("#tool-grants-empty"),
+  toolGrantsFilterEmpty: document.querySelector("#tool-grants-filter-empty"),
+  enableVisibleToolGrants: document.querySelector("#enable-visible-tool-grants"),
+  disableVisibleToolGrants: document.querySelector("#disable-visible-tool-grants"),
+  toolGrantEditor: document.querySelector("#tool-grant-editor"),
+  toolGrantEditorTitle: document.querySelector("#tool-grant-editor-title"),
+  toolGrantEditorName: document.querySelector("#tool-grant-editor-name"),
+  toolGrantEditorPriorityField: document.querySelector("#tool-grant-editor-priority-field"),
+  toolGrantEditorPriority: document.querySelector("#tool-grant-editor-priority"),
+  toolGrantEditorPath: document.querySelector("#tool-grant-editor-path"),
+  toolGrantEditorEnabled: document.querySelector("#tool-grant-editor-enabled"),
+  copyToolGrantPath: document.querySelector("#copy-tool-grant-path"),
+  deleteToolGrant: document.querySelector("#delete-tool-grant"),
   toolFilesList: document.querySelector("#tool-files-list"),
   toolFilesEmpty: document.querySelector("#tool-files-empty"),
+  toolExactGrants: document.querySelector("#tool-exact-grants"),
+  toolExactCount: document.querySelector("#tool-exact-count"),
+  toolExactEditor: document.querySelector("#tool-exact-editor"),
+  toolExactEditorEmpty: document.querySelector("#tool-exact-editor-empty"),
+  toolExactEditorBody: document.querySelector("#tool-exact-editor-body"),
+  toolExactEditorTitle: document.querySelector("#tool-exact-editor-title"),
+  toolExactEditorName: document.querySelector("#tool-exact-editor-name"),
+  toolExactEditorPath: document.querySelector("#tool-exact-editor-path"),
+  toolExactEditorPriority: document.querySelector("#tool-exact-editor-priority"),
+  toolExactEditorEnabled: document.querySelector("#tool-exact-editor-enabled"),
+  toolExactEditorPathState: document.querySelector("#tool-exact-editor-path-state"),
+  deleteToolExact: document.querySelector("#delete-tool-exact"),
   toolDirectoryTemplate: document.querySelector("#tool-directory-row-template"),
   toolFileTemplate: document.querySelector("#tool-file-row-template"),
   toolDropZone: document.querySelector("#tool-drop-zone"),
@@ -95,6 +180,7 @@ const elements = {
   promptEditorKeywords: document.querySelector("#prompt-editor-keywords"),
   promptEditorContent: document.querySelector("#prompt-editor-content"),
   promptEditorEnabled: document.querySelector("#prompt-editor-enabled"),
+  focusPromptEditor: document.querySelector("#focus-prompt-editor"),
   duplicatePrompt: document.querySelector("#duplicate-prompt"),
   deletePrompt: document.querySelector("#delete-prompt"),
   promptSearchForm: document.querySelector("#prompt-search-form"),
@@ -104,6 +190,22 @@ const elements = {
   promptSearchResults: document.querySelector("#prompt-search-results"),
   secretFilesList: document.querySelector("#secret-files-list"),
   secretFilesEmpty: document.querySelector("#secret-files-empty"),
+  secretFilesFilterEmpty: document.querySelector("#secret-files-filter-empty"),
+  secretCount: document.querySelector("#secret-count"),
+  secretEnabledCount: document.querySelector("#secret-enabled-count"),
+  secretCatalogFilter: document.querySelector("#secret-catalog-filter"),
+  secretStatusFilter: document.querySelector("#secret-status-filter"),
+  secretInspector: document.querySelector("#secret-inspector"),
+  secretInspectorEmpty: document.querySelector("#secret-inspector-empty"),
+  secretInspectorBody: document.querySelector("#secret-inspector-body"),
+  secretEditorTitle: document.querySelector("#secret-editor-title"),
+  secretEditorMeta: document.querySelector("#secret-editor-meta"),
+  secretEditorName: document.querySelector("#secret-editor-name"),
+  secretEditorPath: document.querySelector("#secret-editor-path"),
+  secretEditorFormat: document.querySelector("#secret-editor-format"),
+  secretEditorPathState: document.querySelector("#secret-editor-path-state"),
+  secretEditorEnabled: document.querySelector("#secret-editor-enabled"),
+  deleteSecretFile: document.querySelector("#delete-secret-file"),
   secretFileTemplate: document.querySelector("#secret-file-row-template"),
   secretDropZone: document.querySelector("#secret-drop-zone"),
   secretDropHelp: document.querySelector("#secret-drop-help"),
@@ -128,8 +230,21 @@ const state = {
   pathValidationCounter: 0,
   folderScanResults: new Map(),
   selectedPromptId: null,
-  promptRowCounter: 0
+  promptRowCounter: 0,
+  promptFocusMode: false,
+  selectedToolSourceId: null,
+  toolSourceRowCounter: 0,
+  activeToolSourceSection: "overview",
+  selectedToolGrantId: null,
+  selectedToolExactId: null,
+  toolExactRowCounter: 0,
+  selectedDocumentGrantId: null,
+  documentGrantRowCounter: 0,
+  selectedSecretId: null,
+  secretRowCounter: 0
 };
+
+let activeWorkspaceSplitter = null;
 
 function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -196,16 +311,20 @@ function markDirty() {
   }
   state.dirty = true;
   elements.dirtyState.textContent = "Unsaved changes";
+  elements.changeSummary.textContent = "Save to make these changes available to the agent. Ctrl+S saves.";
   elements.dirtyState.classList.add("is-dirty");
   elements.saveConfig.classList.add("is-dirty");
+  elements.actionbar.classList.add("has-unsaved-changes");
   elements.saveConfig.disabled = false;
 }
 
 function markClean() {
   state.dirty = false;
   elements.dirtyState.textContent = "No unsaved changes";
+  elements.changeSummary.textContent = "Saved configuration is available to the local agent.";
   elements.dirtyState.classList.remove("is-dirty");
   elements.saveConfig.classList.remove("is-dirty");
+  elements.actionbar.classList.remove("has-unsaved-changes");
   elements.saveConfig.disabled = false;
 }
 
@@ -279,11 +398,11 @@ function uniqueNameInList(list, baseName) {
 }
 
 function uniqueRootName(baseName) {
-  return uniqueNameInList(elements.rootsList, baseName);
+  return uniqueDocumentGrantName("directory", baseName);
 }
 
 function uniqueDocumentFileName(baseName) {
-  return uniqueNameInList(elements.filesList, baseName);
+  return uniqueDocumentGrantName("file", baseName);
 }
 
 function uniqueToolDirectoryName(baseName) {
@@ -420,6 +539,9 @@ function appendRoot(root = {}, availability = undefined) {
   const pathState = row.querySelector('[data-role="state"]');
 
   const normalized = typeof root === "string" ? { path: root, priority: 0 } : root;
+  state.documentGrantRowCounter += 1;
+  row.dataset.documentGrantId = `document-grant-${state.documentGrantRowCounter}`;
+  row.dataset.documentKind = "directory";
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "allowed-folder");
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
@@ -430,13 +552,28 @@ function appendRoot(root = {}, availability = undefined) {
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
   }
+  row.querySelector('[data-field="enabled"]').addEventListener("change", () => {
+    updateDocumentGrantEntrySummary(row);
+    updateDocumentGrantCatalog();
+    if (row.dataset.documentGrantId === state.selectedDocumentGrantId) {
+      updateDocumentGrantInspectorHeader(row);
+    }
+  });
+  row.querySelector('[data-action="select-document-grant"]').addEventListener("click", () => selectDocumentGrant(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const nextRow = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.documentGrantId === state.selectedDocumentGrantId;
     row.remove();
+    if (wasSelected) {
+      state.selectedDocumentGrantId = nextRow?.dataset.documentGrantId ?? null;
+    }
     updateEmptyStates();
+    refreshDocumentGrantInspector();
     markDirty();
   });
 
-  elements.rootsList.append(row);
+  elements.documentGrantList.append(row);
+  updateDocumentGrantEntrySummary(row);
   updateEmptyStates();
   return row;
 }
@@ -447,6 +584,9 @@ function appendFile(file = {}, availability = undefined) {
   const nameInput = row.querySelector('[data-field="name"]');
   const pathInput = row.querySelector('[data-field="path"]');
   const pathState = row.querySelector('[data-role="state"]');
+  state.documentGrantRowCounter += 1;
+  row.dataset.documentGrantId = `document-grant-${state.documentGrantRowCounter}`;
+  row.dataset.documentKind = "file";
   nameInput.value = file.name ?? "";
   pathInput.value = file.path ?? "";
   applyEntryAvailability(row, pathState, availability, "file");
@@ -456,15 +596,775 @@ function appendFile(file = {}, availability = undefined) {
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
   }
+  row.querySelector('[data-field="enabled"]').addEventListener("change", () => {
+    updateDocumentGrantEntrySummary(row);
+    updateDocumentGrantCatalog();
+    if (row.dataset.documentGrantId === state.selectedDocumentGrantId) {
+      updateDocumentGrantInspectorHeader(row);
+    }
+  });
+  row.querySelector('[data-action="select-document-grant"]').addEventListener("click", () => selectDocumentGrant(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const nextRow = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.documentGrantId === state.selectedDocumentGrantId;
     row.remove();
+    if (wasSelected) {
+      state.selectedDocumentGrantId = nextRow?.dataset.documentGrantId ?? null;
+    }
     updateEmptyStates();
+    refreshDocumentGrantInspector();
     markDirty();
   });
 
-  elements.filesList.append(row);
+  elements.documentGrantList.append(row);
+  updateDocumentGrantEntrySummary(row);
   updateEmptyStates();
   return row;
+}
+
+function compactLocalPath(value) {
+  const normalized = value.trim().replaceAll("/", "\\");
+  const parts = normalized.split("\\").filter(Boolean);
+  if (parts.length <= 3) {
+    return normalized || "No path configured";
+  }
+  return `…\\${parts.slice(-3).join("\\")}`;
+}
+
+function matchesOperatorFilter(value, query) {
+  const terms = query
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (terms.length === 0) {
+    return true;
+  }
+  const searchable = value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+  return terms.every((term) => searchable.includes(term));
+}
+
+function documentGrantRows() {
+  return [...elements.documentGrantList.querySelectorAll(".document-grant-entry")];
+}
+
+function documentGrantRowsByKind(kind) {
+  return documentGrantRows().filter((row) => row.dataset.documentKind === kind);
+}
+
+function documentGrantRowById(grantId = state.selectedDocumentGrantId) {
+  if (!grantId) {
+    return null;
+  }
+  return documentGrantRows().find((row) => row.dataset.documentGrantId === grantId) ?? null;
+}
+
+function uniqueDocumentGrantName(kind, baseName) {
+  const names = new Set(documentGrantRowsByKind(kind)
+    .map((row) => row.querySelector('[data-field="name"]').value.trim().toLowerCase())
+    .filter(Boolean));
+  return uniqueNameFromSet(baseName, names);
+}
+
+function documentGrantKindLabel(kind) {
+  return kind === "directory" ? "Folder root" : "Exact file";
+}
+
+function documentGrantStatusText(row) {
+  const stateText = row.querySelector('[data-role="state"]')?.textContent?.trim();
+  return stateText || "Not validated";
+}
+
+function updateDocumentGrantEntrySummary(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const documentPath = row.querySelector('[data-field="path"]').value.trim();
+  const kind = row.dataset.documentKind;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const pathState = row.querySelector('[data-role="state"]');
+  const selection = row.querySelector('[data-action="select-document-grant"]');
+
+  row.querySelector('[data-role="document-grant-name"]').textContent = name || "Untitled document grant";
+  row.querySelector('[data-role="document-grant-kind"]').textContent = kind === "directory" ? "Folder" : "Exact";
+  row.querySelector('[data-role="document-grant-kind"]').className = `document-grant-kind is-${kind}`;
+  row.querySelector('[data-role="document-grant-path"]').textContent = compactLocalPath(documentPath);
+  row.querySelector('[data-role="document-grant-path"]').title = documentPath;
+  row.querySelector('[data-role="document-grant-validation"]').textContent = documentGrantStatusText(row);
+  row.querySelector('[data-role="document-grant-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  selection.setAttribute("aria-label", `Edit ${documentGrantKindLabel(kind).toLocaleLowerCase()} ${name || "untitled document grant"}`);
+  row.dataset.documentGrantSearch = `${name}\n${documentPath}\n${documentGrantKindLabel(kind)}`.toLocaleLowerCase();
+  row.classList.toggle("is-empty-path", !documentPath);
+  row.classList.toggle("is-disabled", !enabled);
+}
+
+function updateDocumentGrantInspectorHeader(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const kind = row.dataset.documentKind;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const pathState = row.querySelector('[data-role="state"]');
+  elements.documentEditorTitle.textContent = name || "Untitled document grant";
+  elements.documentEditorMeta.textContent = `${documentGrantKindLabel(kind)} · ${enabled ? "Enabled" : "Disabled"}`;
+  elements.documentEditorKind.textContent = documentGrantKindLabel(kind);
+  elements.documentEditorKind.className = `document-editor-kind is-${kind}`;
+  elements.documentEditorPathState.textContent = documentGrantStatusText(row);
+  elements.documentEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  elements.documentEditorScope.textContent = kind === "directory"
+    ? "Folder root: document matching rules apply recursively beneath this directory."
+    : "Exact file: this grant remains available independently of folder roots and matching rules.";
+}
+
+function refreshDocumentGrantInspector() {
+  const selectedRow = documentGrantRowById();
+  elements.documentGrantInspectorEmpty.hidden = Boolean(selectedRow);
+  elements.documentGrantInspectorBody.hidden = !selectedRow;
+  elements.documentGrantInspector.classList.toggle("has-selection", Boolean(selectedRow));
+
+  for (const row of documentGrantRows()) {
+    const selected = row === selectedRow;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select-document-grant"]').setAttribute("aria-pressed", String(selected));
+  }
+
+  if (!selectedRow) {
+    return;
+  }
+
+  const kind = selectedRow.dataset.documentKind;
+  elements.documentEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
+  elements.documentEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
+  elements.documentEditorPriority.value = kind === "directory"
+    ? selectedRow.querySelector('[data-field="priority"]').value
+    : "";
+  elements.documentEditorPriorityField.hidden = kind !== "directory";
+  elements.documentEditorPriority.required = kind === "directory";
+  elements.documentEditorPriorityField.parentElement?.classList.toggle("is-single-field", kind !== "directory");
+  elements.documentEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  updateDocumentGrantInspectorHeader(selectedRow);
+}
+
+function selectDocumentGrant(row, { focus = false } = {}) {
+  state.selectedDocumentGrantId = row?.dataset.documentGrantId ?? null;
+  refreshDocumentGrantInspector();
+  if (focus && row) {
+    elements.documentEditorName.focus();
+    elements.documentEditorName.select();
+  }
+}
+
+function updateDocumentGrantCatalog() {
+  const query = elements.documentGrantFilter.value.trim().toLocaleLowerCase();
+  const type = elements.documentGrantTypeFilter.value;
+  const status = elements.documentGrantStatusFilter.value;
+  const rows = documentGrantRows();
+  let visibleCount = 0;
+  let enabledCount = 0;
+
+  for (const row of rows) {
+    updateDocumentGrantEntrySummary(row);
+    const enabled = row.querySelector('[data-field="enabled"]').checked;
+    const matchesText = matchesOperatorFilter(row.dataset.documentGrantSearch, query);
+    const matchesType = type === "all" || type === row.dataset.documentKind;
+    const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
+    row.hidden = !matchesText || !matchesType || !matchesStatus;
+    if (!row.hidden) {
+      visibleCount += 1;
+    }
+    if (enabled) {
+      enabledCount += 1;
+    }
+  }
+
+  const total = rows.length;
+  const label = total === 1 ? "1 grant" : `${total} grants`;
+  elements.documentGrantCount.textContent = visibleCount === total ? label : `${visibleCount}/${total} shown`;
+  elements.documentGrantEnabledCount.textContent = `${enabledCount} enabled`;
+  elements.documentGrantsEmpty.hidden = total > 0;
+  elements.documentGrantsFilterEmpty.hidden = total === 0 || visibleCount > 0;
+
+  const selectedRow = documentGrantRowById();
+  if (!selectedRow || selectedRow.hidden) {
+    state.selectedDocumentGrantId = rows.find((row) => !row.hidden)?.dataset.documentGrantId ?? null;
+    refreshDocumentGrantInspector();
+  }
+}
+
+function syncDocumentGrantEditor() {
+  const row = documentGrantRowById();
+  if (!row) {
+    return;
+  }
+  const kind = row.dataset.documentKind;
+  const nameInput = row.querySelector('[data-field="name"]');
+  const pathInput = row.querySelector('[data-field="path"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  const pathState = row.querySelector('[data-role="state"]');
+  const nextPath = elements.documentEditorPath.value;
+  const changedPath = pathInput.value !== nextPath;
+
+  nameInput.value = elements.documentEditorName.value;
+  pathInput.value = nextPath;
+  if (kind === "directory") {
+    row.querySelector('[data-field="priority"]').value = elements.documentEditorPriority.value;
+  }
+  enabledInput.checked = elements.documentEditorEnabled.checked;
+  if (changedPath) {
+    setEntryPathState(
+      row,
+      pathState,
+      nextPath.trim() ? "Not validated · path changed" : `${kind === "directory" ? "Directory" : "File"} path is required`,
+      nextPath.trim() ? "pending" : "invalid"
+    );
+  }
+  refreshEntryEnabledState(row, pathState);
+  updateDocumentGrantEntrySummary(row);
+  updateDocumentGrantInspectorHeader(row);
+  updateDocumentGrantCatalog();
+  markDirty();
+}
+
+function toolSourceRows() {
+  return [...elements.toolDirectoriesList.querySelectorAll(".tool-source-entry")];
+}
+
+function toolExactRows() {
+  return [...elements.toolFilesList.querySelectorAll(".tool-exact-entry")];
+}
+
+function toolSourceRowById(sourceId = state.selectedToolSourceId) {
+  if (!sourceId) {
+    return null;
+  }
+  return toolSourceRows().find((row) => row.dataset.toolSourceId === sourceId) ?? null;
+}
+
+function toolExactRowById(exactId = state.selectedToolExactId) {
+  if (!exactId) {
+    return null;
+  }
+  return toolExactRows().find((row) => row.dataset.toolExactId === exactId) ?? null;
+}
+
+function sourceScanEntries(row, kind) {
+  if (!row) {
+    return [];
+  }
+  return state.folderScanResults.get(row.dataset.folderScanKey)?.[kind]?.entries ?? [];
+}
+
+function sourceGrantCounts(row) {
+  const tools = sourceScanEntries(row, "tool");
+  const documents = sourceScanEntries(row, "document");
+  const entries = [...tools, ...documents];
+  return {
+    tools: tools.length,
+    documents: documents.length,
+    total: entries.length,
+    enabled: entries.filter((entry) => entry.enabled !== false).length
+  };
+}
+
+function toolSourceStatusText(row) {
+  const stateText = row.querySelector('[data-role="state"]')?.textContent?.trim();
+  return stateText || "Not validated";
+}
+
+function updateToolSourceEntrySummary(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const sourcePath = row.querySelector('[data-field="path"]').value.trim();
+  const recursive = row.querySelector('[data-field="recursive"]').checked;
+  const includeDocs = row.querySelector('[data-field="includeDocs"]').checked;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const counts = sourceGrantCounts(row);
+  const selection = row.querySelector('[data-action="select-source"]');
+  const pathState = row.querySelector('[data-role="state"]');
+
+  row.querySelector('[data-role="tool-source-name"]').textContent = name || "Untitled source";
+  row.querySelector('[data-role="tool-source-path"]').textContent = compactLocalPath(sourcePath);
+  row.querySelector('[data-role="tool-source-path"]').title = sourcePath;
+  row.querySelector('[data-role="tool-source-meta"]').textContent = `${counts.tools} tool${counts.tools === 1 ? "" : "s"} · ${counts.documents} doc${counts.documents === 1 ? "" : "s"} · ${recursive ? "recursive" : "top level"}${includeDocs ? " · docs on" : ""}`;
+  row.querySelector('[data-role="tool-source-validation"]').textContent = toolSourceStatusText(row);
+  row.querySelector('[data-role="tool-source-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  selection.setAttribute("aria-label", `Edit tool source ${name || "untitled source"}`);
+  row.dataset.toolSourceSearch = `${name}\n${sourcePath}`.toLocaleLowerCase();
+  row.classList.toggle("is-empty-path", !sourcePath);
+  row.classList.toggle("is-disabled", !enabled);
+}
+
+function updateToolExactEntrySummary(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const filePath = row.querySelector('[data-field="path"]').value.trim();
+  const priority = row.querySelector('[data-field="priority"]').value;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const selection = row.querySelector('[data-action="select-exact-tool"]');
+
+  row.querySelector('[data-role="tool-exact-name"]').textContent = name || "Untitled exact tool";
+  row.querySelector('[data-role="tool-exact-path"]').textContent = compactLocalPath(filePath);
+  row.querySelector('[data-role="tool-exact-path"]').title = filePath;
+  row.querySelector('[data-role="tool-exact-meta"]').textContent = `Priority ${priority || "—"} · ${toolSourceStatusText(row)}`;
+  selection.setAttribute("aria-label", `Edit exact tool ${name || "untitled exact tool"}`);
+  row.classList.toggle("is-disabled", !enabled);
+}
+
+function updateToolSourceInspectorHeader(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const counts = sourceGrantCounts(row);
+  const pathState = row.querySelector('[data-role="state"]');
+  elements.toolSourceEditorTitle.textContent = name || "Untitled source";
+  elements.toolSourceEditorMeta.textContent = `${counts.total} saved grant${counts.total === 1 ? "" : "s"} · ${counts.enabled} enabled`;
+  elements.toolSourceToolsTabCount.textContent = String(counts.tools);
+  elements.toolSourceDocumentsTabCount.textContent = String(counts.documents);
+  elements.toolSourceEditorPathState.textContent = toolSourceStatusText(row);
+  elements.toolSourceEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+}
+
+function activeToolGrantKind() {
+  return state.activeToolSourceSection === "documents" ? "document" : "tool";
+}
+
+function updateToolGrantSection(kind = activeToolGrantKind()) {
+  const isDocument = kind === "document";
+  const label = isDocument ? "Documents" : "Tools";
+  const singular = isDocument ? "document" : "tool";
+  const tab = isDocument ? elements.toolSourceDocumentsTab : elements.toolSourceToolsTab;
+
+  elements.toolSourceResourceGrants.dataset.grantKind = kind;
+  elements.toolSourceResourceGrants.setAttribute("aria-labelledby", tab.id);
+  elements.toolGrantSectionStep.textContent = isDocument ? "DOCUMENT SCANS" : "TOOL SCANS";
+  elements.toolGrantSectionTitle.textContent = `${label} grants`;
+  elements.toolGrantSectionDescription.textContent = isDocument
+    ? "Review matching documentation files from this source."
+    : "Review matching executable and script files from this source.";
+  elements.toolGrantFilter.placeholder = `Filter ${singular}s`;
+  elements.toolGrantsEmpty.textContent = `No saved ${singular} grants exist for this source. Run Scan ${singular}s to review matching files.`;
+  elements.toolGrantsFilterEmpty.textContent = `No saved ${singular} grants match this filter.`;
+  elements.enableVisibleToolGrants.textContent = `Enable visible ${singular}s`;
+  elements.disableVisibleToolGrants.textContent = `Disable visible ${singular}s`;
+  elements.toolSourceScanTool.hidden = isDocument;
+  elements.toolSourceScanDocument.hidden = !isDocument;
+}
+
+function setToolSourceSection(section, focus = false) {
+  const selected = ["overview", "tools", "documents", "instruction"].includes(section) ? section : "overview";
+  state.activeToolSourceSection = selected;
+  const sections = {
+    overview: { tab: elements.toolSourceOverviewTab, panel: elements.toolSourceOverview },
+    tools: { tab: elements.toolSourceToolsTab, panel: elements.toolSourceResourceGrants },
+    documents: { tab: elements.toolSourceDocumentsTab, panel: elements.toolSourceResourceGrants },
+    instruction: { tab: elements.toolSourceInstructionTab, panel: elements.toolSourceInstruction }
+  };
+  for (const [name, item] of Object.entries(sections)) {
+    const active = name === selected;
+    item.tab.classList.toggle("is-active", active);
+    item.tab.setAttribute("aria-selected", String(active));
+    item.tab.tabIndex = active ? 0 : -1;
+  }
+  elements.toolSourceOverview.hidden = selected !== "overview";
+  elements.toolSourceResourceGrants.hidden = !["tools", "documents"].includes(selected);
+  elements.toolSourceInstruction.hidden = selected !== "instruction";
+  if (selected === "tools" || selected === "documents") {
+    updateToolGrantSection();
+    renderToolSourceGrants();
+  }
+  if (focus) {
+    sections[selected].tab.focus();
+  }
+}
+
+function refreshToolSourceInspector() {
+  const selectedRow = toolSourceRowById();
+  elements.toolSourceInspectorEmpty.hidden = Boolean(selectedRow);
+  elements.toolSourceInspectorBody.hidden = !selectedRow;
+  elements.toolSourceInspector.classList.toggle("has-selection", Boolean(selectedRow));
+
+  for (const row of toolSourceRows()) {
+    const selected = row === selectedRow;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select-source"]').setAttribute("aria-pressed", String(selected));
+  }
+
+  if (!selectedRow) {
+    return;
+  }
+
+  elements.toolSourceEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
+  elements.toolSourceEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
+  elements.toolSourceEditorPriority.value = selectedRow.querySelector('[data-field="priority"]').value;
+  elements.toolSourceEditorRecursive.checked = selectedRow.querySelector('[data-field="recursive"]').checked;
+  elements.toolSourceEditorIncludeDocs.checked = selectedRow.querySelector('[data-field="includeDocs"]').checked;
+  elements.toolSourceEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  elements.toolSourceEditorInstruction.value = selectedRow.querySelector('[data-role="folder-instruction"]').value;
+  updateToolSourceInspectorHeader(selectedRow);
+  setToolSourceSection(state.activeToolSourceSection);
+}
+
+function selectToolSource(row, { focus = false, section = "overview" } = {}) {
+  const changed = state.selectedToolSourceId !== row?.dataset.toolSourceId;
+  state.selectedToolSourceId = row?.dataset.toolSourceId ?? null;
+  if (changed) {
+    state.selectedToolGrantId = null;
+    state.activeToolSourceSection = section;
+  }
+  refreshToolSourceInspector();
+  if (focus && row) {
+    elements.toolSourceEditorName.focus();
+    elements.toolSourceEditorName.select();
+  }
+}
+
+function updateToolSourceCatalog() {
+  const query = elements.toolSourceFilter.value.trim().toLocaleLowerCase();
+  const status = elements.toolSourceStatusFilter.value;
+  const rows = toolSourceRows();
+  let visibleCount = 0;
+  let enabledCount = 0;
+
+  for (const row of rows) {
+    updateToolSourceEntrySummary(row);
+    const enabled = row.querySelector('[data-field="enabled"]').checked;
+    const matchesText = matchesOperatorFilter(row.dataset.toolSourceSearch, query);
+    const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
+    row.hidden = !matchesText || !matchesStatus;
+    if (!row.hidden) {
+      visibleCount += 1;
+    }
+    if (enabled) {
+      enabledCount += 1;
+    }
+  }
+
+  const total = rows.length;
+  const label = total === 1 ? "1 source" : `${total} sources`;
+  elements.toolSourceCount.textContent = visibleCount === total ? label : `${visibleCount}/${total} shown`;
+  elements.toolSourceEnabledCount.textContent = `${enabledCount} enabled`;
+  elements.toolDirectoriesEmpty.hidden = total > 0;
+  elements.toolSourcesFilterEmpty.hidden = total === 0 || visibleCount > 0;
+
+  const selectedRow = toolSourceRowById();
+  if (selectedRow?.hidden) {
+    state.selectedToolSourceId = rows.find((row) => !row.hidden)?.dataset.toolSourceId ?? null;
+    state.selectedToolGrantId = null;
+    refreshToolSourceInspector();
+  }
+}
+
+function syncToolSourceEditor() {
+  const row = toolSourceRowById();
+  if (!row) {
+    return;
+  }
+  const nameInput = row.querySelector('[data-field="name"]');
+  const pathInput = row.querySelector('[data-field="path"]');
+  const priorityInput = row.querySelector('[data-field="priority"]');
+  const recursiveInput = row.querySelector('[data-field="recursive"]');
+  const includeDocsInput = row.querySelector('[data-field="includeDocs"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  const instructionInput = row.querySelector('[data-role="folder-instruction"]');
+  const pathState = row.querySelector('[data-role="state"]');
+  const previousKey = row.dataset.folderScanKey;
+  const nextPath = elements.toolSourceEditorPath.value;
+
+  nameInput.value = elements.toolSourceEditorName.value;
+  pathInput.value = nextPath;
+  priorityInput.value = elements.toolSourceEditorPriority.value;
+  recursiveInput.checked = elements.toolSourceEditorRecursive.checked;
+  includeDocsInput.checked = elements.toolSourceEditorIncludeDocs.checked;
+  enabledInput.checked = elements.toolSourceEditorEnabled.checked;
+  instructionInput.value = elements.toolSourceEditorInstruction.value;
+
+  const nextKey = folderScanKey(nextPath);
+  if (previousKey !== nextKey) {
+    state.folderScanResults.delete(previousKey);
+    row.dataset.folderScanKey = nextKey;
+    setEntryPathState(
+      row,
+      pathState,
+      nextPath.trim() ? "Not validated · path changed" : "Directory path is required",
+      nextPath.trim() ? "pending" : "invalid"
+    );
+    state.selectedToolGrantId = null;
+  }
+  refreshEntryEnabledState(row, pathState);
+  updateToolSourceEntrySummary(row);
+  updateToolSourceInspectorHeader(row);
+  updateToolSourceCatalog();
+  markDirty();
+}
+
+function selectToolExact(row, { focus = false } = {}) {
+  state.selectedToolExactId = row?.dataset.toolExactId ?? null;
+  refreshToolExactEditor();
+  if (focus && row) {
+    elements.toolExactEditorName.focus();
+    elements.toolExactEditorName.select();
+  }
+}
+
+function updateToolExactCatalog() {
+  const rows = toolExactRows();
+  let enabledCount = 0;
+  for (const row of rows) {
+    updateToolExactEntrySummary(row);
+    if (row.querySelector('[data-field="enabled"]').checked) {
+      enabledCount += 1;
+    }
+  }
+  const total = rows.length;
+  elements.toolExactCount.textContent = total === 1 ? "1 file" : `${total} files`;
+  elements.toolFilesEmpty.hidden = total > 0;
+  elements.toolExactGrants.dataset.enabledCount = String(enabledCount);
+  if (!toolExactRowById()) {
+    state.selectedToolExactId = rows[0]?.dataset.toolExactId ?? null;
+  }
+  refreshToolExactEditor();
+}
+
+function refreshToolExactEditor() {
+  const selectedRow = toolExactRowById();
+  elements.toolExactEditorEmpty.hidden = Boolean(selectedRow);
+  elements.toolExactEditorBody.hidden = !selectedRow;
+  for (const row of toolExactRows()) {
+    const selected = row === selectedRow;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select-exact-tool"]').setAttribute("aria-pressed", String(selected));
+  }
+  if (!selectedRow) {
+    return;
+  }
+  const pathState = selectedRow.querySelector('[data-role="state"]');
+  elements.toolExactEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
+  elements.toolExactEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
+  elements.toolExactEditorPriority.value = selectedRow.querySelector('[data-field="priority"]').value;
+  elements.toolExactEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  elements.toolExactEditorTitle.textContent = elements.toolExactEditorName.value || "Untitled exact tool";
+  elements.toolExactEditorPathState.textContent = toolSourceStatusText(selectedRow);
+  elements.toolExactEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+}
+
+function syncToolExactEditor() {
+  const row = toolExactRowById();
+  if (!row) {
+    return;
+  }
+  const nameInput = row.querySelector('[data-field="name"]');
+  const pathInput = row.querySelector('[data-field="path"]');
+  const priorityInput = row.querySelector('[data-field="priority"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  const pathState = row.querySelector('[data-role="state"]');
+  const nextPath = elements.toolExactEditorPath.value;
+  const changedPath = pathInput.value !== nextPath;
+
+  nameInput.value = elements.toolExactEditorName.value;
+  pathInput.value = nextPath;
+  priorityInput.value = elements.toolExactEditorPriority.value;
+  enabledInput.checked = elements.toolExactEditorEnabled.checked;
+  if (changedPath) {
+    setEntryPathState(
+      row,
+      pathState,
+      nextPath.trim() ? "Not validated · path changed" : "File path is required",
+      nextPath.trim() ? "pending" : "invalid"
+    );
+  }
+  refreshEntryEnabledState(row, pathState);
+  updateToolExactEntrySummary(row);
+  elements.toolExactEditorTitle.textContent = nameInput.value.trim() || "Untitled exact tool";
+  elements.toolExactEditorPathState.textContent = toolSourceStatusText(row);
+  elements.toolExactEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  markDirty();
+}
+
+function toolGrantId(row, kind, entry) {
+  return `${row.dataset.toolSourceId}:${kind}:${scanFileKey(entry.path)}`;
+}
+
+function toolGrantRecords(row = toolSourceRowById()) {
+  if (!row) {
+    return [];
+  }
+  return [
+    ...sourceScanEntries(row, "tool").map((entry) => ({ id: toolGrantId(row, "tool", entry), kind: "tool", entry })),
+    ...sourceScanEntries(row, "document").map((entry) => ({ id: toolGrantId(row, "document", entry), kind: "document", entry }))
+  ];
+}
+
+function toolGrantMatchesFilters(record, kind = activeToolGrantKind()) {
+  const query = elements.toolGrantFilter.value.trim().toLocaleLowerCase();
+  const status = elements.toolGrantStatusFilter.value;
+  const enabled = record.entry.enabled !== false;
+  const matchesText = matchesOperatorFilter(`${record.entry.name}\n${record.entry.path}`, query);
+  const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
+  return matchesText && record.kind === kind && matchesStatus;
+}
+
+function selectedToolGrantRecord() {
+  return toolGrantRecords().find((record) => record.id === state.selectedToolGrantId) ?? null;
+}
+
+function updateToolGrantEditor() {
+  const record = selectedToolGrantRecord();
+  elements.toolGrantEditor.hidden = !record;
+  if (!record) {
+    return;
+  }
+  elements.toolGrantEditorTitle.textContent = record.entry.name || "Untitled grant";
+  elements.toolGrantEditorName.value = record.entry.name ?? "";
+  elements.toolGrantEditorPriorityField.hidden = record.kind !== "tool";
+  elements.toolGrantEditorPriority.value = record.kind === "tool" ? String(record.entry.priority ?? 0) : "";
+  elements.toolGrantEditorPath.textContent = record.entry.path;
+  elements.toolGrantEditorPath.title = record.entry.path;
+  elements.toolGrantEditorEnabled.checked = record.entry.enabled !== false;
+}
+
+function selectToolGrant(record) {
+  state.selectedToolGrantId = record?.id ?? null;
+  renderToolSourceGrants();
+}
+
+function renderToolSourceGrants() {
+  const source = toolSourceRowById();
+  const kind = activeToolGrantKind();
+  elements.toolGrantsList.replaceChildren();
+  if (!source) {
+    elements.toolGrantsEmpty.hidden = false;
+    elements.toolGrantsFilterEmpty.hidden = true;
+    updateToolGrantEditor();
+    return;
+  }
+  const records = toolGrantRecords(source).filter((record) => record.kind === kind);
+  const visibleRecords = records.filter((record) => toolGrantMatchesFilters(record, kind));
+  elements.toolGrantsEmpty.hidden = records.length > 0;
+  elements.toolGrantsFilterEmpty.hidden = records.length === 0 || visibleRecords.length > 0;
+
+  const selected = selectedToolGrantRecord();
+  if (!selected || !visibleRecords.some((record) => record.id === selected.id)) {
+    state.selectedToolGrantId = visibleRecords[0]?.id ?? null;
+  }
+
+  for (const record of visibleRecords) {
+    const row = document.createElement("article");
+    row.className = "tool-grant-entry";
+    row.dataset.grantId = record.id;
+    row.dataset.grantKind = record.kind;
+    row.classList.toggle("is-selected", record.id === state.selectedToolGrantId);
+    row.classList.toggle("is-disabled", record.entry.enabled === false);
+
+    const select = document.createElement("button");
+    select.className = "tool-grant-select";
+    select.type = "button";
+    select.setAttribute("aria-label", `Edit ${record.kind} grant ${record.entry.name || record.entry.path}`);
+    select.setAttribute("aria-pressed", String(record.id === state.selectedToolGrantId));
+    const name = document.createElement("span");
+    name.dataset.role = "tool-grant-name";
+    name.textContent = record.entry.name || "Untitled grant";
+    const filePath = document.createElement("span");
+    filePath.className = "tool-grant-path";
+    filePath.dataset.role = "tool-grant-path";
+    filePath.textContent = compactLocalPath(record.entry.path);
+    filePath.title = record.entry.path;
+    const priority = document.createElement("span");
+    priority.className = "tool-grant-priority";
+    priority.dataset.role = "tool-grant-priority";
+    priority.textContent = record.kind === "tool" ? String(record.entry.priority ?? 0) : "—";
+    select.append(name, filePath, priority);
+    select.addEventListener("click", () => selectToolGrant(record));
+
+    const enabled = document.createElement("label");
+    enabled.className = "entry-enabled";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.dataset.field = "enabled";
+    enabledInput.checked = record.entry.enabled !== false;
+    enabledInput.setAttribute("aria-label", `Enable ${record.kind} grant ${record.entry.name || record.entry.path}`);
+    const enabledSwitch = document.createElement("span");
+    enabledSwitch.className = "entry-switch";
+    enabledSwitch.setAttribute("aria-hidden", "true");
+    const enabledLabel = document.createElement("span");
+    enabledLabel.dataset.role = "enabled-label";
+    enabled.append(enabledInput, enabledSwitch, enabledLabel);
+    enabledInput.addEventListener("change", () => {
+      record.entry.enabled = enabledInput.checked;
+      updateToolSourceEntrySummary(source);
+      updateToolSourceInspectorHeader(source);
+      renderToolSourceGrants();
+      markDirty();
+    });
+
+    const copy = document.createElement("button");
+    copy.className = "icon-button tool-grant-copy";
+    copy.type = "button";
+    copy.textContent = "⧉";
+    copy.setAttribute("aria-label", `Copy path for ${record.entry.name || record.entry.path}`);
+    copy.addEventListener("click", () => copyLocalPath(record.entry.path));
+    row.append(select, enabled, copy);
+    initializeEntryToggle(row, null, enabledInput.checked);
+    elements.toolGrantsList.append(row);
+  }
+  updateToolGrantEditor();
+}
+
+function syncToolGrantEditor() {
+  const record = selectedToolGrantRecord();
+  const source = toolSourceRowById();
+  if (!record || !source) {
+    return;
+  }
+  record.entry.name = elements.toolGrantEditorName.value;
+  if (record.kind === "tool") {
+    record.entry.priority = Number(elements.toolGrantEditorPriority.value);
+  }
+  record.entry.enabled = elements.toolGrantEditorEnabled.checked;
+  const row = [...elements.toolGrantsList.querySelectorAll(".tool-grant-entry")]
+    .find((entry) => entry.dataset.grantId === record.id);
+  row?.querySelector('[data-role="tool-grant-name"]')?.replaceChildren(document.createTextNode(record.entry.name || "Untitled grant"));
+  row?.querySelector('[data-role="tool-grant-priority"]')?.replaceChildren(document.createTextNode(record.kind === "tool" ? String(record.entry.priority ?? 0) : "—"));
+  row?.classList.toggle("is-disabled", record.entry.enabled === false);
+  elements.toolGrantEditorTitle.textContent = record.entry.name || "Untitled grant";
+  updateToolSourceEntrySummary(source);
+  updateToolSourceInspectorHeader(source);
+  markDirty();
+}
+
+function removeSelectedToolGrant() {
+  const record = selectedToolGrantRecord();
+  const source = toolSourceRowById();
+  if (!record || !source) {
+    return;
+  }
+  const sourceResults = state.folderScanResults.get(source.dataset.folderScanKey);
+  sourceResults[record.kind].entries = sourceResults[record.kind].entries
+    .filter((entry) => scanFileKey(entry.path) !== scanFileKey(record.entry.path));
+  state.selectedToolGrantId = null;
+  updateToolSourceEntrySummary(source);
+  updateToolSourceInspectorHeader(source);
+  renderToolSourceGrants();
+  markDirty();
+}
+
+function setVisibleToolGrantsEnabled(enabled) {
+  const source = toolSourceRowById();
+  if (!source) {
+    return;
+  }
+  const kind = activeToolGrantKind();
+  const visibleRecords = toolGrantRecords(source).filter((record) => toolGrantMatchesFilters(record, kind));
+  for (const record of visibleRecords) {
+    record.entry.enabled = enabled;
+  }
+  updateToolSourceEntrySummary(source);
+  updateToolSourceInspectorHeader(source);
+  renderToolSourceGrants();
+  if (visibleRecords.length > 0) {
+    markDirty();
+  }
+}
+
+async function copyLocalPath(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    showToast("Path copied.", "success");
+  } catch {
+    showToast("The path could not be copied automatically. Select it from the editor instead.", "error");
+  }
 }
 
 function appendToolDirectory(directory = {}, availability = undefined) {
@@ -475,9 +1375,12 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   const priorityInput = row.querySelector('[data-field="priority"]');
   const recursiveInput = row.querySelector('[data-field="recursive"]');
   const includeDocsInput = row.querySelector('[data-field="includeDocs"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
   const pathState = row.querySelector('[data-role="state"]');
   const instructionInput = row.querySelector('[data-role="folder-instruction"]');
 
+  state.toolSourceRowCounter += 1;
+  row.dataset.toolSourceId = `tool-source-${state.toolSourceRowCounter}`;
   const normalized = typeof directory === "string"
     ? { path: directory, priority: 0, recursive: true, includeDocs: true }
     : directory;
@@ -491,42 +1394,66 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "directory");
   row.dataset.folderScanKey = folderScanKey(pathInput.value);
+  for (const input of row.querySelectorAll("input")) {
+    attachConfigurationInput(input);
+  }
+  const refresh = () => {
+    updateToolSourceEntrySummary(row);
+    updateToolSourceCatalog();
+    if (row.dataset.toolSourceId === state.selectedToolSourceId) {
+      refreshToolSourceInspector();
+    }
+  };
+  nameInput.addEventListener("input", refresh);
   pathInput.addEventListener("input", () => {
     const nextKey = folderScanKey(pathInput.value);
     if (row.dataset.folderScanKey !== nextKey) {
       state.folderScanResults.delete(row.dataset.folderScanKey);
       row.dataset.folderScanKey = nextKey;
+      state.selectedToolGrantId = null;
     }
-    renderFolderScanResults(row);
+    refresh();
   });
-  priorityInput.addEventListener("input", () => renderFolderScanResults(row));
-  instructionInput.addEventListener("input", markDirty);
-  for (const input of row.querySelectorAll("input")) {
-    attachConfigurationInput(input);
-  }
+  priorityInput.addEventListener("input", refresh);
+  recursiveInput.addEventListener("change", refresh);
+  includeDocsInput.addEventListener("change", refresh);
+  enabledInput.addEventListener("change", refresh);
+  instructionInput.addEventListener("input", () => {
+    if (row.dataset.toolSourceId === state.selectedToolSourceId) {
+      updateToolSourceInspectorHeader(row);
+    }
+  });
+  row.querySelector('[data-action="select-source"]').addEventListener("click", () => selectToolSource(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const next = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.toolSourceId === state.selectedToolSourceId;
     state.folderScanResults.delete(row.dataset.folderScanKey);
     row.remove();
+    if (wasSelected) {
+      state.selectedToolSourceId = next?.dataset.toolSourceId ?? null;
+      state.selectedToolGrantId = null;
+    }
     updateEmptyStates();
+    refreshToolSourceInspector();
     markDirty();
   });
-  row.querySelector('[data-action="scan-tool"]').addEventListener("click", () => runFolderScan(row, "tool"));
-  row.querySelector('[data-action="scan-document"]').addEventListener("click", () => runFolderScan(row, "document"));
   seedFolderScanResults(row, normalized);
-  renderFolderScanResults(row);
-
   elements.toolDirectoriesList.append(row);
+  updateToolSourceEntrySummary(row);
   updateEmptyStates();
+  if (!state.selectedToolSourceId) {
+    selectToolSource(row);
+  }
   return row;
 }
 
-function setFolderScanBusy(row, activeButton, busy) {
-  const buttons = [...row.querySelectorAll('[data-action="scan-tool"], [data-action="scan-document"]')];
+function setFolderScanBusy(_row, activeButton, busy) {
+  const buttons = [elements.toolSourceScanTool, elements.toolSourceScanDocument];
   for (const button of buttons) {
     if (busy) {
       button.dataset.previousLabel = button.textContent;
       if (button === activeButton) {
-        button.textContent = "Scanning...";
+        button.textContent = "Scanning…";
       }
       button.disabled = true;
       continue;
@@ -584,7 +1511,7 @@ function scanEntryNameBase(folderName, filePath, kind) {
 function usedScannedEntryNames(kind, excludedFolderKey) {
   const inputs = kind === "tool"
     ? elements.toolFilesList.querySelectorAll('[data-field="name"]')
-    : elements.filesList.querySelectorAll('[data-field="name"]');
+    : documentGrantRowsByKind("file").map((row) => row.querySelector('[data-field="name"]'));
   const names = new Set([...inputs]
     .map((input) => input.value.trim().toLowerCase())
     .filter(Boolean));
@@ -772,20 +1699,11 @@ function renderFolderScanResultContent(folderRow, content, scan, kind, toolPrior
 }
 
 function renderFolderScanResults(row) {
-  const results = row.querySelector('[data-role="scan-results"]');
-  if (!results) {
-    return;
+  updateToolSourceEntrySummary(row);
+  updateToolSourceCatalog();
+  if (row.dataset.toolSourceId === state.selectedToolSourceId) {
+    refreshToolSourceInspector();
   }
-
-  const stored = state.folderScanResults.get(row.dataset.folderScanKey);
-  results.hidden = !scanContentIsVisible(stored?.tool) && !scanContentIsVisible(stored?.document);
-  if (results.hidden) {
-    return;
-  }
-
-  const toolPriority = row.querySelector('[data-field="priority"]').value;
-  renderFolderScanResultContent(row, results.querySelector('[data-role="tool-scan-result-content"]'), stored.tool, "tool", toolPriority);
-  renderFolderScanResultContent(row, results.querySelector('[data-role="document-scan-result-content"]'), stored.document, "document");
 }
 
 function appendToolFile(toolFile = {}, availability = undefined) {
@@ -794,8 +1712,11 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   const nameInput = row.querySelector('[data-field="name"]');
   const pathInput = row.querySelector('[data-field="path"]');
   const priorityInput = row.querySelector('[data-field="priority"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
   const pathState = row.querySelector('[data-role="state"]');
 
+  state.toolExactRowCounter += 1;
+  row.dataset.toolExactId = `tool-exact-${state.toolExactRowCounter}`;
   const normalized = typeof toolFile === "string" ? { path: toolFile, priority: 0 } : toolFile;
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "tool-file");
   pathInput.value = normalized.path ?? "";
@@ -807,14 +1728,33 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   for (const input of row.querySelectorAll("input")) {
     attachConfigurationInput(input);
   }
+  const refresh = () => {
+    updateToolExactEntrySummary(row);
+    updateToolExactCatalog();
+  };
+  nameInput.addEventListener("input", refresh);
+  pathInput.addEventListener("input", refresh);
+  priorityInput.addEventListener("input", refresh);
+  enabledInput.addEventListener("change", refresh);
+  row.querySelector('[data-action="select-exact-tool"]').addEventListener("click", () => selectToolExact(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const next = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.toolExactId === state.selectedToolExactId;
     row.remove();
+    if (wasSelected) {
+      state.selectedToolExactId = next?.dataset.toolExactId ?? null;
+    }
     updateEmptyStates();
+    refreshToolExactEditor();
     markDirty();
   });
 
   elements.toolFilesList.append(row);
+  updateToolExactEntrySummary(row);
   updateEmptyStates();
+  if (!state.selectedToolExactId) {
+    selectToolExact(row);
+  }
   return row;
 }
 
@@ -824,8 +1764,11 @@ function appendSecretFile(secretFile = {}, inspection = undefined) {
   const nameInput = row.querySelector('[data-field="name"]');
   const pathInput = row.querySelector('[data-field="path"]');
   const formatInput = row.querySelector('[data-field="format"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
   const pathState = row.querySelector('[data-role="state"]');
 
+  state.secretRowCounter += 1;
+  row.dataset.secretId = `secret-${state.secretRowCounter}`;
   const normalized = typeof secretFile === "string" ? { path: secretFile, format: "auto" } : secretFile;
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "secret-file");
   pathInput.value = normalized.path ?? "";
@@ -852,23 +1795,200 @@ function appendSecretFile(secretFile = {}, inspection = undefined) {
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "file");
 
-  const markForReinspection = () => {
-    delete pathState.dataset.validDetail;
-    setEntryPathState(row, pathState, "Not validated · save to refresh detected fields", "pending");
-  };
   for (const input of row.querySelectorAll("input, select")) {
     attachConfigurationInput(input);
   }
-  formatInput.addEventListener("change", markForReinspection);
+  enabledInput.addEventListener("change", () => {
+    updateSecretEntrySummary(row);
+    updateSecretCatalog();
+    if (row.dataset.secretId === state.selectedSecretId) {
+      updateSecretInspectorHeader(row);
+    }
+  });
+  row.querySelector('[data-action="select-secret"]').addEventListener("click", () => selectSecret(row));
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+    const nextRow = row.nextElementSibling ?? row.previousElementSibling;
+    const wasSelected = row.dataset.secretId === state.selectedSecretId;
     row.remove();
+    if (wasSelected) {
+      state.selectedSecretId = nextRow?.dataset.secretId ?? null;
+    }
     updateEmptyStates();
+    refreshSecretInspector();
     markDirty();
   });
 
   elements.secretFilesList.append(row);
+  updateSecretEntrySummary(row);
   updateEmptyStates();
+  if (!state.selectedSecretId) {
+    selectSecret(row);
+  }
   return row;
+}
+
+function secretRows() {
+  return [...elements.secretFilesList.querySelectorAll(".secret-file-entry")];
+}
+
+function secretRowById(secretId = state.selectedSecretId) {
+  if (!secretId) {
+    return null;
+  }
+  return secretRows().find((row) => row.dataset.secretId === secretId) ?? null;
+}
+
+function secretFormatLabel(format) {
+  if (format === "env") {
+    return "NAME=value";
+  }
+  if (format === "opaque") {
+    return "Opaque";
+  }
+  return "Auto";
+}
+
+function secretStatusText(row) {
+  return row.querySelector('[data-role="state"]')?.textContent?.trim() || "Not validated";
+}
+
+function updateSecretEntrySummary(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const secretPath = row.querySelector('[data-field="path"]').value.trim();
+  const format = row.querySelector('[data-field="format"]').value;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const pathState = row.querySelector('[data-role="state"]');
+  const selection = row.querySelector('[data-action="select-secret"]');
+  const formatBadge = row.querySelector('[data-role="secret-file-format"]');
+
+  row.querySelector('[data-role="secret-file-name"]').textContent = name || "Untitled secret";
+  formatBadge.textContent = secretFormatLabel(format);
+  formatBadge.className = `secret-file-format is-${format}`;
+  row.querySelector('[data-role="secret-file-path"]').textContent = compactLocalPath(secretPath);
+  row.querySelector('[data-role="secret-file-path"]').title = secretPath;
+  row.querySelector('[data-role="secret-file-validation"]').textContent = secretStatusText(row);
+  row.querySelector('[data-role="secret-file-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  selection.setAttribute("aria-label", `Edit secret file ${name || "untitled secret"}`);
+  row.dataset.secretSearch = `${name}\n${secretPath}`.toLocaleLowerCase();
+  row.classList.toggle("is-empty-path", !secretPath);
+  row.classList.toggle("is-disabled", !enabled);
+}
+
+function updateSecretInspectorHeader(row) {
+  const name = row.querySelector('[data-field="name"]').value.trim();
+  const format = row.querySelector('[data-field="format"]').value;
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const pathState = row.querySelector('[data-role="state"]');
+  elements.secretEditorTitle.textContent = name || "Untitled secret";
+  elements.secretEditorMeta.textContent = `${secretFormatLabel(format)} policy · ${enabled ? "Enabled" : "Disabled"}`;
+  elements.secretEditorPathState.textContent = secretStatusText(row);
+  elements.secretEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+}
+
+function refreshSecretInspector() {
+  const selectedRow = secretRowById();
+  elements.secretInspectorEmpty.hidden = Boolean(selectedRow);
+  elements.secretInspectorBody.hidden = !selectedRow;
+  elements.secretInspector.classList.toggle("has-selection", Boolean(selectedRow));
+
+  for (const row of secretRows()) {
+    const selected = row === selectedRow;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select-secret"]').setAttribute("aria-pressed", String(selected));
+  }
+
+  if (!selectedRow) {
+    return;
+  }
+
+  elements.secretEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
+  elements.secretEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
+  elements.secretEditorFormat.value = selectedRow.querySelector('[data-field="format"]').value;
+  elements.secretEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  updateSecretInspectorHeader(selectedRow);
+}
+
+function selectSecret(row, { focus = false } = {}) {
+  state.selectedSecretId = row?.dataset.secretId ?? null;
+  refreshSecretInspector();
+  if (focus && row) {
+    elements.secretEditorName.focus();
+    elements.secretEditorName.select();
+  }
+}
+
+function updateSecretCatalog() {
+  const query = elements.secretCatalogFilter.value.trim().toLocaleLowerCase();
+  const status = elements.secretStatusFilter.value;
+  const rows = secretRows();
+  let visibleCount = 0;
+  let enabledCount = 0;
+
+  for (const row of rows) {
+    updateSecretEntrySummary(row);
+    const enabled = row.querySelector('[data-field="enabled"]').checked;
+    const matchesText = matchesOperatorFilter(row.dataset.secretSearch, query);
+    const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
+    row.hidden = !matchesText || !matchesStatus;
+    if (!row.hidden) {
+      visibleCount += 1;
+    }
+    if (enabled) {
+      enabledCount += 1;
+    }
+  }
+
+  const total = rows.length;
+  const label = total === 1 ? "1 grant" : `${total} grants`;
+  elements.secretCount.textContent = visibleCount === total ? label : `${visibleCount}/${total} shown`;
+  elements.secretEnabledCount.textContent = `${enabledCount} enabled`;
+  elements.secretFilesEmpty.hidden = total > 0;
+  elements.secretFilesFilterEmpty.hidden = total === 0 || visibleCount > 0;
+
+  const selectedRow = secretRowById();
+  if (!selectedRow || selectedRow.hidden) {
+    state.selectedSecretId = rows.find((row) => !row.hidden)?.dataset.secretId ?? null;
+    refreshSecretInspector();
+  }
+}
+
+function markSecretForReinspection(row) {
+  const pathInput = row.querySelector('[data-field="path"]');
+  const pathState = row.querySelector('[data-role="state"]');
+  delete pathState.dataset.validDetail;
+  const hasPath = pathInput.value.trim().length > 0;
+  setEntryPathState(
+    row,
+    pathState,
+    hasPath ? "Not validated · save to refresh detected fields" : "Secret file path is required",
+    hasPath ? "pending" : "invalid"
+  );
+}
+
+function syncSecretInspector() {
+  const row = secretRowById();
+  if (!row) {
+    return;
+  }
+  const nameInput = row.querySelector('[data-field="name"]');
+  const pathInput = row.querySelector('[data-field="path"]');
+  const formatInput = row.querySelector('[data-field="format"]');
+  const enabledInput = row.querySelector('[data-field="enabled"]');
+  const changedPath = pathInput.value !== elements.secretEditorPath.value;
+  const changedFormat = formatInput.value !== elements.secretEditorFormat.value;
+
+  nameInput.value = elements.secretEditorName.value;
+  pathInput.value = elements.secretEditorPath.value;
+  formatInput.value = elements.secretEditorFormat.value;
+  enabledInput.checked = elements.secretEditorEnabled.checked;
+  if (changedPath || changedFormat) {
+    markSecretForReinspection(row);
+  }
+  refreshEntryEnabledState(row, row.querySelector('[data-role="state"]'));
+  updateSecretEntrySummary(row);
+  updateSecretInspectorHeader(row);
+  updateSecretCatalog();
+  markDirty();
 }
 
 function promptRowById(promptId = state.selectedPromptId) {
@@ -894,9 +2014,17 @@ function promptMetadata(content) {
 }
 
 function updateInstructionSummary(input, summaryElement) {
-  const summary = input.value.replace(/\s+/g, " ").trim();
-  summaryElement.textContent = summary || "No instruction configured";
-  summaryElement.title = summary;
+  const instruction = input.value.replace(/\s+/g, " ").trim();
+  const characterCount = instruction.length;
+  const configured = characterCount > 0;
+  summaryElement.textContent = configured
+    ? `Configured · ${characterCount.toLocaleString()} chars`
+    : "No instruction";
+  summaryElement.dataset.state = configured ? "configured" : "empty";
+  summaryElement.title = configured
+    ? `Catalog instruction configured (${characterCount.toLocaleString()} characters). Activate to edit.`
+    : "No catalog instruction configured. Activate to add one.";
+  summaryElement.setAttribute("aria-label", summaryElement.title);
 }
 
 function updatePromptInstructionSummary() {
@@ -964,11 +2092,26 @@ function updatePromptEditorMeta(row) {
   elements.promptEditorMeta.textContent = promptMetadata(content);
 }
 
+function setPromptFocusMode(enabled) {
+  const canFocus = Boolean(enabled && promptRowById());
+  state.promptFocusMode = canFocus;
+  document.body.classList.toggle("prompt-focus-mode", canFocus);
+  elements.focusPromptEditor.setAttribute("aria-pressed", String(canFocus));
+  elements.focusPromptEditor.textContent = canFocus ? "Exit focus" : "Focus editor";
+  elements.focusPromptEditor.title = canFocus
+    ? "Return to the prompt catalog"
+    : "Open a focused prompt editor";
+  if (canFocus) {
+    requestAnimationFrame(() => elements.promptEditorContent.focus());
+  }
+}
+
 function refreshPromptEditor() {
   const selectedRow = promptRowById();
   elements.promptEditorEmpty.hidden = Boolean(selectedRow);
   elements.promptEditorBody.hidden = !selectedRow;
   elements.promptEditorPanel.classList.toggle("has-selection", Boolean(selectedRow));
+  elements.focusPromptEditor.disabled = !selectedRow;
 
   for (const row of elements.promptsList.querySelectorAll(".prompt-entry")) {
     const selected = row === selectedRow;
@@ -977,6 +2120,9 @@ function refreshPromptEditor() {
   }
 
   if (!selectedRow) {
+    if (state.promptFocusMode) {
+      setPromptFocusMode(false);
+    }
     return;
   }
 
@@ -1064,12 +2210,11 @@ function appendPrompt(prompt = {}, { select = false, focusEditor = false } = {})
 }
 
 function updateEmptyStates() {
-  elements.rootsEmpty.hidden = elements.rootsList.children.length > 0;
-  elements.filesEmpty.hidden = elements.filesList.children.length > 0;
-  elements.toolDirectoriesEmpty.hidden = elements.toolDirectoriesList.children.length > 0;
-  elements.toolFilesEmpty.hidden = elements.toolFilesList.children.length > 0;
+  updateDocumentGrantCatalog();
+  updateToolSourceCatalog();
+  updateToolExactCatalog();
   elements.promptsEmpty.hidden = elements.promptsList.children.length > 0;
-  elements.secretFilesEmpty.hidden = elements.secretFilesList.children.length > 0;
+  updateSecretCatalog();
   updatePromptCatalog();
 }
 
@@ -1172,8 +2317,7 @@ function ignoreFileValidationTarget() {
 
 function allPathValidationRows() {
   return [
-    ...elements.rootsList.querySelectorAll(".entry-row"),
-    ...elements.filesList.querySelectorAll(".entry-row"),
+    ...documentGrantRows(),
     ...elements.toolDirectoriesList.querySelectorAll(".entry-row"),
     ...elements.toolFilesList.querySelectorAll(".entry-row"),
     ...elements.secretFilesList.querySelectorAll(".entry-row")
@@ -1205,6 +2349,16 @@ async function validatePathTargets(targets, announce = false) {
     for (const result of payload.entries) {
       targetById.get(result.id)?.apply(result);
     }
+    updateDocumentGrantCatalog();
+    const selectedDocumentRow = documentGrantRowById();
+    if (selectedDocumentRow) {
+      updateDocumentGrantInspectorHeader(selectedDocumentRow);
+    }
+    updateSecretCatalog();
+    const selectedSecretRow = secretRowById();
+    if (selectedSecretRow) {
+      updateSecretInspectorHeader(selectedSecretRow);
+    }
 
     if (payload.summary.invalid > 0) {
       const description = `${payload.summary.invalid} invalid: ${payload.summary.enabledInvalid} enabled and ${payload.summary.disabledInvalid} disabled.`;
@@ -1220,6 +2374,16 @@ async function validatePathTargets(targets, announce = false) {
   } catch (error) {
     for (const target of usableTargets) {
       target.fail(error.message);
+    }
+    updateDocumentGrantCatalog();
+    const selectedDocumentRow = documentGrantRowById();
+    if (selectedDocumentRow) {
+      updateDocumentGrantInspectorHeader(selectedDocumentRow);
+    }
+    updateSecretCatalog();
+    const selectedSecretRow = secretRowById();
+    if (selectedSecretRow) {
+      updateSecretInspectorHeader(selectedSecretRow);
     }
     if (announce) {
       setPageStatus("error", "Could not validate paths", error.message);
@@ -1280,14 +2444,32 @@ function renderConfig(config, check) {
   state.folderScanResults.clear();
   state.selectedPromptId = null;
   state.promptRowCounter = 0;
+  state.selectedToolSourceId = null;
+  state.toolSourceRowCounter = 0;
+  state.activeToolSourceSection = "overview";
+  state.selectedToolGrantId = null;
+  state.selectedToolExactId = null;
+  state.toolExactRowCounter = 0;
+  state.selectedDocumentGrantId = null;
+  state.documentGrantRowCounter = 0;
+  state.selectedSecretId = null;
+  state.secretRowCounter = 0;
+  elements.documentGrantFilter.value = "";
+  elements.documentGrantTypeFilter.value = "all";
+  elements.documentGrantStatusFilter.value = "all";
+  elements.secretCatalogFilter.value = "";
+  elements.secretStatusFilter.value = "all";
+  elements.toolSourceFilter.value = "";
+  elements.toolSourceStatusFilter.value = "all";
+  elements.toolGrantFilter.value = "";
+  elements.toolGrantStatusFilter.value = "all";
 
   elements.documentsInstruction.value = catalogInstruction(config, "documents");
   elements.toolsInstruction.value = catalogInstruction(config, "tools");
   elements.promptsInstruction.value = catalogInstruction(config, "prompts");
   elements.secretsInstruction.value = catalogInstruction(config, "secrets");
 
-  elements.rootsList.replaceChildren();
-  elements.filesList.replaceChildren();
+  elements.documentGrantList.replaceChildren();
   elements.toolDirectoriesList.replaceChildren();
   elements.toolFilesList.replaceChildren();
   elements.promptsList.replaceChildren();
@@ -1349,6 +2531,13 @@ function renderConfig(config, check) {
   updateInstructionSummary(elements.toolsInstruction, elements.toolsInstructionSummary);
   updatePromptInstructionSummary();
   updateInstructionSummary(elements.secretsInstruction, elements.secretsInstructionSummary);
+  updateDocumentGrantCatalog();
+  refreshDocumentGrantInspector();
+  updateSecretCatalog();
+  refreshSecretInspector();
+  updateToolSourceCatalog();
+  refreshToolSourceInspector();
+  updateToolExactCatalog();
   updatePromptCatalog();
   refreshPromptEditor();
 
@@ -1442,7 +2631,7 @@ function collectConfig() {
   delete next.humanNotes;
   delete next.humanNote;
 
-  source.roots = [...elements.rootsList.querySelectorAll(".entry-row")].map((row, index) => {
+  source.roots = documentGrantRowsByKind("directory").map((row, index) => {
     const name = row.querySelector('[data-field="name"]').value.trim();
     const folderPath = row.querySelector('[data-field="path"]').value.trim();
     const priority = Number(row.querySelector('[data-field="priority"]').value);
@@ -1458,7 +2647,7 @@ function collectConfig() {
   });
   requireUniqueNames(source.roots, "Allowed folder");
 
-  source.files = [...elements.filesList.querySelectorAll(".entry-row")].map((row, index) => {
+  source.files = documentGrantRowsByKind("file").map((row, index) => {
     const name = row.querySelector('[data-field="name"]').value.trim();
     const filePath = row.querySelector('[data-field="path"]').value.trim();
     if (!name || !filePath) {
@@ -1637,7 +2826,7 @@ async function inspectAndAppendSecretFile(filePath) {
     inspection = { available: false, error: error.message };
   }
   const row = appendSecretFile({ name, path: filePath, format: "auto" }, inspection);
-  row.querySelector('[data-field="name"]').focus();
+  selectSecret(row, { focus: true });
   return row;
 }
 
@@ -1656,6 +2845,8 @@ async function pickPath(kind, target = "documents") {
     if (target === "secrets") {
       await inspectAndAppendSecretFile(payload.path);
     } else if (target === "tools" && kind === "directory") {
+      elements.toolSourceFilter.value = "";
+      elements.toolSourceStatusFilter.value = "all";
       const row = appendToolDirectory({
         name: uniqueToolDirectoryName(friendlyPathName(payload.path, "tool-folder")),
         path: payload.path,
@@ -1663,23 +2854,30 @@ async function pickPath(kind, target = "documents") {
         recursive: true,
         includeDocs: true
       });
-      row.querySelector('[data-field="name"]').focus();
+      selectToolSource(row, { focus: true });
     } else if (target === "tools") {
       const row = appendToolFile({
         name: uniqueToolFileName(friendlyPathName(payload.path, "tool-file")),
         path: payload.path,
         priority: 100
       });
-      row.querySelector('[data-field="name"]').focus();
+      elements.toolExactGrants.open = true;
+      selectToolExact(row, { focus: true });
     } else if (kind === "directory") {
+      elements.documentGrantFilter.value = "";
+      elements.documentGrantTypeFilter.value = "all";
+      elements.documentGrantStatusFilter.value = "all";
       const row = appendRoot({ name: friendlyPathName(payload.path, "allowed-folder"), path: payload.path, priority: 100 });
-      row.querySelector('[data-field="name"]').focus();
+      selectDocumentGrant(row, { focus: true });
     } else {
+      elements.documentGrantFilter.value = "";
+      elements.documentGrantTypeFilter.value = "all";
+      elements.documentGrantStatusFilter.value = "all";
       const row = appendFile({
         name: uniqueDocumentFileName(friendlyPathName(payload.path, "document-file")),
         path: payload.path
       });
-      row.querySelector('[data-field="name"]').focus();
+      selectDocumentGrant(row, { focus: true });
     }
     markDirty();
   } catch (error) {
@@ -1690,9 +2888,9 @@ async function pickPath(kind, target = "documents") {
 }
 
 function addDroppedItems(items, errors = []) {
-  const existingFolders = new Set([...elements.rootsList.querySelectorAll('[data-field="path"]')]
+  const existingFolders = new Set(documentGrantRowsByKind("directory").map((row) => row.querySelector('[data-field="path"]'))
     .map((input) => comparableLocalPath(input.value)));
-  const existingFiles = new Set([...elements.filesList.querySelectorAll('[data-field="path"]')]
+  const existingFiles = new Set(documentGrantRowsByKind("file").map((row) => row.querySelector('[data-field="path"]'))
     .map((input) => comparableLocalPath(input.value)));
   let added = 0;
   let duplicates = 0;
@@ -2047,8 +3245,7 @@ async function runToolSearch(event) {
 }
 
 async function runFolderScan(row, kind) {
-  const action = kind === "tool" ? "scan-tool" : "scan-document";
-  const button = row.querySelector(`[data-action="${action}"]`);
+  const button = kind === "tool" ? elements.toolSourceScanTool : elements.toolSourceScanDocument;
   if (!button) {
     return;
   }
@@ -2196,6 +3393,7 @@ async function runPromptSearch(event) {
 
 function activateTab(tabName, focus = false) {
   const selected = ["prompts", "documents", "tools", "secrets", "help"].includes(tabName) ? tabName : "prompts";
+  const previousTab = state.activeTab;
   state.activeTab = selected;
   const tabs = {
     documents: { tab: elements.documentsTab, panel: elements.documentsPanel },
@@ -2211,10 +3409,126 @@ function activateTab(tabName, focus = false) {
     item.tab.tabIndex = active ? 0 : -1;
     item.panel.hidden = !active;
   }
+  if (selected !== previousTab) {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+  requestAnimationFrame(syncWorkspaceSplitterAria);
   if (focus) {
-    tabs[selected].tab.focus();
+    tabs[selected].tab.focus({ preventScroll: true });
   }
 }
+
+function workspaceSplitterBounds(splitter) {
+  if (!window.matchMedia("(min-width: 1101px)").matches) {
+    return null;
+  }
+  const workspace = document.querySelector(`[data-resizable-workspace="${splitter.dataset.workspaceSplitter}"]`);
+  if (!workspace) {
+    return null;
+  }
+  const workspaceRect = workspace.getBoundingClientRect();
+  const splitterRect = splitter.getBoundingClientRect();
+  if (workspaceRect.width <= 0 || splitterRect.width <= 0) {
+    return null;
+  }
+  const masterMin = Number(splitter.dataset.masterMin) || 280;
+  const detailMin = Number(splitter.dataset.detailMin) || 360;
+  const max = Math.max(masterMin, workspaceRect.width - splitterRect.width - detailMin);
+  return { workspace, workspaceRect, splitterRect, min: masterMin, max };
+}
+
+function setWorkspaceSplitWidth(splitter, requestedWidth) {
+  const bounds = workspaceSplitterBounds(splitter);
+  if (!bounds) {
+    return;
+  }
+  const width = Math.min(bounds.max, Math.max(bounds.min, requestedWidth));
+  const ratio = width / bounds.workspaceRect.width;
+  const minPercent = Math.round((bounds.min / bounds.workspaceRect.width) * 100);
+  const maxPercent = Math.round((bounds.max / bounds.workspaceRect.width) * 100);
+  const value = Math.round(ratio * 100);
+  bounds.workspace.style.setProperty("--workspace-master-width", `${(ratio * 100).toFixed(2)}%`);
+  splitter.setAttribute("aria-valuemin", String(minPercent));
+  splitter.setAttribute("aria-valuemax", String(maxPercent));
+  splitter.setAttribute("aria-valuenow", String(value));
+  splitter.setAttribute("aria-valuetext", `${value}% catalog, ${100 - value}% detail`);
+}
+
+function resizeWorkspaceFromPointer(splitter, clientX) {
+  const bounds = workspaceSplitterBounds(splitter);
+  if (!bounds) {
+    return;
+  }
+  setWorkspaceSplitWidth(splitter, clientX - bounds.workspaceRect.left - (bounds.splitterRect.width / 2));
+}
+
+function syncWorkspaceSplitterAria() {
+  for (const splitter of document.querySelectorAll("[data-workspace-splitter]")) {
+    const bounds = workspaceSplitterBounds(splitter);
+    const masterPane = bounds?.workspace.firstElementChild;
+    if (!bounds || !masterPane || getComputedStyle(masterPane).display === "none") {
+      continue;
+    }
+    setWorkspaceSplitWidth(splitter, masterPane.getBoundingClientRect().width);
+  }
+}
+
+function finishWorkspaceResize(splitter) {
+  if (activeWorkspaceSplitter !== splitter) {
+    return;
+  }
+  activeWorkspaceSplitter = null;
+  splitter.classList.remove("is-dragging");
+  document.body.classList.remove("is-resizing-workspace");
+}
+
+for (const splitter of document.querySelectorAll("[data-workspace-splitter]")) {
+  splitter.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !workspaceSplitterBounds(splitter)) {
+      return;
+    }
+    activeWorkspaceSplitter = splitter;
+    splitter.classList.add("is-dragging");
+    document.body.classList.add("is-resizing-workspace");
+    splitter.setPointerCapture(event.pointerId);
+    resizeWorkspaceFromPointer(splitter, event.clientX);
+    event.preventDefault();
+  });
+  splitter.addEventListener("pointermove", (event) => {
+    if (activeWorkspaceSplitter === splitter && splitter.hasPointerCapture(event.pointerId)) {
+      resizeWorkspaceFromPointer(splitter, event.clientX);
+    }
+  });
+  splitter.addEventListener("pointerup", (event) => {
+    if (splitter.hasPointerCapture(event.pointerId)) {
+      splitter.releasePointerCapture(event.pointerId);
+    }
+    finishWorkspaceResize(splitter);
+  });
+  splitter.addEventListener("pointercancel", () => finishWorkspaceResize(splitter));
+  splitter.addEventListener("lostpointercapture", () => finishWorkspaceResize(splitter));
+  splitter.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      return;
+    }
+    const bounds = workspaceSplitterBounds(splitter);
+    const masterPane = bounds?.workspace.firstElementChild;
+    if (!bounds || !masterPane) {
+      return;
+    }
+    const step = Math.max(28, Math.round(bounds.workspaceRect.width * 0.04));
+    const current = masterPane.getBoundingClientRect().width;
+    const requestedWidth = event.key === "Home"
+      ? bounds.min
+      : event.key === "End"
+      ? bounds.max
+      : current + (event.key === "ArrowLeft" ? -step : step);
+    setWorkspaceSplitWidth(splitter, requestedWidth);
+    event.preventDefault();
+  });
+}
+
+window.addEventListener("resize", () => requestAnimationFrame(syncWorkspaceSplitterAria));
 
 function wireDropZone(dropZone, target) {
   dropZone.addEventListener("dragenter", (event) => {
@@ -2266,6 +3580,106 @@ elements.promptsInstruction.addEventListener("input", updatePromptInstructionSum
 elements.secretsInstruction.addEventListener("input", () => {
   updateInstructionSummary(elements.secretsInstruction, elements.secretsInstructionSummary);
 });
+elements.toolSourceFilter.addEventListener("input", updateToolSourceCatalog);
+elements.toolSourceStatusFilter.addEventListener("change", updateToolSourceCatalog);
+for (const input of [
+  elements.toolSourceEditorName,
+  elements.toolSourceEditorPath,
+  elements.toolSourceEditorPriority,
+  elements.toolSourceEditorInstruction
+]) {
+  input.addEventListener("input", syncToolSourceEditor);
+}
+for (const input of [
+  elements.toolSourceEditorRecursive,
+  elements.toolSourceEditorIncludeDocs,
+  elements.toolSourceEditorEnabled
+]) {
+  input.addEventListener("change", syncToolSourceEditor);
+}
+elements.toolSourceOverviewTab.addEventListener("click", () => setToolSourceSection("overview"));
+elements.toolSourceToolsTab.addEventListener("click", () => setToolSourceSection("tools"));
+elements.toolSourceDocumentsTab.addEventListener("click", () => setToolSourceSection("documents"));
+elements.toolSourceInstructionTab.addEventListener("click", () => setToolSourceSection("instruction"));
+elements.toolSourceEditorPath.addEventListener("blur", () => {
+  const row = toolSourceRowById();
+  if (row) {
+    validatePathRows([row]);
+  }
+});
+for (const [index, tab] of [
+  elements.toolSourceOverviewTab,
+  elements.toolSourceToolsTab,
+  elements.toolSourceDocumentsTab,
+  elements.toolSourceInstructionTab
+].entries()) {
+  tab.addEventListener("keydown", (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const tabs = [
+      elements.toolSourceOverviewTab,
+      elements.toolSourceToolsTab,
+      elements.toolSourceDocumentsTab,
+      elements.toolSourceInstructionTab
+    ];
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+      ? tabs.length - 1
+      : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    const sections = ["overview", "tools", "documents", "instruction"];
+    setToolSourceSection(sections[nextIndex], true);
+  });
+}
+for (const input of [elements.toolGrantFilter, elements.toolGrantStatusFilter]) {
+  input.addEventListener(input.tagName === "SELECT" ? "change" : "input", renderToolSourceGrants);
+}
+for (const input of [elements.toolGrantEditorName, elements.toolGrantEditorPriority]) {
+  input.addEventListener("input", syncToolGrantEditor);
+}
+elements.toolGrantEditorEnabled.addEventListener("change", () => {
+  syncToolGrantEditor();
+  renderToolSourceGrants();
+});
+elements.enableVisibleToolGrants.addEventListener("click", () => setVisibleToolGrantsEnabled(true));
+elements.disableVisibleToolGrants.addEventListener("click", () => setVisibleToolGrantsEnabled(false));
+elements.copyToolGrantPath.addEventListener("click", () => {
+  const record = selectedToolGrantRecord();
+  if (record) {
+    copyLocalPath(record.entry.path);
+  }
+});
+elements.deleteToolGrant.addEventListener("click", removeSelectedToolGrant);
+elements.deleteToolSource.addEventListener("click", () => {
+  toolSourceRowById()?.querySelector('[data-action="remove"]').click();
+});
+elements.toolSourceScanTool.addEventListener("click", () => {
+  const row = toolSourceRowById();
+  if (row) {
+    runFolderScan(row, "tool");
+  }
+});
+elements.toolSourceScanDocument.addEventListener("click", () => {
+  const row = toolSourceRowById();
+  if (row) {
+    runFolderScan(row, "document");
+  }
+});
+for (const input of [elements.toolExactEditorName, elements.toolExactEditorPath, elements.toolExactEditorPriority]) {
+  input.addEventListener("input", syncToolExactEditor);
+}
+elements.toolExactEditorPath.addEventListener("blur", () => {
+  const row = toolExactRowById();
+  if (row) {
+    validatePathRows([row]);
+  }
+});
+elements.toolExactEditorEnabled.addEventListener("change", syncToolExactEditor);
+elements.deleteToolExact.addEventListener("click", () => {
+  toolExactRowById()?.querySelector('[data-action="remove"]').click();
+});
 elements.promptCatalogFilter.addEventListener("input", updatePromptCatalog);
 elements.promptStatusFilter.addEventListener("change", updatePromptCatalog);
 for (const input of [
@@ -2276,6 +3690,24 @@ for (const input of [
   input.addEventListener("input", syncPromptEditor);
 }
 elements.promptEditorEnabled.addEventListener("change", syncPromptEditor);
+elements.focusPromptEditor.addEventListener("click", () => setPromptFocusMode(!state.promptFocusMode));
+
+elements.secretCatalogFilter.addEventListener("input", updateSecretCatalog);
+elements.secretStatusFilter.addEventListener("change", updateSecretCatalog);
+for (const input of [elements.secretEditorName, elements.secretEditorPath]) {
+  input.addEventListener("input", syncSecretInspector);
+}
+elements.secretEditorPath.addEventListener("blur", () => {
+  const row = secretRowById();
+  if (row) {
+    validatePathRows([row]);
+  }
+});
+elements.secretEditorFormat.addEventListener("change", syncSecretInspector);
+elements.secretEditorEnabled.addEventListener("change", syncSecretInspector);
+elements.deleteSecretFile.addEventListener("click", () => {
+  secretRowById()?.querySelector('[data-action="remove"]').click();
+});
 
 elements.ignoreFile.addEventListener("input", () => {
   setIgnoreFilePathState(
@@ -2290,33 +3722,65 @@ elements.ignoreFile.addEventListener("blur", () => {
   }
 });
 
+elements.documentGrantFilter.addEventListener("input", updateDocumentGrantCatalog);
+elements.documentGrantTypeFilter.addEventListener("change", updateDocumentGrantCatalog);
+elements.documentGrantStatusFilter.addEventListener("change", updateDocumentGrantCatalog);
+for (const input of [
+  elements.documentEditorName,
+  elements.documentEditorPath,
+  elements.documentEditorPriority
+]) {
+  input.addEventListener("input", syncDocumentGrantEditor);
+}
+elements.documentEditorPath.addEventListener("blur", () => {
+  const row = documentGrantRowById();
+  if (row) {
+    validatePathRows([row]);
+  }
+});
+elements.documentEditorEnabled.addEventListener("change", syncDocumentGrantEditor);
+elements.deleteDocumentGrant.addEventListener("click", () => {
+  documentGrantRowById()?.querySelector('[data-action="remove"]').click();
+});
+
 elements.addFolder.addEventListener("click", () => {
-  const row = appendRoot({ name: `allowed-folder-${elements.rootsList.children.length + 1}`, path: "", priority: 100 });
-  row.querySelector('[data-field="path"]').focus();
+  elements.documentGrantFilter.value = "";
+  elements.documentGrantTypeFilter.value = "all";
+  elements.documentGrantStatusFilter.value = "all";
+  const row = appendRoot({ name: uniqueRootName(`allowed-folder-${documentGrantRowsByKind("directory").length + 1}`), path: "", priority: 100 });
+  selectDocumentGrant(row, { focus: true });
   markDirty();
 });
 elements.addFile.addEventListener("click", () => {
-  const name = uniqueDocumentFileName(`document-file-${elements.filesList.children.length + 1}`);
+  elements.documentGrantFilter.value = "";
+  elements.documentGrantTypeFilter.value = "all";
+  elements.documentGrantStatusFilter.value = "all";
+  const name = uniqueDocumentFileName(`document-file-${documentGrantRowsByKind("file").length + 1}`);
   const row = appendFile({ name, path: "" });
-  row.querySelector('[data-field="path"]').focus();
+  selectDocumentGrant(row, { focus: true });
   markDirty();
 });
 elements.addToolFolder.addEventListener("click", () => {
+  elements.toolSourceFilter.value = "";
+  elements.toolSourceStatusFilter.value = "all";
   const name = uniqueToolDirectoryName(`tool-folder-${elements.toolDirectoriesList.children.length + 1}`);
   const row = appendToolDirectory({ name, path: "", priority: 100, recursive: true, includeDocs: true });
-  row.querySelector('[data-field="path"]').focus();
+  selectToolSource(row, { focus: true });
   markDirty();
 });
 elements.addToolFile.addEventListener("click", () => {
   const name = uniqueToolFileName(`tool-file-${elements.toolFilesList.children.length + 1}`);
   const row = appendToolFile({ name, path: "", priority: 100 });
-  row.querySelector('[data-field="path"]').focus();
+  elements.toolExactGrants.open = true;
+  selectToolExact(row, { focus: true });
   markDirty();
 });
 elements.addSecretFile.addEventListener("click", () => {
-  const name = uniqueSecretName(`secret-file-${elements.secretFilesList.children.length + 1}`);
+  elements.secretCatalogFilter.value = "";
+  elements.secretStatusFilter.value = "all";
+  const name = uniqueSecretName(`secret-file-${secretRows().length + 1}`);
   const row = appendSecretFile({ name, path: "", format: "auto" });
-  row.querySelector('[data-field="path"]').focus();
+  selectSecret(row, { focus: true });
   markDirty();
 });
 elements.addPrompt.addEventListener("click", () => {
@@ -2373,6 +3837,9 @@ elements.toolsTab.addEventListener("click", () => activateTab("tools"));
 elements.promptsTab.addEventListener("click", () => activateTab("prompts"));
 elements.secretsTab.addEventListener("click", () => activateTab("secrets"));
 elements.helpTab.addEventListener("click", () => activateTab("help"));
+for (const button of document.querySelectorAll("[data-guide-tab]")) {
+  button.addEventListener("click", () => activateTab(button.dataset.guideTab, true));
+}
 const tabOrder = ["prompts", "documents", "tools", "secrets", "help"];
 const tabElements = [elements.promptsTab, elements.documentsTab, elements.toolsTab, elements.secretsTab, elements.helpTab];
 for (const [index, tab] of tabElements.entries()) {
@@ -2413,6 +3880,21 @@ if (!runtime.nativePickers) {
 window.addEventListener("beforeunload", (event) => {
   if (state.dirty) {
     event.preventDefault();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    if (state.dirty && !elements.saveConfig.disabled) {
+      saveConfig();
+    } else if (!state.dirty) {
+      showToast("There are no unsaved changes.");
+    }
+    return;
+  }
+  if (event.key === "Escape" && state.promptFocusMode) {
+    setPromptFocusMode(false);
   }
 });
 

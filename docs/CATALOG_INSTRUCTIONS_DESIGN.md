@@ -55,10 +55,13 @@ fields, removing the old top-level forms.
 - The global README panel is removed.
 - Documents, Tools, Prompts, and Secrets each have a compact, collapsed
   **Catalog Instruction** control that explicitly names its matching MCP list
-  method and shows a one-line preview. Open it only when changing its text.
+  method and reports configured/empty state plus a character count. It does
+  not echo stored Instruction text in the workspace header; open it only when
+  changing its text.
 - The Tool-folder control is named **Folder Instruction**.
-- Reference help is available from the small `?` utility in the tab bar. It
-  contains guidance only; it has no editable Instruction field.
+- The **Guide** tab is available from the `?` tab-bar utility. It contains a
+  compact operational flow, MCP discovery paths, and links back to the
+  matching workspace; it has no editable Instruction field.
 - All Instruction text participates in the normal reload, dirty-state,
   validation, save, and backup workflow.
 
@@ -68,8 +71,9 @@ The configuration UI is designed for repeated use with large catalogs rather
 than a step-by-step setup wizard:
 
 - On wide displays, each catalog's collapsed Instruction and import control
-  share the first row. Documents also place folder and exact-file lists side by
-  side when there is enough room for their full columns.
+  share the first row. Documents uses one filterable catalog for folder roots
+  and exact files, with a selected-grant inspector rather than competing
+  full-width forms.
 - Long entry collections scroll inside their own panel. Their title, actions,
   and column labels remain visible above the local list, avoiding a long page
   round trip to add, validate, or inspect another entry.
@@ -100,3 +104,10 @@ both serialized and structured MCP content, legacy-field migration, the
 5,000-character limit, UI placement and labels, UI save/backup behavior, and
 the absence of the deprecated response field from catalog and non-catalog
 payloads.
+
+The Documents-specific master-detail catalog redesign is documented in
+[Documents Operator Workspace Design](DOCUMENTS_OPERATOR_WORKSPACE_DESIGN.md).
+The Tools-specific master-detail catalog redesign is documented in
+[Tools Operator Workspace Design](TOOLS_OPERATOR_WORKSPACE_DESIGN.md).
+The Secrets-specific master-detail catalog redesign is documented in
+[Secrets Operator Workspace Design](SECRETS_OPERATOR_WORKSPACE_DESIGN.md).
