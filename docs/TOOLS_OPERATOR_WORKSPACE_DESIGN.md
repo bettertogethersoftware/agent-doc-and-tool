@@ -23,10 +23,11 @@ Tool sources                 Selected source
                                 - matching scan action per resource tab
 ```
 
-The design must preserve the existing configuration model and MCP output:
-tool directories remain tool catalogs, scanned tools and documents remain
-owned by their parent directory, and direct exact tool files remain separate
-top-level grants.
+The design preserves the existing tool-discovery MCP output: tool directories
+remain tool catalogs, scanned tools and documents remain owned by their parent
+directory, and direct exact tool files remain separate top-level grants. The
+configuration adds a backward-compatible document scan scope: absent
+`documentRecursive` values inherit the existing `recursive` value.
 
 ## Interaction model
 
@@ -41,20 +42,24 @@ top-level grants.
 
 ### Selected-source inspector
 
-- **Overview** is the only place where source name, path, priority, recursive
-  scan option, documentation option, and enabled state are edited.
-- **Tools** shows only scanned tools. It owns **Scan tools**, tool-specific
-  filtering, bulk enable/disable, and priority editing. Paths are secondary
-  and copyable; a selected grant opens one focused editor rather than turning
-  every table cell into an input.
-- **Documents** shows only scanned documents. It owns **Scan documents** and
-  document-specific filtering and bulk enable/disable. It does not show a
-  meaningless Tool priority column.
+- **Overview** is the only place where source name, path, priority,
+  documentation option, and enabled state are edited.
+- **Tools** shows only scanned tools. It owns its **Include subfolders** scope
+  (`recursive`), **Scan tools**, tool-specific filtering, bulk
+  enable/disable, and priority editing. Its scope also controls recursive
+  tool discovery. Paths are secondary and copyable; a selected grant opens one
+  focused editor rather than turning every table cell into an input.
+- **Documents** shows only scanned documents. It owns its independent
+  **Include subfolders** scope (`documentRecursive`), **Scan documents**,
+  document-specific filtering, and bulk enable/disable. Its scope affects
+  only Document scans; it does not change document discovery, `search`, or
+  `fetch`. It does not show a meaningless Tool priority column.
 - **Instruction** owns the optional folder Instruction and keeps that context
   separate from the Tools-tab Catalog Instruction.
-- Each scan control lives in the matching resource tab. This keeps a tool scan
-  alongside Tool results and a document scan alongside Document results,
-  avoiding a mixed table and a type-filtering detour.
+- Each scan control and its own recursion scope live in the matching resource
+  tab. This keeps a tool scan alongside Tool results and a document scan
+  alongside Document results, avoiding a mixed table, shared scope, and a
+  type-filtering detour.
 - On desktop, the source catalog and selected-source inspector are separated
   by an adjustable, keyboard-accessible vertical splitter. This only changes
   the current UI session and never modifies a saved grant or source setting.
@@ -81,8 +86,9 @@ top-level grants.
 2. Selecting a source exposes its overview, separate Tool and Document result
    tabs, folder Instruction, and the corresponding scan action without a
    page-length round trip.
-3. Scanning, enable/disable, removing grants, and saving produce the exact
-   pre-existing configuration shape.
+3. Scanning, enable/disable, removing grants, and saving preserve source-owned
+   grants and write independent `recursive` and `documentRecursive` scan
+   scopes without changing `list_tool` output.
 4. Direct exact tool files remain editable and clearly distinguished from
    source-owned grants.
 5. All lists have one intentional local scroll area at large sizes; empty
@@ -90,7 +96,8 @@ top-level grants.
 6. Keyboard-focusable controls have labels and selected states are exposed to
    assistive technology.
 7. Existing configuration, UI-server, MCP smoke, and validation tests pass,
-   with new static coverage for the workspace structure.
+   including nested-file coverage for independent Tool and Document scan
+   scopes.
 
 ## Delivery sequence
 

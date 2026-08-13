@@ -327,11 +327,6 @@
               </label>
               <div class="tool-source-options">
                 <label class="toggle-row compact-toggle">
-                  <input id="tool-source-editor-recursive" type="checkbox">
-                  <span class="toggle" aria-hidden="true"></span>
-                  <span><strong>Include subfolders</strong><small>Scan the complete source tree.</small></span>
-                </label>
-                <label class="toggle-row compact-toggle">
                   <input id="tool-source-editor-include-docs" type="checkbox">
                   <span class="toggle" aria-hidden="true"></span>
                   <span><strong>Include documentation</strong><small>Allow matching nearby documents.</small></span>
@@ -352,6 +347,14 @@
                   <h3 id="tool-grant-section-title">Tool grants</h3>
                   <p id="tool-grant-section-description">Review matching executable and script files from this source.</p>
                 </div>
+                <label class="toggle-row compact-toggle tool-source-scan-recursive">
+                  <input id="tool-source-scan-recursive" type="checkbox">
+                  <span class="toggle" aria-hidden="true"></span>
+                  <span>
+                    <strong>Include subfolders</strong>
+                    <small id="tool-source-scan-recursive-help">Scan nested tool files. This also controls recursive tool discovery.</small>
+                  </span>
+                </label>
                 <div class="button-row" role="group" aria-label="Selected source scan action">
                   <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the selected source for matching tool files">Scan tools</button>
                   <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the selected source for matching document files" hidden>Scan documents</button>
@@ -464,7 +467,7 @@
           <label class="field">
             <span>Tool suffix patterns</span>
             <input id="tool-extensions" type="text" spellcheck="false" placeholder=".exe;.cmd;.bat;.ps1;.py;.js;.mjs">
-            <small>Use semicolons between values. The Scan tools action uses these suffix rules and the source's Include subfolders flag; Scan documents uses the Documents matching rules and the same flag. Link and secret safety checks still apply.</small>
+            <small>Use semicolons between values. Scan tools uses these suffix rules and the Tools tab's Include subfolders setting; Scan documents uses the Documents matching rules and its own setting. Link and secret safety checks still apply.</small>
           </label>
         </div>
       </details>
@@ -849,6 +852,7 @@
       <input data-field="path" type="hidden">
       <input data-field="priority" type="hidden">
       <input data-field="recursive" type="checkbox" hidden>
+      <input data-field="documentRecursive" type="checkbox" hidden>
       <input data-field="includeDocs" type="checkbox" hidden>
       <textarea data-role="folder-instruction" hidden></textarea>
       <button class="tool-source-select" data-action="select-source" type="button" aria-label="Edit tool source">

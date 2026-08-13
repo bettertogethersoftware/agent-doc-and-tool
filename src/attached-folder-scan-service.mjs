@@ -161,9 +161,8 @@ async function verifyMatchingFile(filePath, realRoot, state) {
   }
 }
 
-async function *walkAttachedDirectory(directory, matchesFile, state) {
+async function *walkAttachedDirectory(directory, matchesFile, state, recursive) {
   const realRoot = await resolveScanDirectory(directory, state);
-  const recursive = directory.recursive !== false;
   if (!realRoot) {
     return;
   }
@@ -261,10 +260,13 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
   const matchesFile = kind === "tool"
     ? (filePath) => matchesTool(filePath, config)
     : (filePath) => matchesConfiguredDocument(filePath, documentSource, config.caseSensitive);
+  const recursive = kind === "tool"
+    ? directory.recursive !== false
+    : directory.documentRecursive !== false;
   const state = createState(config);
   const results = [];
 
-  for await (const filePath of walkAttachedDirectory(directory, matchesFile, state)) {
+  for await (const filePath of walkAttachedDirectory(directory, matchesFile, state, recursive)) {
     if (results.length === RESULT_LIMIT) {
       state.hasMore = true;
       state.stopped = true;
@@ -295,7 +297,7 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
       resultLimit: RESULT_LIMIT,
       hasMore: state.hasMore,
       truncated: state.truncated,
-      recursive: directory.recursive,
+      recursive,
       configPath: config.configPath,
       elapsedMs: Math.round(performance.now() - started),
       warningCount: state.warningCount,

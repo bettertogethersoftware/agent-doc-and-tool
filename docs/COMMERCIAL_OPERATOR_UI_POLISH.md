@@ -28,8 +28,10 @@ human-grant and secret-access boundaries.
   destructive-action colors retain their shared meaning across all tabs.
 - A selected Tool source separates **Tools** and **Documents** into their own
   tabs. **Scan tools** lives with Tool results and **Scan documents** lives
-  with Document results, removing the mixed table and type-filtering tax.
-  Bulk grant controls remain scoped to the visible resource tab.
+  with Document results. Each tab also owns an independent **Include
+  subfolders** scope, removing the mixed table, shared-scope ambiguity, and
+  type-filtering tax. Bulk grant controls remain scoped to the visible resource
+  tab.
 - The global action bar explains whether edits are saved, makes the save
   consequence explicit when dirty, and supports `Ctrl+S` / `Cmd+S` to save.
   Saving still performs the existing validation first.
@@ -70,7 +72,8 @@ interaction model.
 4. Drag or keyboard-adjust each desktop splitter; check it leaves grants and
    the dirty state unchanged.
 5. Open a Tool source, switch between Tools and Documents, and confirm each
-   tab shows only its matching results and scan action.
+   tab shows only its matching results, scan action, and independent
+   **Include subfolders** setting.
 6. Check the Guide links route to the corresponding tab.
 7. Make an edit, confirm the action bar explains that saving exposes it to the
    local agent, then reload or save intentionally.

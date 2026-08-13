@@ -91,6 +91,9 @@ const ToolDirectoryEntrySchema = z.union([
     path: z.string().trim().min(1),
     priority: z.number().int().min(-10_000).max(10_000).default(0),
     recursive: z.boolean().default(true),
+    // Kept optional so existing configurations inherit the established tool
+    // recursion setting until their document scan scope is edited explicitly.
+    documentRecursive: z.boolean().optional(),
     includeDocs: z.boolean().default(true),
     enabled: z.boolean().default(true),
     instruction: InstructionTextSchema.optional(),
@@ -329,11 +332,13 @@ function normalizeTools(rawTools, configDirectory) {
       );
     }
     directoryNames.add(comparableName);
+    const recursive = directory.recursive !== false;
     return {
       name,
       path: resolveConfiguredPath(directory.path, configDirectory),
       priority: directory.priority ?? 0,
-      recursive: directory.recursive !== false,
+      recursive,
+      documentRecursive: directory.documentRecursive ?? recursive,
       includeDocs: directory.includeDocs !== false,
       enabled: directory.enabled !== false,
       instruction: (directory.instruction ?? directory.humanNote ?? "").trim(),

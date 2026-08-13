@@ -2615,6 +2615,11 @@ input.scan-exact-field:focus {
   background: linear-gradient(90deg, rgb(20 78 73 / 24%), rgb(10 20 23 / 46%));
 }
 
+.tool-grant-section-heading > :first-child {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
 .tool-grant-section-heading h3 {
   margin: 0;
   color: #e0f2ee;
@@ -2647,6 +2652,19 @@ input.scan-exact-field:focus {
   display: none;
 }
 
+.tool-source-scan-recursive {
+  flex: 0 1 258px;
+  min-width: 188px;
+  padding: 5px 7px;
+  border: 1px solid rgb(44 94 90 / 78%);
+  border-radius: 6px;
+  background: rgb(7 25 24 / 56%);
+}
+
+.tool-source-scan-recursive small {
+  max-width: 29ch;
+}
+
 .tool-source-resource-grants[data-grant-kind="document"] .tool-grant-section-heading {
   border-color: #315d78;
   background: linear-gradient(90deg, rgb(35 99 137 / 23%), rgb(10 20 23 / 46%));
@@ -2654,6 +2672,11 @@ input.scan-exact-field:focus {
 
 .tool-source-resource-grants[data-grant-kind="document"] .tool-grant-section-heading .step {
   color: #93d7f6;
+}
+
+.tool-source-resource-grants[data-grant-kind="document"] .tool-source-scan-recursive {
+  border-color: rgb(49 93 120 / 82%);
+  background: rgb(10 28 41 / 57%);
 }
 
 .tool-inspector-tabs {
@@ -2721,7 +2744,7 @@ input.scan-exact-field:focus {
 
 .tool-source-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
   margin-top: 11px;
   padding: 8px;
@@ -3099,6 +3122,10 @@ input.scan-exact-field:focus {
 
   .tool-grant-section-heading .button-row {
     flex-wrap: wrap;
+  }
+
+  .tool-source-scan-recursive {
+    width: 100%;
   }
 
   .tool-registry-controls input,
