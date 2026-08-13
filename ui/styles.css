@@ -5113,3 +5113,2493 @@ input.scan-exact-field:focus {
 body.prompt-focus-mode .workspace-splitter {
   display: none;
 }
+
+/* 2026 clarity pass -------------------------------------------------------
+   Keep the console's expert density, but make hierarchy, type, and actions
+   feel calmer. Resource colors are reserved for selection and state instead
+   of outlining every surface on the page. */
+:root {
+  --bg: #0a0e13;
+  --panel: #11171f;
+  --panel-raised: #171e27;
+  --line: #28323d;
+  --line-strong: #3a4654;
+  --text: #f2f5f7;
+  --muted: #9ba8b7;
+  --accent: #7ee2a3;
+  --accent-strong: #a9efbf;
+  --accent-ink: #07110b;
+  --blue: #91ccef;
+  --violet: #c2a8e8;
+  --cyan: #84d8cf;
+  --warning: #efc66b;
+  --danger: #f28f83;
+  --shadow: 0 16px 40px rgb(0 0 0 / 24%);
+  --radius: 12px;
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% -16rem, rgb(101 156 130 / 8%), transparent 36rem),
+    linear-gradient(180deg, #0d1218 0, var(--bg) 30rem);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+button,
+input,
+textarea,
+select,
+summary {
+  font: inherit;
+}
+
+:where(button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid rgb(126 226 163 / 78%);
+  outline-offset: 2px;
+}
+
+.topbar {
+  grid-template-columns: minmax(205px, 1fr) auto minmax(205px, 1fr);
+  min-height: 66px;
+  padding: 0 clamp(18px, 3vw, 44px);
+  border-bottom-color: rgb(178 199 218 / 11%);
+  background: rgb(9 13 18 / 94%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 2%);
+}
+
+.brand {
+  grid-column: 1;
+  gap: 11px;
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-color: #39443f;
+  border-radius: 10px;
+  background: #121820;
+  box-shadow: inset 0 1px rgb(255 255 255 / 4%);
+}
+
+.brand strong {
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+}
+
+.brand small {
+  color: #8794a2;
+  font-size: 0.68rem;
+}
+
+.tabs {
+  position: static;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  gap: 3px;
+  padding: 3px;
+  border-color: #26303b;
+  border-radius: 11px;
+  background: #0c1117;
+  box-shadow: none;
+  transform: none;
+}
+
+.tab {
+  min-width: 82px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 8px;
+  color: #96a3b2;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.tab:hover,
+.tab:focus-visible {
+  background: #131a22;
+  color: #e8edf1;
+}
+
+.tab.is-active {
+  background: #1a2521;
+  color: #c9f4d6;
+  box-shadow: inset 0 0 0 1px #3b5c48;
+}
+
+.runtime-state {
+  grid-column: 3;
+  color: #8f9ba8;
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 4px rgb(126 226 163 / 9%);
+}
+
+.shell {
+  width: min(1440px, calc(100% - 48px));
+  padding: 18px 0 112px;
+}
+
+.panel {
+  margin-top: 14px;
+  padding: 18px 20px;
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: rgb(17 23 31 / 96%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+.step {
+  margin-bottom: 6px;
+  color: #8997a5;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 720;
+  letter-spacing: 0.075em;
+}
+
+.catalog-count {
+  color: #8f9dab;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.catalog-instruction-panel {
+  border-color: #25332c;
+  background: rgb(15 21 27 / 94%);
+  box-shadow: none;
+}
+
+.instruction-disclosure summary {
+  min-height: 52px;
+  padding: 9px 16px;
+}
+
+.instruction-disclosure summary .step {
+  color: #7f8c98;
+}
+
+.instruction-disclosure summary strong {
+  color: #dce3e8;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.instruction-summary {
+  max-width: min(55vw, 520px);
+  padding: 5px 9px;
+  border-color: #2d3934;
+  background: #0c1212;
+  color: #9eada4;
+  font-size: 0.66rem;
+  font-weight: 620;
+}
+
+.instruction-summary[data-state="configured"] {
+  border-color: #395646;
+  color: #a8dbb7;
+}
+
+.instruction-disclosure:not([open]) .instruction-summary::before {
+  color: #8cbf9b;
+  content: "Edit";
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.instruction-disclosure[open] summary {
+  border-bottom-color: #26312c;
+}
+
+.field {
+  gap: 6px;
+}
+
+.field > span,
+.folder-instruction > span {
+  color: #cbd3da;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.field small,
+.toggle-row small {
+  color: #8e9aa7;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.entry-row input,
+.entry-row select,
+.field input,
+.field textarea,
+.field select,
+.secret-editor-fields select,
+.document-registry-controls input,
+.document-registry-controls select,
+.tool-registry-controls input,
+.tool-registry-controls select,
+.secret-registry-controls input,
+.secret-registry-controls select,
+.prompt-catalog-controls input,
+.prompt-catalog-controls select {
+  border-color: #303b47;
+  border-radius: 8px;
+  background: #0b1117;
+  color: #eaf0f4;
+  font-size: 0.78rem;
+}
+
+.field input,
+.field select,
+.secret-editor-fields select,
+.document-registry-controls input,
+.document-registry-controls select,
+.tool-registry-controls input,
+.tool-registry-controls select,
+.secret-registry-controls input,
+.secret-registry-controls select,
+.prompt-catalog-controls input,
+.prompt-catalog-controls select {
+  min-height: 38px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #677382;
+  opacity: 1;
+}
+
+.button {
+  min-height: 38px;
+  padding: 0 13px;
+  border-color: #35414e;
+  border-radius: 8px;
+  background: #171f28;
+  box-shadow: none;
+  color: #dbe3ea;
+  font-size: 0.75rem;
+  font-weight: 680;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.button:hover:not(:disabled) {
+  border-color: #4a5867;
+  background: #1c2631;
+  transform: none;
+}
+
+.button.primary,
+.button.action-add,
+.button.action-save {
+  border-color: #72d497;
+  background: #7ee2a3;
+  color: #07110b;
+  box-shadow: 0 5px 16px rgb(75 191 119 / 12%);
+}
+
+.button.primary:hover:not(:disabled),
+.button.action-add:hover:not(:disabled),
+.button.action-save:hover:not(:disabled) {
+  border-color: #9deab7;
+  background: #96e9b4;
+}
+
+.button.action-import,
+.button.action-browse,
+.button.action-focus,
+.button.action-scan,
+.button.action-test {
+  border-color: #35495a;
+  background: #17212b;
+  color: #c8e0ef;
+  box-shadow: none;
+}
+
+.button.action-import:hover:not(:disabled),
+.button.action-browse:hover:not(:disabled),
+.button.action-focus:hover:not(:disabled),
+.button.action-scan:hover:not(:disabled),
+.button.action-test:hover:not(:disabled) {
+  border-color: #4a6a80;
+  background: #1b2a36;
+}
+
+.button.action-validate {
+  border-color: #6b5630;
+  background: #211b12;
+  color: #e9cc8d;
+  box-shadow: none;
+}
+
+.button.action-danger {
+  border-color: #6e433f;
+  background: #241615;
+  color: #efa9a1;
+  box-shadow: none;
+}
+
+.button.ghost,
+.button.action-reload {
+  border-color: transparent;
+  background: transparent;
+  color: #9aa7b5;
+}
+
+.button.ghost:hover:not(:disabled),
+.button.action-reload:hover:not(:disabled) {
+  border-color: #303a45;
+  background: #141b22;
+  color: #d5dde4;
+}
+
+/* The registry title and one add menu now establish the document workflow. */
+.document-operator-workspace,
+.tool-operator-workspace,
+.secret-operator-workspace,
+.prompt-workspace,
+.help-panel {
+  gap: 14px;
+}
+
+.document-operator-workspace > .panel,
+.document-operator-workspace > details,
+.tool-operator-workspace > .panel,
+.tool-operator-workspace > details,
+.secret-operator-workspace > .panel,
+.secret-operator-workspace > details,
+.prompt-workspace > .panel,
+.prompt-workspace > details {
+  margin-top: 0;
+}
+
+.document-registry-header {
+  grid-template-areas:
+    "title controls"
+    "drop drop";
+  grid-template-columns: minmax(430px, 1fr) auto;
+  gap: 16px 24px;
+  align-items: center;
+  border-color: var(--line);
+  background: rgb(17 23 31 / 96%);
+}
+
+.document-registry-title-row {
+  display: flex;
+  grid-area: title;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.document-registry-heading h2,
+.document-pane-heading h2,
+.document-inspector-heading h2,
+.tool-registry-heading h2,
+.tool-pane-heading h2,
+.tool-inspector-heading h2,
+.secret-registry-heading h2,
+.secret-pane-heading h2,
+.secret-inspector-heading h2,
+.prompt-catalog-toolbar h2,
+.prompt-editor-heading h2 {
+  color: #f0f4f7;
+  font-size: 1.08rem;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+}
+
+.document-registry-heading p:not(.step),
+.document-pane-heading p:not(.step),
+.document-inspector-heading p:not(.step),
+.tool-registry-heading p:not(.step),
+.tool-pane-heading p:not(.step),
+.tool-inspector-heading p:not(.step),
+.secret-registry-heading p:not(.step),
+.secret-pane-heading p:not(.step),
+.secret-inspector-heading p:not(.step),
+.prompt-catalog-toolbar p:not(.step),
+.prompt-editor-heading p:not(.step) {
+  margin-top: 4px;
+  color: #939fac;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.document-registry-controls {
+  grid-area: controls;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.document-registry-controls input,
+.document-registry-controls select {
+  height: 38px;
+  padding-inline: 11px;
+  font-size: 0.75rem;
+}
+
+.document-registry-controls input {
+  min-width: 200px;
+}
+
+.actionbar-config > summary::-webkit-details-marker,
+.actionbar-config > summary::marker {
+  display: none;
+  content: "";
+}
+
+.document-import-strip {
+  grid-area: drop;
+  grid-template-columns: 34px minmax(0, 1fr);
+  min-height: 52px;
+  padding: 9px 12px;
+  border-color: #33414f;
+  border-radius: 9px;
+  background: #0c1218;
+}
+
+.document-import-strip .drop-symbol {
+  width: 32px;
+  height: 32px;
+  border-color: #3b5668;
+  background: #121e27;
+  color: #91ccef;
+}
+
+.document-import-strip strong {
+  color: #d8e1e8;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.document-import-strip p {
+  margin-top: 2px;
+  color: #8794a1;
+  font-size: 0.68rem;
+}
+
+.document-console,
+.tool-console,
+.secret-console,
+.prompt-catalog {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (min-width: 1101px) {
+  .prompt-list-pane,
+  .prompt-editor-panel,
+  .document-grant-pane,
+  .document-grant-inspector,
+  .tool-source-pane,
+  .tool-source-inspector,
+  .secret-list-pane,
+  .secret-inspector {
+    border-color: #2a3540;
+    background: #0f151c;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+  }
+
+  [data-resizable-workspace="prompts"] > .prompt-list-pane,
+  [data-resizable-workspace="prompts"] > .prompt-editor-panel,
+  [data-resizable-workspace="documents"] > .document-grant-pane,
+  [data-resizable-workspace="documents"] > .document-grant-inspector,
+  [data-resizable-workspace="tools"] > .tool-source-pane,
+  [data-resizable-workspace="tools"] > .tool-source-inspector,
+  [data-resizable-workspace="secrets"] > .secret-list-pane,
+  [data-resizable-workspace="secrets"] > .secret-inspector {
+    border-color: #2a3540;
+    background: #0f151c;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+  }
+}
+
+.document-grant-pane,
+.document-grant-inspector {
+  padding: 18px;
+}
+
+.document-grant-list-head,
+.prompt-list-head,
+.secret-list-head,
+.tool-grant-list-head {
+  padding-bottom: 7px;
+  color: #768493;
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+}
+
+.document-grant-list,
+.prompt-list,
+.secret-file-list,
+.tool-source-list {
+  gap: 7px;
+}
+
+.document-grant-entry,
+.prompt-entry,
+.secret-file-entry,
+.tool-source-entry {
+  border-color: #293440;
+  border-radius: 9px;
+  background: #0b1117;
+}
+
+.document-grant-entry:hover,
+.prompt-entry:hover,
+.secret-file-entry:hover,
+.tool-source-entry:hover {
+  border-color: #3d4a57;
+  background: #101820;
+}
+
+.document-grant-entry.is-selected {
+  border-color: #497d9c;
+  background: #11202a;
+  box-shadow: inset 3px 0 0 #68b5df;
+}
+
+.document-grant-select {
+  min-height: 50px;
+  padding-inline: 10px;
+}
+
+.document-grant-name {
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.document-grant-path,
+.document-grant-validation {
+  font-size: 0.66rem;
+}
+
+.document-grant-kind,
+.document-editor-kind {
+  padding: 3px 6px;
+  font-size: 0.57rem;
+}
+
+.document-grant-inspector .tool-inspector-empty,
+.prompt-editor-empty,
+.tool-source-inspector .tool-inspector-empty,
+.secret-inspector-empty {
+  min-height: 250px;
+  padding: 32px;
+  border: 0;
+  background: transparent;
+}
+
+.document-grant-inspector .tool-inspector-empty strong,
+.prompt-editor-empty strong,
+.tool-source-inspector .tool-inspector-empty strong,
+.secret-inspector-empty strong {
+  color: #dce3e8;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.document-grant-inspector .tool-inspector-empty p,
+.prompt-editor-empty p,
+.tool-source-inspector .tool-inspector-empty p,
+.secret-inspector-empty p {
+  color: #8e9aa6;
+  font-size: 0.72rem;
+}
+
+.prompt-editor-empty-icon {
+  border-color: #354453;
+  background: #131d26;
+  color: #9bcbe7;
+}
+
+.empty-state {
+  padding: 22px 16px;
+  border-color: #2f3a45;
+  background: #0c1218;
+  color: #8f9ba8;
+  font-size: 0.78rem;
+}
+
+.document-editor-enabled-toggle,
+.tool-source-options,
+.secret-editor-enabled-toggle,
+.prompt-editor-toggle {
+  border-color: #2c3933;
+  background: #101a17;
+}
+
+.document-editor-scope,
+.secret-editor-boundary,
+.tool-source-scan-note {
+  border-color: #2b3742;
+  background: #0c131a;
+  color: #9ba7b3;
+  font-size: 0.7rem;
+}
+
+.document-matching-panel,
+.document-limits-panel,
+.document-test-panel,
+.tool-exact-grants,
+.tool-advanced-panel,
+.tool-test-panel,
+.prompt-test-panel,
+.secret-test-panel {
+  border-color: var(--line);
+  background: rgb(15 21 28 / 92%);
+  box-shadow: none;
+}
+
+.document-matching-panel summary,
+.document-limits-panel summary,
+.document-test-panel summary,
+.tool-exact-grants summary,
+.tool-advanced-panel summary,
+.tool-test-panel summary,
+.prompt-test-panel summary,
+.secret-test-panel summary {
+  min-height: 48px;
+}
+
+.document-matching-panel summary strong,
+.document-limits-panel summary strong,
+.document-test-panel summary strong,
+.tool-exact-grants summary strong,
+.tool-advanced-panel summary strong,
+.tool-test-panel summary strong,
+.prompt-test-panel summary strong,
+.secret-test-panel summary strong {
+  color: #dce3e8;
+  font-size: 0.78rem;
+  font-weight: 640;
+}
+
+.document-matching-panel summary small,
+.document-limits-panel summary small,
+.document-test-panel summary small,
+.tool-exact-grants summary > span:last-child,
+.tool-advanced-panel summary small,
+.tool-test-panel summary small,
+.prompt-test-panel summary small,
+.secret-test-panel summary small {
+  color: #84919e;
+  font-size: 0.66rem;
+}
+
+.prompt-catalog-toolbar,
+.tool-registry-header,
+.secret-registry-header,
+.help-overview,
+.guide-card {
+  border-color: var(--line);
+  background: rgb(17 23 31 / 96%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+/* A compact disclosure keeps the config path available without forcing a
+   long filesystem path into the primary save workflow. */
+.actionbar {
+  min-height: 76px;
+  padding: 9px 24px;
+  border-top-color: #25303a;
+  background: rgb(9 13 18 / 97%);
+  box-shadow: 0 -10px 28px rgb(0 0 0 / 16%);
+}
+
+.actionbar-inner {
+  grid-template-columns: minmax(250px, 1fr) minmax(185px, 0.7fr) auto auto;
+  gap: 18px;
+  width: min(1440px, 100%);
+  min-height: 58px;
+}
+
+.actionbar-status {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.actionbar-status-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+.actionbar-status strong,
+.actionbar-dirty strong {
+  color: #e1e7ec;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.actionbar-status p,
+.actionbar-dirty span {
+  color: #8d99a6;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.actionbar-dirty {
+  min-width: 0;
+  padding-left: 18px;
+  border-left-color: #27313b;
+}
+
+.actionbar-config {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.actionbar-config > summary {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #303b46;
+  border-radius: 8px;
+  background: #121921;
+  color: #9ca9b6;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 650;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.actionbar-config > summary::before {
+  margin-right: 7px;
+  color: #8090a0;
+  content: "⌘";
+  font-size: 0.7rem;
+}
+
+.actionbar-config[open] > summary,
+.actionbar-config > summary:hover {
+  border-color: #455260;
+  background: #18212a;
+  color: #d7dfe6;
+}
+
+.actionbar-config-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 13px);
+  width: min(430px, calc(100vw - 32px));
+  padding: 13px 14px;
+  border: 1px solid #3b4652;
+  border-radius: 10px;
+  background: #171e26;
+  box-shadow: var(--shadow);
+}
+
+.actionbar-config-popover .actionbar-label {
+  margin-bottom: 6px;
+  color: #8794a1;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.62rem;
+}
+
+.actionbar-config-popover code {
+  max-height: none;
+  color: #d5dde4;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.actionbar .button-row {
+  flex-wrap: nowrap;
+}
+
+.actionbar.has-unsaved-changes {
+  border-top-color: #695633;
+  background: rgb(15 14 11 / 98%);
+}
+
+.actionbar.has-unsaved-changes .actionbar-dirty {
+  padding: 8px 10px;
+  border-color: #665331;
+  background: rgb(66 47 20 / 24%);
+}
+
+@media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: minmax(180px, 1fr) auto minmax(130px, 1fr);
+    padding-inline: 18px;
+  }
+
+  .tab {
+    min-width: 72px;
+    padding-inline: 10px;
+  }
+
+  .document-registry-header {
+    grid-template-areas:
+      "title"
+      "controls"
+      "drop";
+    grid-template-columns: 1fr;
+  }
+
+  .document-registry-controls {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    min-height: 62px;
+    padding-inline: 14px;
+  }
+
+  .brand strong {
+    font-size: 0.8rem;
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .tabs {
+    justify-self: stretch;
+  }
+
+  .tab {
+    min-width: 60px;
+    padding-inline: 8px;
+    font-size: 0.7rem;
+  }
+
+  .shell {
+    width: calc(100% - 24px);
+    padding-top: 14px;
+    padding-bottom: 132px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .document-registry-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(120px, 0.4fr));
+    width: 100%;
+  }
+
+  .document-registry-controls input,
+  .document-registry-controls select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .document-grant-pane,
+  .document-grant-inspector {
+    padding: 16px;
+  }
+
+  .actionbar {
+    min-height: 108px;
+    padding: 9px 14px;
+  }
+
+  .actionbar-inner {
+    grid-template-areas:
+      "status config"
+      "dirty actions";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    min-height: 88px;
+  }
+
+  .actionbar-status {
+    grid-area: status;
+  }
+
+  .actionbar-status p,
+  .actionbar-dirty span {
+    display: none;
+  }
+
+  .actionbar-config {
+    grid-area: config;
+  }
+
+  .actionbar-dirty {
+    grid-area: dirty;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .actionbar .button-row {
+    grid-area: actions;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    grid-template-areas:
+      "brand runtime"
+      "tabs tabs";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 8px;
+    min-height: 112px;
+    padding-block: 10px 9px;
+  }
+
+  .brand {
+    grid-area: brand;
+  }
+
+  .runtime-state {
+    grid-area: runtime;
+  }
+
+  .tabs {
+    grid-area: tabs;
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 5px;
+  }
+
+  .tab-guide {
+    flex: 0 0 42px;
+  }
+
+  .document-registry-title-row {
+    align-items: flex-start;
+  }
+
+  .document-registry-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .document-import-strip {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .shell {
+    padding-bottom: 178px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .instruction-disclosure summary {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .instruction-summary {
+    justify-self: start;
+    max-width: 100%;
+  }
+
+  .document-registry-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .document-import-strip p {
+    display: none;
+  }
+
+  .actionbar {
+    min-height: 156px;
+    padding: 10px 12px;
+  }
+
+  .actionbar-inner {
+    grid-template-areas:
+      "status config"
+      "dirty dirty"
+      "actions actions";
+    min-height: 136px;
+  }
+
+  .actionbar .button-row {
+    display: grid;
+    grid-template-columns: 0.7fr 1fr 1.25fr;
+    width: 100%;
+  }
+
+  .actionbar .button {
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 0.69rem;
+  }
+}
+
+/* Desktop operator shell -------------------------------------------------
+   This application is a local expert console. On desktop it uses a compact
+   Codex-style navigation rail and denser work surfaces; the earlier narrow
+   layout remains only as a fallback for unusually small windows. */
+@media (min-width: 900px) {
+  :root {
+    --operator-sidebar-collapsed: 54px;
+    --operator-sidebar-expanded: 216px;
+  }
+
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    --operator-sidebar-width: var(--operator-sidebar-collapsed);
+    font-size: 13px;
+    background: #0a0d11;
+  }
+
+  body.sidebar-expanded {
+    --operator-sidebar-width: var(--operator-sidebar-expanded);
+  }
+
+  .topbar.sidebar {
+    position: fixed;
+    z-index: 50;
+    inset: 0 auto 0 0;
+    display: flex;
+    flex-direction: column;
+    width: var(--operator-sidebar-width);
+    height: 100vh;
+    min-height: 0;
+    align-items: stretch;
+    padding: 7px 6px;
+    overflow: hidden;
+    border-right: 1px solid #232a32;
+    border-bottom: 0;
+    background: #0d1116;
+    box-shadow: none;
+    transition: width 160ms ease;
+  }
+
+  .sidebar-header {
+    display: grid;
+    grid-template-columns: 36px;
+    gap: 6px;
+    align-items: center;
+    min-height: 36px;
+  }
+
+  body.sidebar-expanded .sidebar-header {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .sidebar-toggle {
+    display: grid;
+    width: 36px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    outline: none;
+    background: transparent;
+    color: #a4afba;
+    cursor: pointer;
+  }
+
+  .sidebar-toggle:hover {
+    background: #181e25;
+    color: #edf2f5;
+  }
+
+  .sidebar-toggle:focus-visible {
+    box-shadow: inset 0 0 0 2px #557664;
+  }
+
+  .sidebar-toggle svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.7;
+  }
+
+  .topbar .brand {
+    display: none;
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    gap: 7px;
+  }
+
+  body.sidebar-expanded .topbar .brand {
+    display: flex;
+  }
+
+  .topbar .brand-mark {
+    flex: 0 0 auto;
+    width: 27px;
+    height: 27px;
+    border-radius: 7px;
+    font-size: 0.72rem;
+  }
+
+  .brand-copy {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .topbar .brand strong {
+    overflow: hidden;
+    font-size: 0.75rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+  }
+
+  .topbar .brand small {
+    margin-top: 0;
+    font-size: 0.58rem;
+  }
+
+  .topbar .tabs {
+    position: static;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 2px;
+    margin: 10px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .topbar .tab {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    flex: 0 0 34px;
+    gap: 9px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    box-shadow: none;
+    color: #8f9ba7;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  body.sidebar-expanded .topbar .tab {
+    justify-content: flex-start;
+    padding-inline: 10px;
+  }
+
+  .topbar .tab:hover,
+  .topbar .tab:focus-visible {
+    background: #171d24;
+    color: #e7ecef;
+  }
+
+  .topbar .tab.is-active {
+    background: #1b232a;
+    color: #f0f4f6;
+    box-shadow: inset 2px 0 0 #75c992;
+  }
+
+  .tab-icon {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.65;
+  }
+
+  .tab-label,
+  .tab-guide > .tab-label {
+    display: none;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.sidebar-expanded .tab-label,
+  body.sidebar-expanded .tab-guide > .tab-label {
+    display: block;
+  }
+
+  .sidebar-footer {
+    display: flex;
+    margin-top: auto;
+    min-width: 0;
+  }
+
+  .topbar .runtime-state {
+    position: static;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding: 7px 0;
+    color: #81909d;
+    font-size: 0.58rem;
+    letter-spacing: 0.07em;
+  }
+
+  body.sidebar-expanded .topbar .runtime-state {
+    justify-content: flex-start;
+    padding-inline: 11px;
+  }
+
+  .runtime-label {
+    display: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.sidebar-expanded .runtime-label {
+    display: inline;
+  }
+
+  .shell {
+    width: auto;
+    max-width: none;
+    margin: 0 0 0 var(--operator-sidebar-width);
+    padding: 7px 8px 62px;
+    transition: margin-left 160ms ease;
+  }
+
+  .document-operator-workspace,
+  .tool-operator-workspace,
+  .secret-operator-workspace,
+  .prompt-workspace,
+  .help-panel {
+    gap: 6px;
+  }
+
+  .panel {
+    margin-top: 6px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .step {
+    margin-bottom: 3px;
+    font-size: 0.55rem;
+    letter-spacing: 0.08em;
+  }
+
+  .catalog-count {
+    margin-left: 5px;
+    font-size: 0.58rem;
+  }
+
+  .instruction-disclosure summary {
+    min-height: 34px;
+    padding: 4px 9px;
+  }
+
+  .instruction-disclosure summary strong {
+    font-size: 0.68rem;
+  }
+
+  .instruction-summary {
+    max-width: min(42vw, 420px);
+    padding: 3px 7px;
+    font-size: 0.57rem;
+  }
+
+  .instruction-disclosure:not([open]) .instruction-summary::before {
+    font-size: 0.52rem;
+  }
+
+  .instruction-disclosure[open] .catalog-instruction-field {
+    padding: 7px 9px 9px;
+  }
+
+  .button {
+    min-height: 28px;
+    padding-inline: 9px;
+    border-radius: 6px;
+    font-size: 0.66rem;
+  }
+
+  .field {
+    gap: 4px;
+  }
+
+  .field > span,
+  .folder-instruction > span {
+    font-size: 0.63rem;
+  }
+
+  .field small,
+  .toggle-row small {
+    font-size: 0.58rem;
+    line-height: 1.35;
+  }
+
+  .field input,
+  .field select,
+  .secret-editor-fields select,
+  .document-registry-controls input,
+  .document-registry-controls select,
+  .tool-registry-controls input,
+  .tool-registry-controls select,
+  .secret-registry-controls input,
+  .secret-registry-controls select,
+  .prompt-catalog-controls input,
+  .prompt-catalog-controls select {
+    min-height: 29px;
+    height: 29px;
+    padding-inline: 8px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+  }
+
+  .field textarea {
+    padding: 7px 8px;
+    font-size: 0.65rem;
+  }
+
+  .document-registry-header,
+  .tool-registry-header,
+  .secret-registry-header {
+    gap: 7px 12px;
+    grid-template-columns: minmax(320px, 1fr) auto;
+    padding: 9px 11px;
+  }
+
+  .document-registry-title-row,
+  .tool-registry-title-row,
+  .secret-registry-title-row {
+    gap: 10px;
+  }
+
+  .document-registry-heading h2,
+  .document-pane-heading h2,
+  .document-inspector-heading h2,
+  .tool-registry-heading h2,
+  .tool-pane-heading h2,
+  .tool-inspector-heading h2,
+  .secret-registry-heading h2,
+  .secret-pane-heading h2,
+  .secret-inspector-heading h2,
+  .prompt-catalog-toolbar h2,
+  .prompt-editor-heading h2 {
+    font-size: 0.9rem;
+  }
+
+  .document-registry-heading p:not(.step),
+  .document-pane-heading p:not(.step),
+  .document-inspector-heading p:not(.step),
+  .tool-registry-heading p:not(.step),
+  .tool-pane-heading p:not(.step),
+  .tool-inspector-heading p:not(.step),
+  .secret-registry-heading p:not(.step),
+  .secret-pane-heading p:not(.step),
+  .secret-inspector-heading p:not(.step),
+  .prompt-catalog-toolbar p:not(.step),
+  .prompt-editor-heading p:not(.step) {
+    margin-top: 2px;
+    font-size: 0.62rem;
+    line-height: 1.3;
+  }
+
+  .document-registry-controls,
+  .tool-registry-controls,
+  .secret-registry-controls,
+  .prompt-catalog-controls {
+    gap: 5px;
+  }
+
+  .document-registry-controls input,
+  .tool-registry-controls input,
+  .secret-registry-controls input {
+    min-width: 155px;
+  }
+
+  .document-registry-controls select,
+  .tool-registry-controls select,
+  .secret-registry-controls select,
+  .prompt-catalog-controls select {
+    min-width: 104px;
+  }
+
+  .document-import-strip,
+  .tool-import-strip,
+  .secret-import-strip {
+    grid-template-columns: 25px minmax(0, 1fr);
+    min-height: 34px;
+    gap: 7px;
+    padding: 4px 7px;
+    border-radius: 6px;
+  }
+
+  .document-import-strip .drop-symbol,
+  .tool-import-strip .drop-symbol,
+  .secret-import-strip .drop-symbol {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+  }
+
+  .document-import-strip strong,
+  .tool-import-strip strong,
+  .secret-import-strip strong {
+    font-size: 0.64rem;
+  }
+
+  .document-import-strip p,
+  .tool-import-strip p,
+  .secret-import-strip p:not(.step) {
+    font-size: 0.55rem;
+  }
+
+  .resource-add-popover {
+    width: min(330px, calc(100vw - 30px));
+    gap: 8px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .resource-add-popover-heading strong {
+    font-size: 0.75rem;
+  }
+
+  .resource-add-popover-heading span {
+    font-size: 0.61rem;
+  }
+
+  .resource-add-section {
+    gap: 5px;
+    padding-top: 7px;
+  }
+
+  .resource-add-section-label {
+    font-size: 0.54rem;
+  }
+
+  .resource-add-options {
+    gap: 5px;
+  }
+
+  .resource-add-options .button {
+    min-height: 29px;
+  }
+
+  .panel.prompt-catalog {
+    padding: 0;
+  }
+
+  .prompt-catalog-toolbar {
+    padding: 9px 11px;
+    border-radius: 8px;
+  }
+
+  .prompt-workspace-grid {
+    padding-top: 6px;
+  }
+
+  .prompt-list-pane,
+  .prompt-editor-panel,
+  .document-grant-pane,
+  .document-grant-inspector,
+  .tool-source-pane,
+  .tool-source-inspector,
+  .secret-list-pane,
+  .secret-inspector {
+    border-radius: 8px;
+  }
+
+  .document-grant-pane,
+  .document-grant-inspector,
+  .tool-source-pane,
+  .tool-source-inspector,
+  .secret-list-pane,
+  .secret-inspector {
+    padding: 9px 10px;
+  }
+
+  .prompt-list-pane {
+    padding: 7px;
+  }
+
+  .prompt-editor-panel {
+    padding: 10px;
+  }
+
+  .document-pane-heading,
+  .tool-pane-heading,
+  .secret-pane-heading {
+    margin-bottom: 5px;
+  }
+
+  .document-grant-list-head,
+  .prompt-list-head,
+  .secret-list-head,
+  .tool-grant-list-head {
+    padding-bottom: 4px;
+    font-size: 0.51rem;
+  }
+
+  .document-grant-list,
+  .prompt-list,
+  .secret-file-list,
+  .tool-source-list {
+    gap: 4px;
+  }
+
+  .document-grant-entry,
+  .prompt-entry,
+  .secret-file-entry,
+  .tool-source-entry {
+    border-radius: 6px;
+  }
+
+  .document-grant-select {
+    min-height: 39px;
+    padding-inline: 7px;
+  }
+
+  .document-grant-name {
+    font-size: 0.62rem;
+  }
+
+  .document-grant-path,
+  .document-grant-validation {
+    font-size: 0.56rem;
+  }
+
+  .document-grant-kind,
+  .document-editor-kind {
+    padding: 2px 5px;
+    font-size: 0.49rem;
+  }
+
+  .empty-state {
+    padding: 12px 10px;
+    font-size: 0.66rem;
+  }
+
+  .document-grant-inspector .tool-inspector-empty,
+  .prompt-editor-empty,
+  .tool-source-inspector .tool-inspector-empty,
+  .secret-inspector-empty {
+    min-height: 150px;
+    padding: 18px;
+  }
+
+  .document-grant-inspector .tool-inspector-empty strong,
+  .prompt-editor-empty strong,
+  .tool-source-inspector .tool-inspector-empty strong,
+  .secret-inspector-empty strong {
+    font-size: 0.7rem;
+  }
+
+  .document-grant-inspector .tool-inspector-empty p,
+  .prompt-editor-empty p,
+  .tool-source-inspector .tool-inspector-empty p,
+  .secret-inspector-empty p {
+    font-size: 0.61rem;
+  }
+
+  .document-editor-enabled-toggle,
+  .tool-source-options,
+  .secret-editor-enabled-toggle,
+  .prompt-editor-toggle {
+    margin-top: 7px;
+    padding: 6px;
+    border-radius: 6px;
+  }
+
+  .document-editor-scope,
+  .secret-editor-boundary,
+  .tool-source-scan-note {
+    margin-top: 7px;
+    padding: 6px 7px;
+    border-radius: 6px;
+    font-size: 0.58rem;
+  }
+
+  .document-matching-panel summary,
+  .document-limits-panel summary,
+  .document-test-panel summary,
+  .tool-exact-grants summary,
+  .tool-advanced-panel summary,
+  .tool-test-panel summary,
+  .prompt-test-panel summary,
+  .secret-test-panel summary {
+    min-height: 34px;
+    padding-block: 0;
+  }
+
+  .document-matching-panel summary strong,
+  .document-limits-panel summary strong,
+  .document-test-panel summary strong,
+  .tool-exact-grants summary strong,
+  .tool-advanced-panel summary strong,
+  .tool-test-panel summary strong,
+  .prompt-test-panel summary strong,
+  .secret-test-panel summary strong {
+    font-size: 0.66rem;
+  }
+
+  .document-matching-panel summary small,
+  .document-limits-panel summary small,
+  .document-test-panel summary small,
+  .tool-exact-grants summary > span:last-child,
+  .tool-advanced-panel summary small,
+  .tool-test-panel summary small,
+  .prompt-test-panel summary small,
+  .secret-test-panel summary small {
+    font-size: 0.56rem;
+  }
+
+  .actionbar {
+    left: var(--operator-sidebar-width);
+    min-height: 50px;
+    padding: 4px 9px;
+    transition: left 160ms ease;
+  }
+
+  .actionbar-inner {
+    grid-template-columns: minmax(190px, 0.9fr) minmax(150px, 0.55fr) auto auto;
+    gap: 9px;
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .actionbar-status {
+    grid-template-columns: 19px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .actionbar-status-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+  }
+
+  .actionbar-status strong,
+  .actionbar-dirty strong {
+    font-size: 0.65rem;
+  }
+
+  .actionbar-status p,
+  .actionbar-dirty span {
+    margin-top: 1px;
+    font-size: 0.55rem;
+    line-height: 1.25;
+  }
+
+  .actionbar-dirty {
+    min-width: 150px;
+    padding-left: 9px;
+  }
+
+  .actionbar-config > summary {
+    min-height: 28px;
+    padding-inline: 8px;
+    border-radius: 6px;
+    font-size: 0.6rem;
+  }
+
+  .actionbar-config-popover {
+    bottom: calc(100% + 9px);
+    width: min(390px, calc(100vw - var(--operator-sidebar-width) - 22px));
+    padding: 9px 10px;
+  }
+
+  .actionbar .button-row {
+    gap: 5px;
+  }
+
+  .actionbar.has-unsaved-changes .actionbar-dirty {
+    padding: 5px 7px;
+    border-radius: 6px;
+  }
+
+  .help-overview {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .guide-card {
+    min-height: 0;
+    padding: 10px 11px;
+  }
+
+  .guide-workflow {
+    gap: 6px;
+  }
+
+  .guide-workflow li {
+    min-height: 54px;
+    padding: 7px;
+  }
+}
+
+@media (min-width: 1500px) {
+  .help-catalog-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Shared add-resource disclosure used by Documents, Tools, and Secrets. */
+.resource-add-menu {
+  position: relative;
+  z-index: 8;
+  flex: 0 0 auto;
+}
+
+.resource-add-menu > summary {
+  list-style: none;
+  white-space: nowrap;
+}
+
+.resource-add-menu > summary::-webkit-details-marker,
+.resource-add-menu > summary::marker {
+  display: none;
+  content: "";
+}
+
+.resource-add-menu[open] > summary {
+  border-color: #a2eabb;
+  background: #95e7b1;
+}
+
+.resource-add-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  width: min(390px, calc(100vw - 40px));
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #3b4652;
+  border-radius: 12px;
+  background: #161d25;
+  box-shadow: var(--shadow);
+}
+
+.resource-add-popover-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.resource-add-popover-heading strong {
+  color: #eff3f6;
+  font-size: 0.86rem;
+}
+
+.resource-add-popover-heading span {
+  color: #929eaa;
+  font-size: 0.7rem;
+}
+
+.resource-add-section {
+  display: grid;
+  gap: 7px;
+  padding-top: 11px;
+  border-top: 1px solid #2b3540;
+}
+
+.resource-add-section-label {
+  color: #8f9ca8;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.resource-add-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.resource-add-options.single-option {
+  grid-template-columns: 1fr;
+}
+
+.resource-add-options .button {
+  width: 100%;
+  min-height: 40px;
+}
+
+.document-add-menu .resource-add-section:first-of-type .resource-add-options .button:last-child {
+  grid-column: 1 / -1;
+}
+
+/* The Tools and Secrets registries now follow the same calm title/filter/add
+   pattern as Documents. Import remains a quiet drag-and-drop shortcut. */
+.tool-registry-header,
+.secret-registry-header {
+  grid-template-areas:
+    "title controls"
+    "drop drop";
+  grid-template-columns: minmax(430px, 1fr) auto;
+  gap: 16px 24px;
+  align-items: center;
+  border-color: var(--line);
+  background: rgb(17 23 31 / 96%);
+}
+
+.tool-registry-title-row,
+.secret-registry-title-row {
+  display: flex;
+  grid-area: title;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.tool-registry-controls,
+.secret-registry-controls {
+  grid-area: controls;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tool-registry-controls input,
+.tool-registry-controls select,
+.secret-registry-controls input,
+.secret-registry-controls select,
+.prompt-catalog-controls input,
+.prompt-catalog-controls select {
+  height: 38px;
+  padding-inline: 11px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+}
+
+.tool-registry-controls input,
+.secret-registry-controls input {
+  min-width: 200px;
+}
+
+.tool-import-strip,
+.secret-import-strip {
+  grid-area: drop;
+  grid-column: 1 / -1;
+  grid-template-columns: 34px minmax(0, 1fr);
+  min-height: 52px;
+  padding: 9px 12px;
+  border-color: #33414f;
+  border-radius: 9px;
+  background: #0c1218;
+}
+
+.tool-import-strip .drop-symbol,
+.secret-import-strip .drop-symbol {
+  width: 32px;
+  height: 32px;
+}
+
+.tool-import-strip strong,
+.secret-import-strip strong {
+  color: #d8e1e8;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.tool-import-strip p,
+.secret-import-strip p:not(.step) {
+  margin-top: 2px;
+  color: #8794a1;
+  font-size: 0.68rem;
+}
+
+.tool-import-strip .drop-symbol {
+  border-color: #3b5b5b;
+  background: #112020;
+  color: #84d8cf;
+}
+
+.secret-import-strip {
+  border-color: #43384d;
+  background: #100e16;
+}
+
+.secret-import-strip .drop-symbol {
+  border-color: #594769;
+  background: #1b1424;
+  color: #c2a8e8;
+}
+
+.secret-import-strip .step {
+  display: none;
+}
+
+/* Empty catalogs need one useful state, not an empty list plus an empty
+   inspector asking the user to select something that does not exist. */
+.is-empty-catalog .workspace-splitter,
+#documents-panel.is-empty-catalog .document-grant-inspector,
+#tools-panel.is-empty-catalog .tool-source-inspector,
+#prompts-panel.is-empty-catalog .prompt-editor-panel,
+#secrets-panel.is-empty-catalog .secret-inspector {
+  display: none;
+}
+
+#documents-panel.is-empty-catalog .document-console,
+#tools-panel.is-empty-catalog .tool-console,
+#prompts-panel.is-empty-catalog .prompt-workspace-grid,
+#secrets-panel.is-empty-catalog .secret-console {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#documents-panel.is-empty-catalog .document-grant-pane,
+#tools-panel.is-empty-catalog .tool-source-pane,
+#prompts-panel.is-empty-catalog .prompt-list-pane,
+#secrets-panel.is-empty-catalog .secret-list-pane {
+  width: 100%;
+  min-height: 0;
+  border-color: #2a3540;
+  border-radius: var(--radius);
+  background: #0f151c;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+#documents-panel.is-empty-catalog .document-grant-pane,
+#tools-panel.is-empty-catalog .tool-source-pane,
+#secrets-panel.is-empty-catalog .secret-list-pane {
+  padding: 18px;
+}
+
+#prompts-panel.is-empty-catalog .prompt-list-pane {
+  padding: 14px;
+}
+
+.empty-state strong {
+  color: #cbd4dc;
+  font-weight: 650;
+}
+
+/* Prompts uses the same separated toolbar + work-surface rhythm as the other
+   tabs at every breakpoint, rather than inheriting nested panel padding. */
+.panel.prompt-catalog {
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prompt-catalog-toolbar {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgb(17 23 31 / 96%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+.prompt-workspace-grid {
+  padding: 14px 0 0;
+}
+
+@media (max-width: 1180px) {
+  .tool-registry-header,
+  .secret-registry-header {
+    grid-template-areas:
+      "title"
+      "controls"
+      "drop";
+    grid-template-columns: 1fr;
+  }
+
+  .tool-registry-controls,
+  .secret-registry-controls {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .tool-registry-controls,
+  .secret-registry-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 0.4fr);
+    width: 100%;
+  }
+
+  .tool-registry-controls input,
+  .tool-registry-controls select,
+  .secret-registry-controls input,
+  .secret-registry-controls select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .tool-registry-title-row,
+  .secret-registry-title-row {
+    align-items: flex-start;
+  }
+
+  .tool-registry-controls,
+  .secret-registry-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-import-strip,
+  .secret-import-strip {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .tab-guide {
+    flex: 1 1 0;
+  }
+
+  .tab-guide > span:first-child {
+    display: none;
+  }
+
+  .tab-guide > span:last-child {
+    display: inline;
+  }
+}
+
+@media (max-width: 620px) {
+  .tool-registry-title-row,
+  .secret-registry-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .document-registry-title-row .document-registry-heading {
+    grid-area: auto;
+  }
+
+  .prompt-catalog-toolbar {
+    padding: 16px;
+  }
+
+  .prompt-workspace-grid {
+    padding-top: 12px;
+  }
+
+  .resource-add-popover {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 190px;
+    left: 12px;
+    width: auto;
+  }
+
+  .actionbar-config-popover {
+    position: fixed;
+    right: 12px;
+    bottom: 166px;
+    left: 12px;
+    width: auto;
+  }
+
+  .resource-add-options {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-import-strip p,
+  .secret-import-strip p:not(.step) {
+    display: none;
+  }
+
+  .prompt-test-panel summary small,
+  .document-test-panel summary small,
+  .tool-test-panel summary small,
+  .secret-test-panel summary small {
+    display: none;
+  }
+
+  .prompt-test-panel summary > span,
+  .document-test-panel summary > span,
+  .tool-test-panel summary > span,
+  .secret-test-panel summary > span {
+    display: grid;
+    gap: 2px;
+    align-items: start;
+  }
+}
+
+/* Final desktop density pass. These rules intentionally sit after the shared
+   component definitions so the operator layout keeps readable type without
+   returning to oversized cards and controls. */
+@media (min-width: 900px) {
+  .topbar .tab {
+    font-size: 12px;
+  }
+
+  .topbar .brand strong {
+    font-size: 12px;
+  }
+
+  .topbar .brand small {
+    font-size: 9.5px;
+  }
+
+  .topbar .runtime-state {
+    font-size: 9.5px;
+  }
+
+  .step {
+    font-size: 9.5px;
+  }
+
+  .catalog-count,
+  .instruction-summary {
+    font-size: 10px;
+  }
+
+  .instruction-disclosure summary strong {
+    font-size: 11px;
+  }
+
+  .instruction-disclosure:not([open]) .instruction-summary::before {
+    font-size: 9px;
+  }
+
+  .button {
+    font-size: 11.5px;
+  }
+
+  .field > span,
+  .folder-instruction > span {
+    font-size: 11px;
+  }
+
+  .field small,
+  .toggle-row small {
+    font-size: 10px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea,
+  .secret-editor-fields select,
+  .document-registry-controls input,
+  .document-registry-controls select,
+  .tool-registry-controls input,
+  .tool-registry-controls select,
+  .secret-registry-controls input,
+  .secret-registry-controls select,
+  .prompt-catalog-controls input,
+  .prompt-catalog-controls select {
+    font-size: 12px;
+  }
+
+  .document-registry-heading h2,
+  .document-pane-heading h2,
+  .document-inspector-heading h2,
+  .tool-registry-heading h2,
+  .tool-pane-heading h2,
+  .tool-inspector-heading h2,
+  .secret-registry-heading h2,
+  .secret-pane-heading h2,
+  .secret-inspector-heading h2,
+  .prompt-catalog-toolbar h2,
+  .prompt-editor-heading h2 {
+    font-size: 15px;
+  }
+
+  .document-registry-heading p:not(.step),
+  .document-pane-heading p:not(.step),
+  .document-inspector-heading p:not(.step),
+  .tool-registry-heading p:not(.step),
+  .tool-pane-heading p:not(.step),
+  .tool-inspector-heading p:not(.step),
+  .secret-registry-heading p:not(.step),
+  .secret-pane-heading p:not(.step),
+  .secret-inspector-heading p:not(.step),
+  .prompt-catalog-toolbar p:not(.step),
+  .prompt-editor-heading p:not(.step) {
+    font-size: 11px;
+  }
+
+  .resource-add-popover {
+    width: min(330px, calc(100vw - 30px));
+    gap: 8px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .resource-add-popover-heading strong {
+    font-size: 12px;
+  }
+
+  .resource-add-popover-heading span {
+    font-size: 10.5px;
+  }
+
+  .resource-add-section {
+    gap: 5px;
+    padding-top: 7px;
+  }
+
+  .resource-add-section-label {
+    font-size: 9.5px;
+  }
+
+  .resource-add-options {
+    gap: 5px;
+  }
+
+  .resource-add-options .button {
+    min-height: 29px;
+  }
+
+  .tool-registry-header,
+  .secret-registry-header {
+    gap: 7px 12px;
+    padding: 9px 11px;
+  }
+
+  .tool-registry-title-row,
+  .secret-registry-title-row {
+    gap: 10px;
+  }
+
+  .document-import-strip,
+  .tool-import-strip,
+  .secret-import-strip {
+    grid-template-columns: 25px minmax(0, 1fr);
+    min-height: 34px;
+    gap: 7px;
+    padding: 4px 7px;
+    border-radius: 6px;
+  }
+
+  .document-import-strip .drop-symbol,
+  .tool-import-strip .drop-symbol,
+  .secret-import-strip .drop-symbol {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  .document-import-strip strong,
+  .tool-import-strip strong,
+  .secret-import-strip strong {
+    font-size: 11px;
+  }
+
+  .document-import-strip p,
+  .tool-import-strip p,
+  .secret-import-strip p:not(.step) {
+    font-size: 10px;
+  }
+
+  #documents-panel.is-empty-catalog .document-grant-pane,
+  #tools-panel.is-empty-catalog .tool-source-pane,
+  #secrets-panel.is-empty-catalog .secret-list-pane {
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  #prompts-panel.is-empty-catalog .prompt-list-pane {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .prompt-catalog-toolbar {
+    padding: 9px 11px;
+    border-radius: 8px;
+  }
+
+  .prompt-workspace-grid {
+    padding-top: 6px;
+  }
+
+  .document-grant-list-head,
+  .prompt-list-head,
+  .secret-list-head,
+  .tool-grant-list-head {
+    font-size: 9.5px;
+  }
+
+  .document-grant-name {
+    font-size: 11.5px;
+  }
+
+  .document-grant-path,
+  .document-grant-validation {
+    font-size: 10px;
+  }
+
+  .document-grant-kind,
+  .document-editor-kind {
+    font-size: 9px;
+  }
+
+  .empty-state {
+    font-size: 11px;
+  }
+
+  .document-grant-inspector .tool-inspector-empty strong,
+  .prompt-editor-empty strong,
+  .tool-source-inspector .tool-inspector-empty strong,
+  .secret-inspector-empty strong {
+    font-size: 12.5px;
+  }
+
+  .document-grant-inspector .tool-inspector-empty p,
+  .prompt-editor-empty p,
+  .tool-source-inspector .tool-inspector-empty p,
+  .secret-inspector-empty p {
+    font-size: 11px;
+  }
+
+  .document-editor-scope,
+  .secret-editor-boundary,
+  .tool-source-scan-note {
+    font-size: 10px;
+  }
+
+  .document-matching-panel summary strong,
+  .document-limits-panel summary strong,
+  .document-test-panel summary strong,
+  .tool-exact-grants summary strong,
+  .tool-advanced-panel summary strong,
+  .tool-test-panel summary strong,
+  .prompt-test-panel summary strong,
+  .secret-test-panel summary strong {
+    font-size: 11px;
+  }
+
+  .document-matching-panel summary small,
+  .document-limits-panel summary small,
+  .document-test-panel summary small,
+  .tool-exact-grants summary > span:last-child,
+  .tool-advanced-panel summary small,
+  .tool-test-panel summary small,
+  .prompt-test-panel summary small,
+  .secret-test-panel summary small {
+    font-size: 10px;
+  }
+
+  .actionbar-status strong,
+  .actionbar-dirty strong {
+    font-size: 10.5px;
+  }
+
+  .actionbar-status p,
+  .actionbar-dirty span {
+    font-size: 9.5px;
+  }
+
+  .actionbar-config > summary {
+    font-size: 10px;
+  }
+
+  .actionbar .button {
+    padding-inline: 7px;
+    white-space: nowrap;
+  }
+
+  .actionbar-status,
+  .actionbar-config,
+  .actionbar-dirty,
+  .actionbar .button-row {
+    grid-area: auto;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 980px) {
+  .actionbar {
+    min-height: 78px;
+  }
+
+  .actionbar-inner {
+    grid-template-areas:
+      "status config"
+      "dirty actions";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 12px;
+    min-height: 68px;
+  }
+
+  .actionbar-status {
+    grid-area: status;
+  }
+
+  .actionbar-config {
+    grid-area: config;
+  }
+
+  .actionbar-dirty {
+    grid-area: dirty;
+    min-width: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .actionbar .button-row {
+    grid-area: actions;
+    flex-wrap: nowrap;
+  }
+
+  .actionbar .button {
+    flex: 0 0 auto;
+  }
+}
+
+.tool-test-panel {
+  padding: 0;
+}
+
+.tool-test-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-test-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-test-panel summary > span {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+}
+
+.tool-test-panel summary .step {
+  margin: 0;
+}

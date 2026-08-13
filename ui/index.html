@@ -7,24 +7,46 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">A<span>/</span></span>
-      <span>
-        <strong>Agent Docs &amp; Tools</strong>
-        <small>Local configuration console</small>
-      </span>
+  <header class="topbar sidebar" aria-label="Application navigation">
+    <div class="sidebar-header">
+      <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Expand navigation" aria-keyshortcuts="Control+B Meta+B" title="Expand navigation">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+      </button>
+      <div class="brand">
+        <span class="brand-mark">A<span>/</span></span>
+        <span class="brand-copy">
+          <strong>Agent Docs &amp; Tools</strong>
+          <small>Local configuration</small>
+        </span>
+      </div>
     </div>
-    <nav class="tabs" role="tablist" aria-label="Configuration sections and help">
-      <button id="prompts-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prompts-panel">Prompts</button>
-      <button id="documents-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="documents-panel" tabindex="-1">Documents</button>
-      <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1">Tools</button>
-      <button id="secrets-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="secrets-panel" tabindex="-1">Secrets</button>
-      <button id="help-tab" class="tab tab-guide" type="button" role="tab" aria-selected="false" aria-controls="help-panel" tabindex="-1" aria-label="Open agent access guide" title="Open agent access guide"><span aria-hidden="true">?</span><span>Guide</span></button>
+    <nav id="primary-navigation" class="tabs" role="tablist" aria-orientation="vertical" aria-label="Configuration sections and help">
+      <button id="prompts-tab" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prompts-panel" title="Prompts">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 3V5Z"></path><path d="M8 9h8M8 12h5"></path></svg>
+        <span class="tab-label">Prompts</span>
+      </button>
+      <button id="documents-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="documents-panel" tabindex="-1" title="Documents">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"></path><path d="M14 3v5h5M9 12h6M9 16h6"></path></svg>
+        <span class="tab-label">Documents</span>
+      </button>
+      <button id="tools-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="tools-panel" tabindex="-1" title="Tools">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M14 4v6M4 17h3M11 17h9M8 14v6"></path></svg>
+        <span class="tab-label">Tools</span>
+      </button>
+      <button id="secrets-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="secrets-panel" tabindex="-1" title="Secrets">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"></circle><path d="M12 12h8M17 12v3M20 12v2"></path></svg>
+        <span class="tab-label">Secrets</span>
+      </button>
+      <button id="help-tab" class="tab tab-guide" type="button" role="tab" aria-selected="false" aria-controls="help-panel" tabindex="-1" aria-label="Open agent access guide" title="Guide">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.7 9a2.5 2.5 0 1 1 3.6 2.25c-.8.42-1.3.9-1.3 1.75M12 17h.01"></path></svg>
+        <span class="tab-label">Guide</span>
+      </button>
     </nav>
-    <div class="runtime-state">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span>Loopback only</span>
+    <div class="sidebar-footer">
+      <div class="runtime-state" title="The configuration server is available only on this computer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="runtime-label">Loopback only</span>
+      </div>
     </div>
   </header>
 
@@ -48,10 +70,36 @@
       </details>
 
       <section class="panel document-registry-header" aria-labelledby="document-registry-heading">
-        <div class="document-registry-heading">
-          <p class="step">DOCUMENT REGISTRY</p>
-          <h2 id="document-registry-heading">Document grants <span id="document-grant-count" class="catalog-count">0 grants</span></h2>
-          <p>Manage recursive folder roots and exact files from one catalog.</p>
+        <div class="document-registry-title-row">
+          <div class="document-registry-heading">
+            <p class="step">DOCUMENT REGISTRY</p>
+            <h2 id="document-registry-heading">Document grants <span id="document-grant-count" class="catalog-count">0 grants</span></h2>
+            <p>Choose what the agent can search: recursive folders or individual files.</p>
+          </div>
+          <details class="resource-add-menu document-add-menu">
+            <summary class="button primary action-add">Add grant</summary>
+            <div class="resource-add-popover">
+              <div class="resource-add-popover-heading">
+                <strong>Add a document grant</strong>
+                <span>Choose a local item or enter its path manually.</span>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Choose from this computer</span>
+                <div class="resource-add-options">
+                  <button id="pick-folder" class="button action-browse" type="button">Choose folder</button>
+                  <button id="pick-file" class="button action-browse" type="button">Choose file</button>
+                  <button id="open-drop-box" class="button action-import" type="button">Import paths</button>
+                </div>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Enter a path manually</span>
+                <div class="resource-add-options">
+                  <button id="add-folder" class="button" type="button">Folder path</button>
+                  <button id="add-file" class="button" type="button">Exact file path</button>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
         <div class="document-registry-controls">
           <label class="sr-only" for="document-grant-filter">Filter document grants</label>
@@ -69,29 +117,12 @@
             <option value="disabled">Disabled</option>
           </select>
         </div>
-        <div class="document-action-groups" aria-label="Add document grants">
-          <div class="document-action-group">
-            <span>Folder root</span>
-            <div class="button-row">
-              <button id="pick-folder" class="button action-browse" type="button">Browse folder</button>
-              <button id="add-folder" class="button action-add" type="button">Add folder</button>
-            </div>
-          </div>
-          <div class="document-action-group">
-            <span>Exact file</span>
-            <div class="button-row">
-              <button id="pick-file" class="button action-browse" type="button">Browse file</button>
-              <button id="add-file" class="button action-add" type="button">Add exact file</button>
-            </div>
-          </div>
-        </div>
         <div id="drop-zone" class="document-import-strip">
           <div class="drop-symbol" aria-hidden="true">↓</div>
           <div>
-            <strong>Import from File Explorer</strong>
-            <p id="drop-help">Open the drop box for complete local paths, or drop here when the browser provides them.</p>
+            <strong>Drop from File Explorer</strong>
+            <p id="drop-help">Complete local paths are added as grants. You can review every item before saving.</p>
           </div>
-          <button id="open-drop-box" class="button action-import" type="button">Open drop box</button>
         </div>
       </section>
 
@@ -106,7 +137,7 @@
           </div>
           <div class="document-grant-list-head" aria-hidden="true"><span>Name</span><span>Type</span><span>Path</span><span>Status</span></div>
           <div id="document-grants-list" class="document-grant-list" role="list"></div>
-          <p id="document-grants-empty" class="empty-state" hidden>No document grants are registered yet.</p>
+          <p id="document-grants-empty" class="empty-state" hidden>No document grants yet. Use <strong>Add grant</strong> to choose a folder or file.</p>
           <p id="document-grants-filter-empty" class="empty-state" hidden>No document grants match this filter.</p>
         </section>
 
@@ -240,10 +271,34 @@
       </details>
 
       <section class="panel tool-registry-header" aria-labelledby="tools-registry-heading">
-        <div class="tool-registry-heading">
-          <p class="step">TOOL REGISTRY</p>
-          <h2 id="tools-registry-heading">Sources <span id="tool-source-count" class="catalog-count">0 sources</span></h2>
-          <p>Pick a source to manage its grants, scan results, and folder Instruction in one place.</p>
+        <div class="tool-registry-title-row">
+          <div class="tool-registry-heading">
+            <p class="step">TOOL REGISTRY</p>
+            <h2 id="tools-registry-heading">Tool sources <span id="tool-source-count" class="catalog-count">0 sources</span></h2>
+            <p>Add a source folder, then choose which discovered tools and documents the agent can use.</p>
+          </div>
+          <details class="resource-add-menu tool-add-menu">
+            <summary class="button primary action-add">Add source</summary>
+            <div class="resource-add-popover">
+              <div class="resource-add-popover-heading">
+                <strong>Add a tool source</strong>
+                <span>Choose a local folder, import paths, or enter one manually.</span>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Choose from this computer</span>
+                <div class="resource-add-options">
+                  <button id="pick-tool-folder" class="button action-browse" type="button">Choose folder</button>
+                  <button id="tool-open-drop-box" class="button action-import" type="button">Import paths</button>
+                </div>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Enter a path manually</span>
+                <div class="resource-add-options single-option">
+                  <button id="add-tool-folder" class="button" type="button">Source folder path</button>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
         <div class="tool-registry-controls">
           <label class="sr-only" for="tool-source-filter">Filter tool sources</label>
@@ -254,16 +309,13 @@
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
           </select>
-          <button id="pick-tool-folder" class="button action-browse" type="button">Browse source</button>
-          <button id="add-tool-folder" class="button action-add" type="button">Add source</button>
         </div>
         <div id="tool-drop-zone" class="tool-import-strip">
           <div class="drop-symbol" aria-hidden="true">↓</div>
           <div>
-            <strong>Import folders or exact files</strong>
-            <p id="tool-drop-help">Open the drop box for complete local paths, or drop here when the browser provides them.</p>
+            <strong>Drop a tool folder or file here</strong>
+            <p id="tool-drop-help">Complete local paths are added for review before the configuration is saved.</p>
           </div>
-          <button id="tool-open-drop-box" class="button action-import" type="button">Open drop box</button>
         </div>
       </section>
 
@@ -277,7 +329,7 @@
             <span id="tool-source-enabled-count" class="catalog-count">0 enabled</span>
           </div>
           <div id="tool-directories-list" class="tool-source-list" role="list"></div>
-          <p id="tool-directories-empty" class="empty-state" hidden>No tool sources are registered yet.</p>
+          <p id="tool-directories-empty" class="empty-state" hidden>No tool sources yet. Add a source folder to start discovering tools.</p>
           <p id="tool-sources-filter-empty" class="empty-state" hidden>No tool sources match this filter.</p>
         </section>
 
@@ -533,7 +585,7 @@
               <span></span>
             </div>
             <div id="prompts-list" class="entry-list prompt-list"></div>
-            <p id="prompts-empty" class="empty-state" hidden>No reusable prompts are saved yet.</p>
+            <p id="prompts-empty" class="empty-state" hidden>No prompts yet. Create one to reuse it across agent tasks.</p>
             <p id="prompts-filter-empty" class="empty-state" hidden>No saved prompts match this filter.</p>
           </section>
 
@@ -627,10 +679,34 @@
       </details>
 
       <section class="panel secret-registry-header" aria-labelledby="secrets-registry-heading">
-        <div class="secret-registry-heading">
-          <p class="step">SECRET REGISTRY</p>
-          <h2 id="secrets-registry-heading">Secret grants <span id="secret-count" class="catalog-count">0 grants</span></h2>
-          <p>Manage exact credential files without exposing their values.</p>
+        <div class="secret-registry-title-row">
+          <div class="secret-registry-heading">
+            <p class="step">SECRET REGISTRY</p>
+            <h2 id="secrets-registry-heading">Secret grants <span id="secret-count" class="catalog-count">0 grants</span></h2>
+            <p>Grant exact credential files while keeping every secret value hidden.</p>
+          </div>
+          <details class="resource-add-menu secret-add-menu">
+            <summary class="button primary action-add">Add secret</summary>
+            <div class="resource-add-popover">
+              <div class="resource-add-popover-heading">
+                <strong>Add a secret grant</strong>
+                <span>Only exact files are accepted; folders and links are rejected.</span>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Choose from this computer</span>
+                <div class="resource-add-options">
+                  <button id="pick-secret-file" class="button action-browse" type="button">Choose file</button>
+                  <button id="secret-open-drop-box" class="button action-import" type="button">Import paths</button>
+                </div>
+              </div>
+              <div class="resource-add-section">
+                <span class="resource-add-section-label">Enter a path manually</span>
+                <div class="resource-add-options single-option">
+                  <button id="add-secret-file" class="button" type="button">Exact file path</button>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
         <div class="secret-registry-controls">
           <label class="sr-only" for="secret-catalog-filter">Filter secret grants</label>
@@ -641,17 +717,14 @@
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
           </select>
-          <button id="pick-secret-file" class="button action-browse" type="button">Browse file</button>
-          <button id="add-secret-file" class="button action-add" type="button">Add secret</button>
         </div>
         <div id="secret-drop-zone" class="secret-import-strip">
           <div class="drop-symbol" aria-hidden="true">↓</div>
           <div>
             <p class="step">ADD SECRETS</p>
-            <strong>Import exact files only</strong>
-            <p id="secret-drop-help">Folders and links are rejected. Values are never displayed here.</p>
+            <strong>Drop an exact credential file here</strong>
+            <p id="secret-drop-help">The path is added for review. Secret values are never displayed here.</p>
           </div>
-          <button id="secret-open-drop-box" class="button action-import" type="button">Open drop box</button>
         </div>
 
       </section>
@@ -668,7 +741,7 @@
           </div>
           <div class="secret-list-head" aria-hidden="true"><span>Alias</span><span>Format</span><span>Path</span><span>Status</span></div>
           <div id="secret-files-list" class="secret-file-list" role="list"></div>
-          <p id="secret-files-empty" class="empty-state" hidden>No secret files are registered yet.</p>
+          <p id="secret-files-empty" class="empty-state" hidden>No secret grants yet. Add an exact file when the agent needs a credential.</p>
           <p id="secret-files-filter-empty" class="empty-state" hidden>No secret grants match this filter.</p>
         </section>
 
@@ -797,10 +870,13 @@
           <p>Reading the current allowlist and checking each path.</p>
         </div>
       </div>
-      <div class="actionbar-config">
-        <span class="actionbar-label">Active config</span>
-        <code id="config-path">Loading…</code>
-      </div>
+      <details class="actionbar-config">
+        <summary>Active config</summary>
+        <div class="actionbar-config-popover">
+          <span class="actionbar-label">Configuration file</span>
+          <code id="config-path">Loading…</code>
+        </div>
+      </details>
       <div class="actionbar-dirty">
         <strong id="dirty-state">No unsaved changes</strong>
         <span id="change-summary">Saved configuration is available to the local agent.</span>

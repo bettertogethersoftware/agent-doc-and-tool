@@ -8,6 +8,7 @@ const elements = {
   configPath: document.querySelector("#config-path"),
   pageStatus: document.querySelector("#page-status"),
   actionbar: document.querySelector("#actionbar"),
+  sidebarToggle: document.querySelector("#sidebar-toggle"),
   documentsInstruction: document.querySelector("#documents-instruction"),
   toolsInstruction: document.querySelector("#tools-instruction"),
   promptsInstruction: document.querySelector("#prompts-instruction"),
@@ -226,6 +227,7 @@ const state = {
   check: null,
   sourceKey: "local",
   activeTab: "prompts",
+  sidebarExpanded: false,
   dirty: false,
   saving: false,
   changeVersion: 0,
@@ -246,6 +248,23 @@ const state = {
   selectedSecretId: null,
   secretRowCounter: 0
 };
+
+const SIDEBAR_STATE_KEY = "agent-doc-sidebar-expanded";
+
+function setSidebarExpanded(expanded, { persist = true } = {}) {
+  state.sidebarExpanded = Boolean(expanded);
+  document.body.classList.toggle("sidebar-expanded", state.sidebarExpanded);
+  elements.sidebarToggle.setAttribute("aria-expanded", String(state.sidebarExpanded));
+  elements.sidebarToggle.setAttribute("aria-label", state.sidebarExpanded ? "Collapse navigation" : "Expand navigation");
+  elements.sidebarToggle.title = state.sidebarExpanded ? "Collapse navigation (Ctrl+B)" : "Expand navigation (Ctrl+B)";
+  if (persist) {
+    try {
+      window.localStorage.setItem(SIDEBAR_STATE_KEY, String(state.sidebarExpanded));
+    } catch {
+      // The rail still works when browser storage is unavailable.
+    }
+  }
+}
 
 let activeWorkspaceSplitter = null;
 
@@ -794,6 +813,7 @@ function updateDocumentGrantCatalog() {
   elements.documentGrantEnabledCount.textContent = `${enabledCount} enabled`;
   elements.documentGrantsEmpty.hidden = total > 0;
   elements.documentGrantsFilterEmpty.hidden = total === 0 || visibleCount > 0;
+  elements.documentsPanel.classList.toggle("is-empty-catalog", total === 0);
 
   const selectedRow = documentGrantRowById();
   if (!selectedRow || selectedRow.hidden) {
@@ -1059,6 +1079,7 @@ function updateToolSourceCatalog() {
   elements.toolSourceEnabledCount.textContent = `${enabledCount} enabled`;
   elements.toolDirectoriesEmpty.hidden = total > 0;
   elements.toolSourcesFilterEmpty.hidden = total === 0 || visibleCount > 0;
+  elements.toolsPanel.classList.toggle("is-empty-catalog", total === 0);
 
   const selectedRow = toolSourceRowById();
   if (selectedRow?.hidden) {
@@ -1984,6 +2005,7 @@ function updateSecretCatalog() {
   elements.secretEnabledCount.textContent = `${enabledCount} enabled`;
   elements.secretFilesEmpty.hidden = total > 0;
   elements.secretFilesFilterEmpty.hidden = total === 0 || visibleCount > 0;
+  elements.secretsPanel.classList.toggle("is-empty-catalog", total === 0);
 
   const selectedRow = secretRowById();
   if (!selectedRow || selectedRow.hidden) {
@@ -2117,6 +2139,7 @@ function updatePromptCatalog() {
     : `${visibleCount}/${total} shown · ${enabledCount} enabled`;
   elements.promptsEmpty.hidden = total > 0;
   elements.promptsFilterEmpty.hidden = total === 0 || visibleCount > 0;
+  elements.promptsPanel.classList.toggle("is-empty-catalog", total === 0);
 
   const selectedRow = promptRowById();
   if (selectedRow?.hidden) {
@@ -3966,6 +3989,38 @@ elements.secretOpenDropBox.addEventListener("click", () => openNativeDropBox("se
 wireDropZone(elements.dropZone, "documents");
 wireDropZone(elements.toolDropZone, "tools");
 wireDropZone(elements.secretDropZone, "secrets");
+
+for (const resourceAddMenu of document.querySelectorAll(".resource-add-menu")) {
+  resourceAddMenu.addEventListener("click", (event) => {
+    if (event.target.closest("button")) {
+      resourceAddMenu.removeAttribute("open");
+    }
+  });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  for (const disclosure of document.querySelectorAll(".resource-add-menu[open], .actionbar-config[open]")) {
+    if (!disclosure.contains(event.target)) {
+      disclosure.removeAttribute("open");
+    }
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") {
+    return;
+  }
+  const disclosure = document.querySelector(".resource-add-menu[open], .actionbar-config[open]");
+  if (!disclosure) {
+    return;
+  }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  disclosure.removeAttribute("open");
+  disclosure.querySelector("summary")?.focus();
+});
+
+elements.sidebarToggle.addEventListener("click", () => setSidebarExpanded(!state.sidebarExpanded));
 elements.reloadConfig.addEventListener("click", () => {
   if (!state.dirty || window.confirm("Discard unsaved changes and reload the saved configuration?")) {
     loadConfig();
@@ -3989,7 +4044,7 @@ const tabOrder = ["prompts", "documents", "tools", "secrets", "help"];
 const tabElements = [elements.promptsTab, elements.documentsTab, elements.toolsTab, elements.secretsTab, elements.helpTab];
 for (const [index, tab] of tabElements.entries()) {
   tab.addEventListener("keydown", (event) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
     event.preventDefault();
@@ -3998,7 +4053,7 @@ for (const [index, tab] of tabElements.entries()) {
       nextIndex = 0;
     } else if (event.key === "End") {
       nextIndex = tabOrder.length - 1;
-    } else if (event.key === "ArrowRight") {
+    } else if (["ArrowDown", "ArrowRight"].includes(event.key)) {
       nextIndex = (index + 1) % tabOrder.length;
     } else {
       nextIndex = (index - 1 + tabOrder.length) % tabOrder.length;
@@ -4029,6 +4084,12 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const isEditingText = Boolean(event.target.closest?.("input, textarea, [contenteditable='true']"));
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b" && !isEditingText) {
+    event.preventDefault();
+    setSidebarExpanded(!state.sidebarExpanded);
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
     if (state.dirty && !elements.saveConfig.disabled) {
@@ -4040,9 +4101,21 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && state.promptFocusMode) {
     setPromptFocusMode(false);
+    return;
+  }
+  if (event.key === "Escape" && state.sidebarExpanded) {
+    setSidebarExpanded(false);
+    elements.sidebarToggle.focus();
   }
 });
 
 elements.configPath.textContent = runtime.configPath;
+let initialSidebarExpanded = false;
+try {
+  initialSidebarExpanded = window.localStorage.getItem(SIDEBAR_STATE_KEY) === "true";
+} catch {
+  initialSidebarExpanded = false;
+}
+setSidebarExpanded(initialSidebarExpanded, { persist: false });
 activateTab("prompts");
 loadConfig();
