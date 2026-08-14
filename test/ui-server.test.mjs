@@ -226,6 +226,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.doesNotMatch(pageText, /Register tools without running them/);
   assert.doesNotMatch(pageText, /Keep reusable prompts close to your agent/);
   assert.doesNotMatch(pageText, /Register exact credential files/);
+  assert.match(pageText, /id="dirty-state-container" class="actionbar-dirty is-clean" aria-hidden="true"/);
   assert.match(pageText, /id="change-summary"/);
   assert.match(pageText, /aria-keyshortcuts="Control\+S Meta\+S"/);
   assert.match(appText, /function setPromptFocusMode\(enabled\)/);
@@ -235,6 +236,9 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /Save to make these changes available to the agent/);
   assert.match(appText, /saving:\s*false/);
   assert.match(appText, /You can keep working\. This view will stay in place while the save finishes\./);
+  assert.match(appText, /dirtyStateContainer\.classList\.add\("is-clean"\)/);
+  assert.match(appText, /dirtyStateContainer\.classList\.remove\("is-clean"\)/);
+  assert.match(stylesText, /\.actionbar-dirty\.is-clean\s*\{[\s\S]*?visibility:\s*hidden/);
   const saveConfigSource = appText.slice(
     appText.indexOf("async function saveConfig()"),
     appText.indexOf("async function inspectAndAppendSecretFile")
@@ -245,6 +249,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="document-grant-filter"/);
   assert.match(pageText, /id="document-grant-inspector"/);
   assert.match(pageText, /id="document-editor-name"/);
+  assert.match(pageText, /id="document-editor-matching-mode"/);
+  assert.match(pageText, /id="document-editor-matching-extensions"/);
+  assert.match(pageText, /id="document-editor-matching-file-names"/);
+  assert.match(appText, /function syncDocumentGrantMatchingEditor\(\)/);
   assert.match(appText, /return kind === "directory" \? "Folder root" : "File";/);
   assert.match(appText, /textContent = kind === "directory" \? "Folder" : "File";/);
   assert.match(appText, /function updateDocumentGrantCatalog\(\)/);
@@ -280,6 +288,9 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /class="tool-grant-workspace"/);
   assert.match(pageText, /id="tool-source-tools-tab"/);
   assert.match(pageText, /id="tool-source-documents-tab"/);
+  assert.match(toolsPanelText, /id="tool-source-document-matching"/);
+  assert.match(toolsPanelText, /id="tool-source-document-matching-mode"/);
+  assert.match(toolsPanelText, /Folder document rules/);
   assert.match(pageText, /id="tool-source-resource-grants"/);
   assert.match(pageText, /id="tool-grants-list"/);
   assert.match(pageText, /id="tool-exact-grants"/);
@@ -302,6 +313,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /function renderToolSourceGrants\(\)/);
   assert.match(appText, /function activeToolGrantKind\(\)/);
   assert.match(appText, /function syncToolSourceEditor\(\)/);
+  assert.match(appText, /function syncToolSourceDocumentMatchingEditor\(\)/);
   assert.match(appText, /function syncToolSourceScanRecursive\(\)/);
   assert.match(appText, /function syncToolSourceScanLimit\(/);
   assert.match(appText, /function removeVisibleToolGrants\(\)/);
@@ -565,6 +577,23 @@ test("configuration UI gives attached scans independent recursive scopes, bypass
   assert.equal(topLevelDocumentResponse.status, 200);
   assert.equal(topLevelDocumentPayload.meta.recursive, false);
   assert.deepEqual(topLevelDocumentPayload.results.map((entry) => entry.path), [readmePath]);
+
+  const toolSpecificDocumentPath = path.join(scanRoot, "tool-specific.txt");
+  await fs.writeFile(toolSpecificDocumentPath, "Tool folder-specific document rule.\n", "utf8");
+  draftConfig.tools.directories[0].documentMatching = {
+    mode: "override",
+    extensions: ".txt",
+    fileNames: [],
+    caseSensitive: false
+  };
+  const overriddenDocumentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "document", directoryPath: scanRoot, config: draftConfig })
+  });
+  const overriddenDocumentPayload = await overriddenDocumentResponse.json();
+  assert.equal(overriddenDocumentResponse.status, 200);
+  assert.deepEqual(overriddenDocumentPayload.results.map((entry) => entry.path), [toolSpecificDocumentPath]);
 
   await fs.writeFile(path.join(toolDirectory, "tool-099.exe"), "fixture\n", "utf8");
   const expandedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {

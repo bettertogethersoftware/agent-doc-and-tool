@@ -53,7 +53,10 @@ configuration adds a backward-compatible document scan scope: absent
   **Include subfolders** scope (`documentRecursive`), **Scan documents**,
   document-specific filtering, and bulk enable/disable. Its scope affects
   only Document scans; it does not change document discovery, `search`, or
-  `fetch`. It does not show a meaningless Tool priority column.
+  `fetch`. It does not show a meaningless Tool priority column. The same tab
+  owns the selected Tool folder's document-matching mode: it can inherit the
+  Documents defaults or override extensions, exact filenames, and filename
+  case sensitivity for nearby documentation and the scan.
 - **Instruction** owns the optional folder Instruction and keeps that context
   separate from the Tools-tab Catalog Instruction.
 - Each scan control and its own recursion scope live in the matching resource
@@ -88,7 +91,8 @@ configuration adds a backward-compatible document scan scope: absent
    page-length round trip.
 3. Scanning, enable/disable, removing grants, and saving preserve source-owned
    grants and write independent `recursive` and `documentRecursive` scan
-   scopes without changing `list_tool` output.
+   scopes plus optional `documentMatching` rules without changing `list_tool`
+   output.
 4. Direct exact tool files remain editable and clearly distinguished from
    source-owned grants.
 5. All lists have one intentional local scroll area at large sizes; empty

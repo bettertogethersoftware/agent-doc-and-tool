@@ -3682,6 +3682,82 @@ input.scan-exact-field:focus {
   line-height: 1.4;
 }
 
+.folder-matching-editor {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #31566d;
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgb(22 64 88 / 20%), rgb(8 18 27 / 62%));
+}
+
+.folder-matching-editor[hidden] {
+  display: none;
+}
+
+.folder-matching-heading {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.folder-matching-heading strong {
+  color: #dcecf4;
+  font-size: 0.68rem;
+}
+
+.folder-matching-heading .step {
+  margin: 0 0 3px;
+  color: #93d7f6;
+}
+
+.folder-matching-badge {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid #3c6b84;
+  border-radius: 999px;
+  color: #9dd7f4;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.49rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.folder-matching-editor .field > small {
+  min-height: 1.3em;
+}
+
+.folder-matching-editor select,
+.folder-matching-editor input[type="text"] {
+  width: 100%;
+}
+
+.folder-matching-fields {
+  margin-top: 9px;
+}
+
+.folder-matching-fields.is-inherited {
+  opacity: 0.68;
+}
+
+.folder-matching-fields input:disabled,
+.folder-matching-case-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.folder-matching-case-toggle {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(59 95 116 / 45%);
+}
+
+.tool-source-document-matching {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
 .document-matching-panel,
 .document-limits-panel,
 .document-test-panel {
@@ -4699,7 +4775,6 @@ input.scan-exact-field:focus {
 }
 
 .actionbar.has-unsaved-changes .actionbar-dirty {
-  padding: 6px 10px;
   border: 1px solid #725a31;
   border-radius: 8px;
   background: rgb(66 47 20 / 32%);
@@ -5886,9 +5961,17 @@ textarea::placeholder {
 }
 
 .actionbar-dirty {
-  min-width: 0;
-  padding-left: 18px;
-  border-left-color: #27313b;
+  box-sizing: border-box;
+  width: 286px;
+  min-width: 286px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.actionbar-dirty.is-clean {
+  visibility: hidden;
 }
 
 .actionbar-config {
@@ -5964,7 +6047,6 @@ textarea::placeholder {
 }
 
 .actionbar.has-unsaved-changes .actionbar-dirty {
-  padding: 8px 10px;
   border-color: #665331;
   background: rgb(66 47 20 / 24%);
 }
@@ -6073,8 +6155,10 @@ textarea::placeholder {
 
   .actionbar-dirty {
     grid-area: dirty;
-    padding-left: 0;
-    border-left: 0;
+    width: auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid transparent;
   }
 
   .actionbar .button-row {
@@ -6858,8 +6942,11 @@ textarea::placeholder {
   }
 
   .actionbar-dirty {
-    min-width: 150px;
-    padding-left: 9px;
+    width: 286px;
+    min-width: 286px;
+    min-height: 58px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
   }
 
   .actionbar-config > summary {
@@ -6880,7 +6967,6 @@ textarea::placeholder {
   }
 
   .actionbar.has-unsaved-changes .actionbar-dirty {
-    padding: 5px 7px;
     border-radius: 6px;
   }
 
@@ -7596,9 +7682,10 @@ textarea::placeholder {
 
   .actionbar-dirty {
     grid-area: dirty;
+    width: auto;
     min-width: 0;
-    padding-left: 0;
-    border-left: 0;
+    padding: 8px 10px;
+    border: 1px solid transparent;
   }
 
   .actionbar .button-row {

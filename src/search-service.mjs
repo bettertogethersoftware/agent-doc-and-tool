@@ -6,6 +6,7 @@ import { performance } from "node:perf_hooks";
 import createIgnore from "ignore";
 
 import {
+  getDocumentMatchingRules,
   getSource,
   isConfiguredSecretPath,
   loadConfig,
@@ -150,7 +151,7 @@ async function realDirectory(root, state) {
   }
 }
 
-async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefined) {
+async function *walkRoot(root, matching, state, seenPaths, knownRealRoot = undefined) {
   const realRoot = knownRealRoot ?? await realDirectory(root, state);
   if (!realRoot) {
     return;
@@ -210,7 +211,7 @@ async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefin
         state.stats.skippedIgnored += 1;
         continue;
       }
-      if (!matchesConfiguredDocument(fullPath, source, state.config.caseSensitive)) {
+      if (!matchesConfiguredDocument(fullPath, matching)) {
         continue;
       }
       state.stats.filesConsidered += 1;
@@ -235,30 +236,30 @@ async function *walkRoot(root, source, state, seenPaths, knownRealRoot = undefin
   }
 }
 
-function ripgrepArguments(source, config) {
+function ripgrepArguments(matching, config) {
   const arguments_ = ["--files", "--null", "--hidden", "--no-ignore-vcs"];
   if (config.ignoreFile) {
     arguments_.push("--ignore-file", config.ignoreFile);
   }
-  for (const fileName of source.fileNames) {
+  for (const fileName of matching.fileNames) {
     arguments_.push("--iglob", `**/${fileName}`);
   }
-  for (const extension of source.extensions) {
+  for (const extension of matching.extensions) {
     arguments_.push("--iglob", `**/*${extension}`);
   }
   arguments_.push(".");
   return arguments_;
 }
 
-async function listRootWithRipgrep(realRoot, source, state) {
-  if (source.fileNames.length === 0 && source.extensions.length === 0) {
+async function listRootWithRipgrep(realRoot, matching, state) {
+  if (matching.fileNames.length === 0 && matching.extensions.length === 0) {
     return [];
   }
 
   const executable = process.env.AGENT_DOC_SEARCH_RG?.trim() || "rg";
   const remainingMs = Math.max(100, state.deadline - Date.now());
   return new Promise((resolve) => {
-    const child = spawn(executable, ripgrepArguments(source, state.config), {
+    const child = spawn(executable, ripgrepArguments(matching, state.config), {
       cwd: realRoot,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"]
@@ -335,9 +336,10 @@ async function *enumerateRoot(root, source, state, seenPaths) {
     return;
   }
 
-  const listed = await listRootWithRipgrep(realRoot, source, state);
+  const matching = getDocumentMatchingRules(source, root, state.config.caseSensitive);
+  const listed = await listRootWithRipgrep(realRoot, matching, state);
   if (listed === null) {
-    yield* walkRoot(root, source, state, seenPaths, realRoot);
+    yield* walkRoot(root, matching, state, seenPaths, realRoot);
     return;
   }
 
@@ -362,7 +364,7 @@ async function *enumerateRoot(root, source, state, seenPaths) {
       state.stats.skippedIgnored += 1;
       continue;
     }
-    if (!matchesConfiguredDocument(fullPath, source, state.config.caseSensitive)) {
+    if (!matchesConfiguredDocument(fullPath, matching)) {
       continue;
     }
 
@@ -800,8 +802,8 @@ async function resolveAllowedFetchPath(requestedPath, source, config) {
     if (isDisabledScannedDocumentForRoot(root, realPath)) {
       continue;
     }
-    if (isIgnored(ignoreSpec, relativePath) || !matchesConfiguredDocument(realPath, source, config.caseSensitive)) {
-      break;
+    if (isIgnored(ignoreSpec, relativePath) || !matchesConfiguredDocument(realPath, source, config.caseSensitive, root)) {
+      continue;
     }
     return realPath;
   }
@@ -862,6 +864,7 @@ export async function checkConfiguration(options = {}) {
           path: root.path,
           priority: root.priority,
           enabled: false,
+          ...(root.documentMatching ? { documentMatching: root.documentMatching } : {}),
           available: null,
           type: "disabled"
         });
@@ -874,6 +877,7 @@ export async function checkConfiguration(options = {}) {
           path: root.path,
           priority: root.priority,
           enabled: true,
+          ...(root.documentMatching ? { documentMatching: root.documentMatching } : {}),
           available: rootStat.isDirectory() && !rootStat.isSymbolicLink(),
           type: rootStat.isSymbolicLink() ? "link" : rootStat.isDirectory() ? "directory" : "other"
         });
@@ -883,6 +887,7 @@ export async function checkConfiguration(options = {}) {
           path: root.path,
           priority: root.priority,
           enabled: true,
+          ...(root.documentMatching ? { documentMatching: root.documentMatching } : {}),
           available: false,
           error: error instanceof Error ? error.message : String(error)
         });
@@ -933,6 +938,7 @@ export async function checkConfiguration(options = {}) {
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
         includeDocs: directory.includeDocs,
+        ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: false,
         available: null,
         type: "disabled"
@@ -948,6 +954,7 @@ export async function checkConfiguration(options = {}) {
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
         includeDocs: directory.includeDocs,
+        ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: true,
         available: directoryStat.isDirectory() && !directoryStat.isSymbolicLink(),
         type: directoryStat.isSymbolicLink() ? "link" : directoryStat.isDirectory() ? "directory" : "other"
@@ -960,6 +967,7 @@ export async function checkConfiguration(options = {}) {
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
         includeDocs: directory.includeDocs,
+        ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: true,
         available: false,
         error: error instanceof Error ? error.message : String(error)

@@ -53,6 +53,13 @@ const elements = {
   documentEditorPriorityField: document.querySelector("#document-editor-priority-field"),
   documentEditorEnabled: document.querySelector("#document-editor-enabled"),
   documentEditorPathState: document.querySelector("#document-editor-path-state"),
+  documentEditorMatching: document.querySelector("#document-editor-matching"),
+  documentEditorMatchingMode: document.querySelector("#document-editor-matching-mode"),
+  documentEditorMatchingSummary: document.querySelector("#document-editor-matching-summary"),
+  documentEditorMatchingFields: document.querySelector("#document-editor-matching-fields"),
+  documentEditorMatchingExtensions: document.querySelector("#document-editor-matching-extensions"),
+  documentEditorMatchingFileNames: document.querySelector("#document-editor-matching-file-names"),
+  documentEditorMatchingCaseSensitive: document.querySelector("#document-editor-matching-case-sensitive"),
   documentEditorScope: document.querySelector("#document-editor-scope"),
   deleteDocumentGrant: document.querySelector("#delete-document-grant"),
   dropZone: document.querySelector("#drop-zone"),
@@ -77,6 +84,7 @@ const elements = {
   reloadConfig: document.querySelector("#reload-config"),
   validatePaths: document.querySelector("#validate-paths"),
   saveConfig: document.querySelector("#save-config"),
+  dirtyStateContainer: document.querySelector("#dirty-state-container"),
   dirtyState: document.querySelector("#dirty-state"),
   changeSummary: document.querySelector("#change-summary"),
   searchForm: document.querySelector("#search-form"),
@@ -110,6 +118,13 @@ const elements = {
   toolSourceInstructionTab: document.querySelector("#tool-source-instruction-tab"),
   toolSourceOverview: document.querySelector("#tool-source-overview"),
   toolSourceResourceGrants: document.querySelector("#tool-source-resource-grants"),
+  toolSourceDocumentMatching: document.querySelector("#tool-source-document-matching"),
+  toolSourceDocumentMatchingMode: document.querySelector("#tool-source-document-matching-mode"),
+  toolSourceDocumentMatchingSummary: document.querySelector("#tool-source-document-matching-summary"),
+  toolSourceDocumentMatchingFields: document.querySelector("#tool-source-document-matching-fields"),
+  toolSourceDocumentMatchingExtensions: document.querySelector("#tool-source-document-matching-extensions"),
+  toolSourceDocumentMatchingFileNames: document.querySelector("#tool-source-document-matching-file-names"),
+  toolSourceDocumentMatchingCaseSensitive: document.querySelector("#tool-source-document-matching-case-sensitive"),
   toolSourceInstruction: document.querySelector("#tool-source-instruction"),
   toolSourceToolsTabCount: document.querySelector("#tool-source-tools-tab-count"),
   toolSourceDocumentsTabCount: document.querySelector("#tool-source-documents-tab-count"),
@@ -307,6 +322,82 @@ function extensionText(value) {
   return Array.isArray(value) ? value.join(";") : (value ?? "");
 }
 
+function documentMatchingDefaults() {
+  return {
+    extensions: elements.extensions?.value ?? "",
+    fileNames: splitValues(elements.fileNames?.value ?? ""),
+    caseSensitive: elements.caseSensitive?.checked === true
+  };
+}
+
+function documentMatchingFromRow(row) {
+  const value = row?.querySelector('[data-field="documentMatching"]')?.value?.trim();
+  if (!value) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function documentMatchingMode(value) {
+  return value && value.mode !== "inherit" ? "override" : "inherit";
+}
+
+function documentMatchingValues(value) {
+  const defaults = documentMatchingDefaults();
+  return {
+    extensions: extensionText(value?.extensions ?? defaults.extensions),
+    fileNames: Array.isArray(value?.fileNames) ? value.fileNames.join(";") : defaults.fileNames.join(";"),
+    caseSensitive: value?.caseSensitive ?? defaults.caseSensitive
+  };
+}
+
+function writeDocumentMatchingToRow(row, value) {
+  const input = row?.querySelector('[data-field="documentMatching"]');
+  if (!input) {
+    return;
+  }
+  input.value = value ? JSON.stringify(value) : "";
+}
+
+function folderMatchingSummary(value) {
+  if (documentMatchingMode(value) !== "override") {
+    const defaults = documentMatchingDefaults();
+    const extensions = defaults.extensions.trim() || "no extensions";
+    const fileNames = defaults.fileNames.length > 0 ? defaults.fileNames.join(", ") : "no exact filenames";
+    return `Using Documents defaults: ${extensions} · ${fileNames}${defaults.caseSensitive ? " · case-sensitive" : " · case-insensitive"}.`;
+  }
+  const matching = documentMatchingValues(value);
+  const extensions = matching.extensions.trim() || "no extensions";
+  const fileNames = splitValues(matching.fileNames).length > 0 ? splitValues(matching.fileNames).join(", ") : "no exact filenames";
+  return `Custom rules: ${extensions} · ${fileNames}${matching.caseSensitive ? " · case-sensitive" : " · case-insensitive"}.`;
+}
+
+function setFolderMatchingControlState(fields, mode) {
+  const override = mode === "override";
+  fields.hidden = false;
+  for (const input of fields.querySelectorAll("input")) {
+    input.disabled = !override;
+  }
+  fields.classList.toggle("is-inherited", !override);
+}
+
+function documentMatchingOverrideFromControls(mode, extensionsInput, fileNamesInput, caseSensitiveInput) {
+  if (mode !== "override") {
+    return undefined;
+  }
+  return {
+    mode: "override",
+    extensions: extensionsInput.value.trim() || [],
+    fileNames: splitValues(fileNamesInput.value),
+    caseSensitive: caseSensitiveInput.checked
+  };
+}
+
 function setBusy(button, busy, busyLabel) {
   if (busy) {
     button.dataset.previousLabel = button.textContent;
@@ -337,6 +428,8 @@ function setPageStatus(kind, title, description) {
 }
 
 function showDirtyState() {
+  elements.dirtyStateContainer.classList.remove("is-clean");
+  elements.dirtyStateContainer.setAttribute("aria-hidden", "false");
   elements.dirtyState.textContent = "Unsaved changes";
   elements.changeSummary.textContent = "Save to make these changes available to the agent. Ctrl+S saves.";
   elements.dirtyState.classList.add("is-dirty");
@@ -356,6 +449,8 @@ function markDirty() {
 
 function markClean() {
   state.dirty = false;
+  elements.dirtyStateContainer.classList.add("is-clean");
+  elements.dirtyStateContainer.setAttribute("aria-hidden", "true");
   elements.dirtyState.textContent = "No unsaved changes";
   elements.changeSummary.textContent = "Saved configuration is available to the local agent.";
   elements.dirtyState.classList.remove("is-dirty");
@@ -586,6 +681,7 @@ function appendRoot(root = {}, availability = undefined) {
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "allowed-folder");
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
+  writeDocumentMatchingToRow(row, normalized.documentMatching);
   applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "directory");
@@ -726,14 +822,19 @@ function updateDocumentGrantEntrySummary(row) {
   const selection = row.querySelector('[data-action="select-document-grant"]');
 
   row.querySelector('[data-role="document-grant-name"]').textContent = name || "Untitled document grant";
-  row.querySelector('[data-role="document-grant-kind"]').textContent = kind === "directory" ? "Folder" : "File";
-  row.querySelector('[data-role="document-grant-kind"]').className = `document-grant-kind is-${kind}`;
+  const kindBadge = row.querySelector('[data-role="document-grant-kind"]');
+  kindBadge.textContent = kind === "directory" ? "Folder" : "File";
+  kindBadge.className = `document-grant-kind is-${kind}`;
+  kindBadge.title = kind === "directory"
+    ? (documentMatchingMode(documentMatchingFromRow(row)) === "override" ? "Custom folder matching rules" : "Uses Documents default matching rules")
+    : "Exact file grant is independent of folder matching rules";
   row.querySelector('[data-role="document-grant-path"]').textContent = compactLocalPath(documentPath);
   row.querySelector('[data-role="document-grant-path"]').title = documentPath;
   row.querySelector('[data-role="document-grant-validation"]').textContent = documentGrantStatusText(row);
   row.querySelector('[data-role="document-grant-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit ${documentGrantKindLabel(kind).toLocaleLowerCase()} ${name || "untitled document grant"}`);
   row.dataset.documentGrantSearch = `${name}\n${documentPath}\n${documentGrantKindLabel(kind)}`.toLocaleLowerCase();
+  row.dataset.documentMatchingMode = documentMatchingMode(documentMatchingFromRow(row));
   row.classList.toggle("is-empty-path", !documentPath);
   row.classList.toggle("is-disabled", !enabled);
 }
@@ -780,6 +881,20 @@ function refreshDocumentGrantInspector() {
   elements.documentEditorPriority.required = kind === "directory";
   elements.documentEditorPriorityField.parentElement?.classList.toggle("is-single-field", kind !== "directory");
   elements.documentEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
+  const folderMatching = selectedRow.dataset.documentKind === "directory";
+  const matching = documentMatchingFromRow(selectedRow);
+  elements.documentEditorMatching.hidden = !folderMatching;
+  if (folderMatching) {
+    const mode = documentMatchingMode(matching);
+    const values = documentMatchingValues(matching);
+    elements.documentEditorMatchingMode.value = mode;
+    elements.documentEditorMatchingExtensions.value = values.extensions;
+    elements.documentEditorMatchingFileNames.value = values.fileNames;
+    elements.documentEditorMatchingCaseSensitive.checked = values.caseSensitive === true;
+    elements.documentEditorMatchingSummary.textContent = folderMatchingSummary(matching);
+    setFolderMatchingControlState(elements.documentEditorMatchingFields, mode);
+    elements.documentEditorMatchingCaseSensitive.disabled = mode !== "override";
+  }
   updateDocumentGrantInspectorHeader(selectedRow);
 }
 
@@ -917,6 +1032,7 @@ function updateToolSourceEntrySummary(row) {
   const documentRecursive = row.querySelector('[data-field="documentRecursive"]').checked;
   const includeDocs = row.querySelector('[data-field="includeDocs"]').checked;
   const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const documentMatching = documentMatchingFromRow(row);
   const counts = sourceGrantCounts(row);
   const selection = row.querySelector('[data-action="select-source"]');
   const pathState = row.querySelector('[data-role="state"]');
@@ -925,12 +1041,13 @@ function updateToolSourceEntrySummary(row) {
   row.querySelector('[data-role="tool-source-name"]').textContent = name || "Untitled source";
   row.querySelector('[data-role="tool-source-path"]').textContent = compactLocalPath(sourcePath);
   row.querySelector('[data-role="tool-source-path"]').title = sourcePath;
-  row.querySelector('[data-role="tool-source-meta"]').textContent = metaText;
-  row.querySelector('[data-role="tool-source-meta"]').title = metaText;
+  row.querySelector('[data-role="tool-source-meta"]').textContent = `${metaText} Â· ${documentMatchingMode(documentMatching) === "override" ? "custom doc rules" : "doc defaults"}`;
+  row.querySelector('[data-role="tool-source-meta"]').title = `${metaText} Â· ${documentMatchingMode(documentMatching) === "override" ? "custom document matching rules" : "Documents default matching rules"}`;
   row.querySelector('[data-role="tool-source-validation"]').textContent = toolSourceStatusText(row);
   row.querySelector('[data-role="tool-source-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit tool source ${name || "untitled source"}`);
   row.dataset.toolSourceSearch = `${name}\n${sourcePath}`.toLocaleLowerCase();
+  row.dataset.documentMatchingMode = documentMatchingMode(documentMatching);
   row.classList.toggle("is-empty-path", !sourcePath);
   row.classList.toggle("is-disabled", !enabled);
 }
@@ -1030,6 +1147,19 @@ function updateToolGrantSection(kind = activeToolGrantKind()) {
   elements.toolSourceScanRecursiveHelp.textContent = isDocument
     ? "Scan nested documents only. It does not broaden documentation discovery."
     : "Scan nested tool files. This also controls recursive tool discovery.";
+  elements.toolSourceDocumentMatching.hidden = !isDocument || !source;
+  if (isDocument && source) {
+    const matching = documentMatchingFromRow(source);
+    const mode = documentMatchingMode(matching);
+    const values = documentMatchingValues(matching);
+    elements.toolSourceDocumentMatchingMode.value = mode;
+    elements.toolSourceDocumentMatchingExtensions.value = values.extensions;
+    elements.toolSourceDocumentMatchingFileNames.value = values.fileNames;
+    elements.toolSourceDocumentMatchingCaseSensitive.checked = values.caseSensitive === true;
+    elements.toolSourceDocumentMatchingSummary.textContent = folderMatchingSummary(matching);
+    setFolderMatchingControlState(elements.toolSourceDocumentMatchingFields, mode);
+    elements.toolSourceDocumentMatchingCaseSensitive.disabled = mode !== "override";
+  }
   updateToolScanSummary(source, kind);
 }
 
@@ -1232,6 +1362,27 @@ function syncToolSourceEditor() {
   markDirty();
 }
 
+function syncToolSourceDocumentMatchingEditor() {
+  const row = toolSourceRowById();
+  if (!row) {
+    return;
+  }
+  const matching = documentMatchingOverrideFromControls(
+    elements.toolSourceDocumentMatchingMode.value,
+    elements.toolSourceDocumentMatchingExtensions,
+    elements.toolSourceDocumentMatchingFileNames,
+    elements.toolSourceDocumentMatchingCaseSensitive
+  );
+  writeDocumentMatchingToRow(row, matching);
+  elements.toolSourceDocumentMatchingSummary.textContent = folderMatchingSummary(matching);
+  setFolderMatchingControlState(elements.toolSourceDocumentMatchingFields, elements.toolSourceDocumentMatchingMode.value);
+  elements.toolSourceDocumentMatchingCaseSensitive.disabled = elements.toolSourceDocumentMatchingMode.value !== "override";
+  updateToolSourceEntrySummary(row);
+  updateToolSourceCatalog();
+  updateToolGrantSection("document");
+  markDirty();
+}
+
 function syncToolSourceScanRecursive() {
   const row = toolSourceRowById();
   if (!row) {
@@ -1243,6 +1394,26 @@ function syncToolSourceScanRecursive() {
   updateToolSourceInspectorHeader(row);
   updateToolSourceCatalog();
   updateToolGrantSection();
+  markDirty();
+}
+
+function syncDocumentGrantMatchingEditor() {
+  const row = documentGrantRowById();
+  if (!row || row.dataset.documentKind !== "directory") {
+    return;
+  }
+  const matching = documentMatchingOverrideFromControls(
+    elements.documentEditorMatchingMode.value,
+    elements.documentEditorMatchingExtensions,
+    elements.documentEditorMatchingFileNames,
+    elements.documentEditorMatchingCaseSensitive
+  );
+  writeDocumentMatchingToRow(row, matching);
+  elements.documentEditorMatchingSummary.textContent = folderMatchingSummary(matching);
+  setFolderMatchingControlState(elements.documentEditorMatchingFields, elements.documentEditorMatchingMode.value);
+  elements.documentEditorMatchingCaseSensitive.disabled = elements.documentEditorMatchingMode.value !== "override";
+  updateDocumentGrantEntrySummary(row);
+  updateDocumentGrantCatalog();
   markDirty();
 }
 
@@ -1602,6 +1773,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   documentRecursiveInput.checked = normalized.documentRecursive ?? recursiveInput.checked;
   scanLimitInput.value = normalized.scanLimit ?? 500;
   includeDocsInput.checked = normalized.includeDocs !== false;
+  writeDocumentMatchingToRow(row, normalized.documentMatching);
   instructionInput.value = normalized.instruction ?? normalized.humanNote ?? "";
   applyEntryAvailability(row, pathState, availability, "directory");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
@@ -2821,11 +2993,13 @@ function collectConfig() {
     if (!name || !folderPath || !Number.isInteger(priority)) {
       throw new Error(`Allowed folder ${index + 1} needs a name, path, and integer priority.`);
     }
+    const documentMatching = documentMatchingFromRow(row);
     return {
       name,
       path: folderPath,
       priority,
-      enabled: row.querySelector('[data-field="enabled"]').checked
+      enabled: row.querySelector('[data-field="enabled"]').checked,
+      ...(documentMatching ? { documentMatching } : {})
     };
   });
   requireUniqueNames(source.roots, "Allowed folder");
@@ -2863,6 +3037,10 @@ function collectConfig() {
         includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
         enabled: row.querySelector('[data-field="enabled"]').checked
       };
+      const documentMatching = documentMatchingFromRow(row);
+      if (documentMatching) {
+        directory.documentMatching = documentMatching;
+      }
       const instruction = row.querySelector('[data-role="folder-instruction"]').value.trim();
       const scannedToolFiles = collectScannedToolFiles(row, index);
       const scannedDocumentFiles = collectScannedDocumentFiles(row, index);
@@ -3788,6 +3966,15 @@ for (const input of [
   attachConfigurationInput(input);
 }
 
+for (const input of [elements.extensions, elements.fileNames, elements.caseSensitive]) {
+  input.addEventListener(input.type === "checkbox" ? "change" : "input", () => {
+    refreshDocumentGrantInspector();
+    if (state.activeToolSourceSection === "documents") {
+      updateToolGrantSection("document");
+    }
+  });
+}
+
 elements.documentsInstruction.addEventListener("input", () => {
   updateInstructionSummary(elements.documentsInstruction, elements.documentsInstructionSummary);
 });
@@ -3817,6 +4004,14 @@ for (const input of [
 }
 elements.toolSourceScanRecursive.addEventListener("change", syncToolSourceScanRecursive);
 elements.toolSourceScanLimit.addEventListener("change", () => syncToolSourceScanLimit());
+elements.toolSourceDocumentMatchingMode.addEventListener("change", syncToolSourceDocumentMatchingEditor);
+for (const input of [
+  elements.toolSourceDocumentMatchingExtensions,
+  elements.toolSourceDocumentMatchingFileNames,
+  elements.toolSourceDocumentMatchingCaseSensitive
+]) {
+  input.addEventListener(input.type === "checkbox" ? "change" : "input", syncToolSourceDocumentMatchingEditor);
+}
 elements.toolSourceOverviewTab.addEventListener("click", () => setToolSourceSection("overview"));
 elements.toolSourceToolsTab.addEventListener("click", () => setToolSourceSection("tools"));
 elements.toolSourceDocumentsTab.addEventListener("click", () => setToolSourceSection("documents"));
@@ -3974,6 +4169,14 @@ elements.documentEditorPath.addEventListener("blur", () => {
   }
 });
 elements.documentEditorEnabled.addEventListener("change", syncDocumentGrantEditor);
+elements.documentEditorMatchingMode.addEventListener("change", syncDocumentGrantMatchingEditor);
+for (const input of [
+  elements.documentEditorMatchingExtensions,
+  elements.documentEditorMatchingFileNames,
+  elements.documentEditorMatchingCaseSensitive
+]) {
+  input.addEventListener(input.type === "checkbox" ? "change" : "input", syncDocumentGrantMatchingEditor);
+}
 elements.deleteDocumentGrant.addEventListener("click", () => {
   documentGrantRowById()?.querySelector('[data-action="remove"]').click();
 });

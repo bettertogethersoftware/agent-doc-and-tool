@@ -265,6 +265,52 @@ test("documentation-enabled Tool folders are listed and accept their Tool name a
   assert.deepEqual(result.results[0].grant, { type: "directory", name: "scope-tools" });
 });
 
+test("document matching overrides apply independently to document roots and Tool documentation roots", async (t) => {
+  const fixture = await createScopedFixture(t);
+  const rootOverridePath = path.join(fixture.primaryRoot, "root-specific.txt");
+  const rootExcludedPath = path.join(fixture.primaryRoot, "root-excluded.log");
+  const toolOverridePath = path.join(path.dirname(fixture.toolReadme), "tool-specific.txt");
+  await Promise.all([
+    fs.writeFile(rootOverridePath, "Root folder matching override marker.\n", "utf8"),
+    fs.writeFile(rootExcludedPath, "Root folder excluded by matching override.\n", "utf8"),
+    fs.writeFile(toolOverridePath, "Tool folder matching override marker.\n", "utf8")
+  ]);
+
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.sources.local.roots.find((root) => root.name === "bts-app-logs").documentMatching = {
+    mode: "override",
+    extensions: ".txt",
+    fileNames: [],
+    caseSensitive: false
+  };
+  config.tools.directories[0].documentMatching = {
+    mode: "override",
+    extensions: ".txt",
+    fileNames: [],
+    caseSensitive: false
+  };
+  await fs.writeFile(fixture.configPath, JSON.stringify(config, null, 2), "utf8");
+
+  const rootSearch = await searchDocuments({
+    query: "root folder matching override marker",
+    directories: ["bts-app-logs"]
+  }, { configPath: fixture.configPath });
+  assert.deepEqual(rootSearch.results.map((entry) => entry.path), [rootOverridePath]);
+
+  const toolSearch = await searchDocuments({
+    query: "tool folder matching override marker",
+    directories: ["scope-tools"]
+  }, { configPath: fixture.configPath });
+  assert.deepEqual(toolSearch.results.map((entry) => entry.path), [toolOverridePath]);
+
+  const fetched = await fetchDocument({ path: rootOverridePath, source: "local" }, { configPath: fixture.configPath });
+  assert.match(fetched.content, /Root folder matching override marker/);
+  await assert.rejects(
+    fetchDocument({ path: rootExcludedPath, source: "local" }, { configPath: fixture.configPath }),
+    (error) => error?.code === "FETCH_PATH_NOT_ALLOWED"
+  );
+});
+
 test("a colliding Tool documentation grant receives a stable selectable directory name", async (t) => {
   const fixture = await createScopedFixture(t);
   const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));

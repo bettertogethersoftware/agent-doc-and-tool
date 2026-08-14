@@ -175,6 +175,40 @@
               <span class="toggle" aria-hidden="true"></span>
               <span><strong>Grant enabled</strong><small>Disabled grants remain saved but are excluded from the agent's document catalog.</small></span>
             </label>
+            <section id="document-editor-matching" class="folder-matching-editor" hidden>
+              <div class="folder-matching-heading">
+                <div>
+                  <p class="step">MATCHING</p>
+                  <strong>Folder matching rules</strong>
+                </div>
+                <span class="folder-matching-badge">Folder only</span>
+              </div>
+              <label class="field">
+                <span>Rule source</span>
+                <select id="document-editor-matching-mode">
+                  <option value="inherit">Use Documents defaults</option>
+                  <option value="override">Override for this folder</option>
+                </select>
+                <small id="document-editor-matching-summary">Using the Documents defaults.</small>
+              </label>
+              <div id="document-editor-matching-fields" class="field-grid folder-matching-fields">
+                <label class="field">
+                  <span>Extension patterns</span>
+                  <input id="document-editor-matching-extensions" type="text" spellcheck="false" placeholder="**.json;**.ai.md">
+                  <small>Accepted examples: <code>.json</code>, <code>*.json</code>, <code>**.json</code>, <code>**/*.json</code>.</small>
+                </label>
+                <label class="field">
+                  <span>Exact filenames</span>
+                  <input id="document-editor-matching-file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
+                  <small>Matched anywhere below this folder root.</small>
+                </label>
+              </div>
+              <label class="toggle-row compact-toggle folder-matching-case-toggle">
+                <input id="document-editor-matching-case-sensitive" type="checkbox">
+                <span class="toggle" aria-hidden="true"></span>
+                <span><strong>Case-sensitive matching</strong><small>Applies to this folder's filenames and extensions.</small></span>
+              </label>
+            </section>
             <div id="document-editor-scope" class="document-editor-scope"></div>
           </div>
         </aside>
@@ -182,8 +216,8 @@
 
       <details class="panel advanced document-matching-panel">
         <summary>
-          <span><span class="step">MATCHING</span><strong>Matching rules</strong></span>
-          <small>Extensions and filenames</small>
+          <span><span class="step">MATCHING</span><strong>Default matching rules</strong></span>
+          <small>Used by folders set to inherit</small>
         </summary>
         <div class="advanced-body document-matching-body">
           <div class="field-grid">
@@ -195,7 +229,7 @@
             <label class="field">
               <span>Exact filenames</span>
               <input id="file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
-              <small>Matched anywhere below an enabled folder root.</small>
+            <small>Matched anywhere below an enabled folder root that uses these defaults.</small>
             </label>
           </div>
           <label class="toggle-row compact-toggle">
@@ -407,6 +441,40 @@
             </section>
 
             <section id="tool-source-resource-grants" class="tool-inspector-section tool-source-resource-grants" role="tabpanel" aria-labelledby="tool-source-tools-tab" hidden>
+              <section id="tool-source-document-matching" class="folder-matching-editor tool-source-document-matching" hidden>
+                <div class="folder-matching-heading">
+                  <div>
+                    <p class="step">DOCUMENT MATCHING</p>
+                    <strong>Folder document rules</strong>
+                  </div>
+                  <span class="folder-matching-badge">Documents tab</span>
+                </div>
+                <label class="field">
+                  <span>Rule source</span>
+                  <select id="tool-source-document-matching-mode">
+                    <option value="inherit">Use Documents defaults</option>
+                    <option value="override">Override for this folder</option>
+                  </select>
+                  <small id="tool-source-document-matching-summary">Using the Documents defaults.</small>
+                </label>
+                <div id="tool-source-document-matching-fields" class="field-grid folder-matching-fields">
+                  <label class="field">
+                    <span>Extension patterns</span>
+                    <input id="tool-source-document-matching-extensions" type="text" spellcheck="false" placeholder="**.json;**.ai.md">
+                    <small>Accepted examples: <code>.json</code>, <code>*.json</code>, <code>**.json</code>, <code>**/*.json</code>.</small>
+                  </label>
+                  <label class="field">
+                    <span>Exact filenames</span>
+                    <input id="tool-source-document-matching-file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
+                    <small>Matched anywhere below this Tool folder.</small>
+                  </label>
+                </div>
+                <label class="toggle-row compact-toggle folder-matching-case-toggle">
+                  <input id="tool-source-document-matching-case-sensitive" type="checkbox">
+                  <span class="toggle" aria-hidden="true"></span>
+                  <span><strong>Case-sensitive matching</strong><small>Applies to this Tool folder's document filenames and extensions.</small></span>
+                </label>
+              </section>
               <div class="tool-scan-commandbar">
                 <div class="tool-scan-command-summary">
                   <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
@@ -538,7 +606,7 @@
           <label class="field">
             <span>Tool suffix patterns</span>
             <input id="tool-extensions" type="text" spellcheck="false" placeholder=".exe;.cmd;.bat;.ps1;.py;.js;.mjs">
-            <small>Use semicolons between values. Scan tools uses these suffix rules and the Tools tab's Include subfolders setting; Scan documents uses the Documents matching rules and its own setting. Link and secret safety checks still apply.</small>
+            <small>Use semicolons between values. Scan tools uses these suffix rules and the Tools tab's Include subfolders setting; Scan documents uses the selected Tool folder's document rules, or these defaults when that folder inherits them. Link and secret safety checks still apply.</small>
           </label>
         </div>
       </details>
@@ -896,7 +964,7 @@
           <code id="config-path">Loading…</code>
         </div>
       </details>
-      <div class="actionbar-dirty">
+      <div id="dirty-state-container" class="actionbar-dirty is-clean" aria-hidden="true">
         <strong id="dirty-state">No unsaved changes</strong>
         <span id="change-summary">Saved configuration is available to the local agent.</span>
       </div>
@@ -913,6 +981,7 @@
       <input data-field="name" type="hidden">
       <input data-field="path" type="hidden">
       <input data-field="priority" type="hidden">
+      <input data-field="documentMatching" type="hidden">
       <button class="document-grant-select" data-action="select-document-grant" type="button" aria-label="Edit folder document grant">
         <span class="document-grant-name" data-role="document-grant-name"></span>
         <span class="document-grant-kind" data-role="document-grant-kind"></span>
@@ -950,6 +1019,7 @@
       <input data-field="documentRecursive" type="checkbox" hidden>
       <input data-field="scanLimit" type="number" min="1" max="5000" hidden>
       <input data-field="includeDocs" type="checkbox" hidden>
+      <input data-field="documentMatching" type="hidden">
       <textarea data-role="folder-instruction" hidden></textarea>
       <button class="tool-source-select" data-action="select-source" type="button" aria-label="Edit tool source">
         <span class="tool-catalog-identity">

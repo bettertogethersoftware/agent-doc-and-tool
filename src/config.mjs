@@ -45,13 +45,29 @@ const CatalogInstructionsSchema = z.object({
   secrets: InstructionTextSchema.optional()
 }).strict();
 
+const ExtensionListSchema = z.union([
+  z.string().trim().min(1),
+  z.array(z.string().trim().min(1))
+]);
+
+const DocumentMatchingOverrideSchema = z.object({
+  // A missing override inherits the source defaults. Keep an explicit mode so
+  // hand-authored configurations can opt back into inheritance without
+  // deleting the rest of the object first.
+  mode: z.enum(["inherit", "override"]).default("override"),
+  extensions: ExtensionListSchema.optional(),
+  fileNames: z.array(z.string().trim().min(1)).optional(),
+  caseSensitive: z.boolean().optional()
+}).strict();
+
 const RootEntrySchema = z.union([
   z.string().trim().min(1),
   z.object({
     name: z.string().trim().min(1).optional(),
     path: z.string().trim().min(1),
     priority: z.number().int().min(-10_000).max(10_000).default(0),
-    enabled: z.boolean().default(true)
+    enabled: z.boolean().default(true),
+    documentMatching: DocumentMatchingOverrideSchema.optional()
   }).strict()
 ]);
 
@@ -74,11 +90,6 @@ const ScannedDocumentFileEntrySchema = z.object({
   enabled: z.boolean().default(true)
 }).strict();
 
-const ExtensionListSchema = z.union([
-  z.string().trim().min(1),
-  z.array(z.string().trim().min(1))
-]);
-
 const SourceSchema = z.object({
   roots: z.array(RootEntrySchema).default([]),
   extensions: ExtensionListSchema.default([".ai.md"]),
@@ -98,6 +109,7 @@ const ToolDirectoryEntrySchema = z.union([
     documentRecursive: z.boolean().optional(),
     includeDocs: z.boolean().default(true),
     enabled: z.boolean().default(true),
+    documentMatching: DocumentMatchingOverrideSchema.optional(),
     instruction: InstructionTextSchema.optional(),
     // Accept the former field when loading an existing private configuration.
     // The UI writes only "instruction" going forward.
@@ -266,6 +278,30 @@ export function normalizeExtensionPatterns(value) {
   return [...new Set(patterns)];
 }
 
+function normalizeFileNamePatterns(value) {
+  return [...new Set(value.map((fileName) => fileName.trim()).filter(Boolean))];
+}
+
+function normalizeDocumentMatchingOverride(value) {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = {
+    mode: value.mode ?? "override"
+  };
+  if (value.extensions !== undefined) {
+    normalized.extensions = normalizeExtensionPatterns(value.extensions);
+  }
+  if (value.fileNames !== undefined) {
+    normalized.fileNames = normalizeFileNamePatterns(value.fileNames);
+  }
+  if (value.caseSensitive !== undefined) {
+    normalized.caseSensitive = value.caseSensitive;
+  }
+  return normalized;
+}
+
 function normalizeSource(name, rawSource, configDirectory) {
   const rootNames = new Set();
   const roots = rawSource.roots.map((entry, index) => {
@@ -283,7 +319,10 @@ function normalizeSource(name, rawSource, configDirectory) {
       name: rootName,
       path: resolveConfiguredPath(root.path, configDirectory),
       priority: root.priority ?? 0,
-      enabled: root.enabled !== false
+      enabled: root.enabled !== false,
+      ...(root.documentMatching
+        ? { documentMatching: normalizeDocumentMatchingOverride(root.documentMatching) }
+        : {})
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
@@ -315,7 +354,7 @@ function normalizeSource(name, rawSource, configDirectory) {
     name,
     roots,
     extensions: normalizeExtensionPatterns(rawSource.extensions),
-    fileNames: [...new Set(rawSource.fileNames.map((fileName) => fileName.trim()))],
+    fileNames: normalizeFileNamePatterns(rawSource.fileNames),
     files
   };
 }
@@ -345,6 +384,9 @@ function normalizeTools(rawTools, configDirectory) {
       scanLimit: directory.scanLimit ?? DEFAULT_TOOL_SCAN_LIMIT,
       includeDocs: directory.includeDocs !== false,
       enabled: directory.enabled !== false,
+      ...(directory.documentMatching
+        ? { documentMatching: normalizeDocumentMatchingOverride(directory.documentMatching) }
+        : {}),
       instruction: (directory.instruction ?? directory.humanNote ?? "").trim(),
       scannedToolFiles: (directory.scannedToolFiles ?? []).map((file) => ({
         name: file.name,
@@ -618,6 +660,9 @@ function getToolDocumentationRoots(config, source) {
       path: directory.path,
       priority: directory.priority,
       enabled: true,
+      ...(directory.documentMatching
+        ? { documentMatching: directory.documentMatching }
+        : {}),
       excludedScannedDocumentPaths: directory.scannedDocumentFiles
         .filter((file) => !file.enabled)
         .map((file) => file.path)
@@ -855,18 +900,41 @@ export function resolveDocumentSearchScope(config, {
   };
 }
 
-export function matchesConfiguredDocument(filePath, source, caseSensitive) {
+export function getDocumentMatchingRules(source, folder = undefined, defaultCaseSensitive = false) {
+  const override = folder?.documentMatching;
+  if (!override || override.mode === "inherit") {
+    return {
+      extensions: source.extensions,
+      fileNames: source.fileNames,
+      caseSensitive: defaultCaseSensitive
+    };
+  }
+
+  return {
+    extensions: override.extensions ?? source.extensions,
+    fileNames: override.fileNames ?? source.fileNames,
+    // This flag controls filename and extension matching. Content-query case
+    // sensitivity remains the source-wide setting used by the search query.
+    caseSensitive: override.caseSensitive ?? defaultCaseSensitive
+  };
+}
+
+export function matchesConfiguredDocument(filePath, sourceOrRules, caseSensitive = false, folder = undefined) {
+  const rules = folder
+    ? getDocumentMatchingRules(sourceOrRules, folder, caseSensitive)
+    : sourceOrRules;
+  const matchingCaseSensitive = rules.caseSensitive ?? caseSensitive;
   const baseName = path.basename(filePath);
-  const candidate = caseSensitive ? baseName : baseName.toLowerCase();
-  const fileNameMatch = source.fileNames.some((fileName) => (
-    candidate === (caseSensitive ? fileName : fileName.toLowerCase())
+  const candidate = matchingCaseSensitive ? baseName : baseName.toLowerCase();
+  const fileNameMatch = rules.fileNames.some((fileName) => (
+    candidate === (matchingCaseSensitive ? fileName : fileName.toLowerCase())
   ));
   if (fileNameMatch) {
     return true;
   }
 
-  return source.extensions.some((extension) => (
-    candidate.endsWith(caseSensitive ? extension : extension.toLowerCase())
+  return rules.extensions.some((extension) => (
+    candidate.endsWith(matchingCaseSensitive ? extension : extension.toLowerCase())
   ));
 }
 

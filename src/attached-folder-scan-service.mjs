@@ -258,7 +258,7 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
   const documentSource = kind === "document" ? getConfiguredSource(config) : null;
   const matchesFile = kind === "tool"
     ? (filePath) => matchesTool(filePath, config)
-    : (filePath) => matchesConfiguredDocument(filePath, documentSource, config.caseSensitive);
+    : (filePath) => matchesConfiguredDocument(filePath, documentSource, config.caseSensitive, directory);
   const recursive = kind === "tool"
     ? directory.recursive !== false
     : directory.documentRecursive !== false;

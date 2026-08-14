@@ -1,7 +1,7 @@
 # Documents Operator Workspace Design
 
 Status: Implemented  
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Problem
 
@@ -29,6 +29,10 @@ Document grants                 Selected grant
 - Selecting a row opens one focused inspector. Folder-only priority remains
   editable there; exact files deliberately do not acquire a synthetic
   priority.
+- The Documents panel exposes source-level **Default matching rules** for
+  extensions, exact filenames, and filename case sensitivity. A selected
+  folder can inherit those defaults or switch to a per-folder override in the
+  same inspector. Exact-file grants remain independent of folder matching.
 - Adding and browsing are grouped explicitly by grant type. The drop box is a
   separate import path, not a competing substitute for those actions.
 - Matching rules and read-only test search become collapsible utilities so an
@@ -44,9 +48,12 @@ Document grants                 Selected grant
 3. The inspector permits existing name/path/enabled/priority edits, including
    per-path validation on blur.
 4. `collectConfig`, drag/drop, native pickers, validation, and document search
-   continue to operate against the same data shape.
+   continue to operate against the same data shape, with optional
+   `documentMatching` overrides on folder roots.
 5. The matching and test utilities no longer create an oversized empty page.
-6. UI-server, MCP smoke/live, configuration checks, and live UI validation
+6. A folder override affects recursive discovery, `fetch`, and read-only test
+   search without changing exact-file grant semantics.
+7. UI-server, MCP smoke/live, configuration checks, and live UI validation
    pass without saving the private local configuration.
 
 ## Verification
@@ -58,6 +65,8 @@ Document grants                 Selected grant
 - `npm run check`
 - `npm run test:mcp:live`
 - `git diff --check`
+- Per-folder matching coverage for document roots and Tool documentation
+  roots, including fetch rejection outside an override.
 - Live local UI: checked catalog filtering, row selection, exact-file editing,
   validation-state synchronization, the folder-only priority control, and the
   collapsed matching, limits, and test utilities. Temporary grants were
