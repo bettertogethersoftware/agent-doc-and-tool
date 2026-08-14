@@ -225,6 +225,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(helpPanelText, /Use reusable prompts safely/);
   assert.match(helpPanelText, /Search only approved local documents/);
   assert.match(helpPanelText, /Discover tools before running them/);
+  assert.match(helpPanelText, /<code>list_tool<\/code><span>→<\/span><code>saved Tool<\/code><span>→<\/span><code>find_tool fallback<\/code>/);
+  assert.doesNotMatch(helpPanelText, /<code>list_tool<\/code><span>→<\/span><code>find_tool<\/code>/);
   assert.match(helpPanelText, /Grant exact credential files carefully/);
   assert.match(helpPanelText, /<code>list<\/code><span>→<\/span><code>search<\/code><span>→<\/span><code>fetch<\/code>/);
   assert.doesNotMatch(pageText, /Register tools without running them/);

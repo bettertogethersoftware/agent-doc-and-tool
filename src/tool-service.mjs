@@ -7,6 +7,7 @@ import createIgnore from "ignore";
 import { getExactToolFiles, isConfiguredSecretPath, loadConfig } from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
 import { canonicalize } from "./text.mjs";
+import { toolMetadataFor } from "./tool-metadata.mjs";
 
 const PROTECTED_DIRECTORY_NAMES = new Set([".aws", ".azure", ".gnupg", ".ssh"]);
 const PROTECTED_FILE_NAMES = new Set([".env", "credentials.json", "id_dsa", "id_ed25519", "id_rsa", "known_hosts"]);
@@ -330,26 +331,6 @@ function scoreCandidate(candidate, queryPlan, caseSensitive) {
   return { score, matchedTerms, allTermsMatched };
 }
 
-function invocationFor(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  if ([".exe", ".com"].includes(extension)) {
-    return { type: "executable", invocation: { kind: "direct", command: filePath, argumentsPrefix: [], requiresEnvironment: false } };
-  }
-  if ([".cmd", ".bat"].includes(extension)) {
-    return { type: "batch-script", invocation: { kind: "command-shell", command: filePath, argumentsPrefix: [], requiresEnvironment: true } };
-  }
-  if (extension === ".ps1") {
-    return { type: "powershell-script", invocation: { kind: "powershell", command: "powershell", argumentsPrefix: ["-NoProfile", "-File", filePath], requiresEnvironment: true } };
-  }
-  if (extension === ".py") {
-    return { type: "python-script", invocation: { kind: "python", command: "python", argumentsPrefix: [filePath], requiresEnvironment: true } };
-  }
-  if ([".js", ".mjs", ".cjs"].includes(extension)) {
-    return { type: "node-script", invocation: { kind: "node", command: "node", argumentsPrefix: [filePath], requiresEnvironment: true } };
-  }
-  return { type: "configured-file", invocation: { kind: "unspecified", command: filePath, argumentsPrefix: [], requiresEnvironment: true } };
-}
-
 function documentationEnabledFor(filePath, config) {
   const source = config.sources[config.defaultSource];
   const documentationRoots = [
@@ -395,15 +376,16 @@ export async function findTools({ query, maxResults = undefined }, options = {})
     if (!match) {
       return [];
     }
-    const invocation = invocationFor(candidate.path);
+    const metadata = toolMetadataFor(candidate.path);
     return [{
       name: candidate.name,
       path: candidate.path,
-      workingDirectory: path.dirname(candidate.path),
+      workingDirectory: metadata.workingDirectory,
       verified: true,
       relativePath: candidate.relativePath,
-      extension: path.extname(candidate.path).toLowerCase(),
-      ...invocation,
+      extension: metadata.extension,
+      type: metadata.type,
+      invocation: metadata.invocation,
       source: candidate.source,
       sourceName: candidate.sourceName,
       priority: candidate.priority,

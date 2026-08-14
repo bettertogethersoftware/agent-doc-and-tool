@@ -327,7 +327,16 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
   assert.deepEqual(listed.files, [{
     name: "enabled-exact-tool",
     path: fixture.enabledExactTool,
-    priority: 100
+    priority: 100,
+    workingDirectory: path.dirname(fixture.enabledExactTool),
+    extension: ".py",
+    type: "python-script",
+    invocation: {
+      kind: "python",
+      command: "python",
+      argumentsPrefix: [fixture.enabledExactTool],
+      requiresEnvironment: true
+    }
   }]);
   assert.equal(listed.instruction, fixture.instructions.tools);
   assert.equal(listed.meta.enabledOnly, true);
@@ -335,6 +344,30 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
   assert.equal(listed.meta.directoriesReturned, 1);
   assert.equal(listed.meta.filesReturned, 1);
   assert.doesNotMatch(JSON.stringify(listed), /disabled-tools|disabled-exact-tool|does-not-exist/);
+  assert.equal(Object.hasOwn(listed.files[0], "verified"), false);
+});
+
+test("tool catalog preserves configured metadata when a saved exact Tool is missing", async (t) => {
+  const fixture = await createFixture(t);
+  await fs.rm(fixture.enabledExactTool);
+
+  const listed = await listToolCatalog({ configPath: fixture.configPath });
+  assert.deepEqual(listed.files, [{
+    name: "enabled-exact-tool",
+    path: fixture.enabledExactTool,
+    priority: 100,
+    workingDirectory: path.dirname(fixture.enabledExactTool),
+    extension: ".py",
+    type: "python-script",
+    invocation: {
+      kind: "python",
+      command: "python",
+      argumentsPrefix: [fixture.enabledExactTool],
+      requiresEnvironment: true
+    }
+  }]);
+  assert.equal(Object.hasOwn(listed.files[0], "verified"), false);
+  assert.equal(listed.meta.executed, false);
 });
 
 test("saved scan selections are listed as direct tools and searchable exact documents", async (t) => {
@@ -377,7 +410,16 @@ test("saved scan selections are listed as direct tools and searchable exact docu
   assert.deepEqual(listedDirectory.scannedToolFiles, [{
     name: "enabled-tools-generate-video",
     path: scanToolPath,
-    priority: 275
+    priority: 275,
+    workingDirectory: path.dirname(scanToolPath),
+    extension: ".py",
+    type: "python-script",
+    invocation: {
+      kind: "python",
+      command: "python",
+      argumentsPrefix: [scanToolPath],
+      requiresEnvironment: true
+    }
   }]);
   assert.deepEqual(listedDirectory.scannedDocumentFiles, [{
     name: "enabled-tools-readme",
@@ -411,6 +453,21 @@ test("saved scan selections are listed as direct tools and searchable exact docu
   assert.equal(selectedTool.path, scanToolPath);
   assert.equal(selectedTool.priority, 275);
   assert.equal(selectedTool.documentationSearchEnabled, true);
+  assert.deepEqual(
+    {
+      workingDirectory: selectedTool.workingDirectory,
+      extension: selectedTool.extension,
+      type: selectedTool.type,
+      invocation: selectedTool.invocation
+    },
+    {
+      workingDirectory: listedDirectory.scannedToolFiles[0].workingDirectory,
+      extension: listedDirectory.scannedToolFiles[0].extension,
+      type: listedDirectory.scannedToolFiles[0].type,
+      invocation: listedDirectory.scannedToolFiles[0].invocation
+    }
+  );
+  assert.equal(Object.hasOwn(listedDirectory.scannedToolFiles[0], "verified"), false);
   assert.ok(foundTool.results.every((entry) => entry.name !== "enabled-tools-disabled-generate"));
 
   const disabledUnscoped = await searchDocuments({ query: "disabled scanned document", source: "local" }, { configPath: fixture.configPath });

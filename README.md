@@ -9,8 +9,8 @@ The tools are:
 - `list()` returns only the enabled document folders and enabled exact files, including enabled Tool documentation folders configured with `includeDocs` and enabled scanned document selections saved beneath tool sources. A Tool source may keep its documentation in a separate `documentPath`; that documentation path, rather than the executable folder, becomes its document grant. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
 - `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. An enabled Tool folder with `includeDocs: true` is a selectable document directory, so agents can pass its listed name through `directories`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
 - `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
-- `list_tool()` returns only enabled tool directories and manually added exact tool files. Each directory reports its tool `path` and effective `documentPath`, which may be different. A returned tool directory can also include its folder Instruction, selected scanned tool files, and selected scanned document files with their direct paths. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. It does not enumerate, verify, invoke, or execute tools.
-- `find_tool(query)` resolves human-allowlisted executables and scripts by name or capability. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
+- `list_tool()` returns only enabled tool directories and manually added exact tool files. Each directory reports its tool `path` and effective `documentPath`, which may be different. A returned tool directory can also include its folder Instruction, selected scanned tool files, and selected scanned document files with their direct paths. Every selected or manually added exact Tool entry also includes `workingDirectory`, lower-case `extension`, `type`, and deterministic `invocation` metadata. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. The catalog does not enumerate, verify, invoke, or execute tools, so it never reports `verified: true`.
+- `find_tool(query)` is a fallback for discovering an eligible Tool that was not saved in `list_tool` or for fresh filesystem verification. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
 - `read_prompt(prompt)` returns the complete text and SHA-256 identity of one enabled prompt selected by its exact configured name or alias.
@@ -77,7 +77,7 @@ The four catalog methods provide a broad view of the grants that are currently e
 | MCP method | Input | Enabled entries returned | Deliberately not performed |
 | --- | --- | --- | --- |
 | `list` | `{}` | Documents top-level `instruction`; document directories with `name`, `path`, and `priority`, including enabled Tool folders with `includeDocs`; exact document files with `name` and `path`, including enabled selected scanned documents | Recursive file enumeration or document-content search |
-| `list_tool` | `{}` | Tools top-level `instruction`; tool directories with `name`, tool `path`, effective `documentPath`, `priority`, `recursive`, `includeDocs`, optional folder-specific `instruction`, and enabled selected scan entries; manually added exact tool files with `name`, `path`, and `priority` | Directory enumeration, file verification, help calls, invocation, or execution |
+| `list_tool` | `{}` | Tools top-level `instruction`; tool directories with `name`, tool `path`, effective `documentPath`, `priority`, `recursive`, `includeDocs`, optional folder-specific `instruction`, and enabled selected scan entries; selected and manually added exact Tool files include `name`, `path`, `priority`, `workingDirectory`, `extension`, `type`, and `invocation` | Directory enumeration, file verification, help calls, invocation, or execution |
 | `list_prompt` | `{}` | Prompts top-level `instruction`; reusable prompts with `name` and discovery `keywords` | Prompt-body retrieval or preview generation |
 | `list_secret` | `{}` | Secrets top-level `instruction`; exact secret-file grants with `name`, `path`, and configured `format` | Opening secret files, detecting fields, or returning values |
 
@@ -155,7 +155,16 @@ An enabled tool catalog response has this shape:
         {
           "name": "media-tools-ffprobe",
           "path": "C:\\path\\to\\media-tools\\bin\\ffprobe.exe",
-          "priority": 100
+          "priority": 100,
+          "workingDirectory": "C:\\path\\to\\media-tools\\bin",
+          "extension": ".exe",
+          "type": "executable",
+          "invocation": {
+            "kind": "direct",
+            "command": "C:\\path\\to\\media-tools\\bin\\ffprobe.exe",
+            "argumentsPrefix": [],
+            "requiresEnvironment": false
+          }
         }
       ],
       "scannedDocumentFiles": [
@@ -170,7 +179,16 @@ An enabled tool catalog response has this shape:
     {
       "name": "ffprobe",
       "path": "C:\\path\\to\\ffprobe.exe",
-      "priority": 100
+      "priority": 100,
+      "workingDirectory": "C:\\path\\to",
+      "extension": ".exe",
+      "type": "executable",
+      "invocation": {
+        "kind": "direct",
+        "command": "C:\\path\\to\\ffprobe.exe",
+        "argumentsPrefix": [],
+        "requiresEnvironment": false
+      }
     }
   ],
   "meta": {
@@ -189,17 +207,18 @@ An enabled tool catalog response has this shape:
 }
 ```
 
-`files` continues to contain manually added exact tool files. The top-level `instruction` is the Tools-tab Instruction and is always present. Saved scan selections stay nested under the tool folder that owns its separate Instruction and scan controls; that folder-specific `instruction` and the scan arrays are omitted when empty. No `origin` field is returned. A selected scanned tool is also discoverable by `find_tool`; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
+`files` continues to contain manually added exact tool files. The top-level `instruction` is the Tools-tab Instruction and is always present. Saved scan selections stay nested under the tool folder that owns its separate Instruction and scan controls; that folder-specific `instruction` and the scan arrays are omitted when empty. No `origin` or `verified` field is returned by this configuration-only catalog. A matching saved Tool already has its configured path and invocation metadata, so it does not require `find_tool` merely because it is absent from `PATH`. A selected scanned tool remains discoverable by `find_tool` when fresh verification or unselected-file discovery is needed; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
 
 For an unfamiliar saved custom tool, keep the direct tool/document relationship rather than performing a broad machine search:
 
 ```text
 list_tool({})
-  -> read the Tools Instruction, then the parent folder's separate Instruction and direct scanned tool path
+  -> read the Tools Instruction, then the parent folder's separate Instruction and direct scanned tool path with invocation metadata
   -> identify a sibling scanned document alias, when one is present
 search({ query: "usage and arguments", directories: [], files: ["folder-readme"] })
   -> fetch the returned absolute document path
-  -> use find_tool only when verification or invocation metadata is needed
+  -> use the saved Tool metadata to build the plan
+  -> call find_tool only for fresh verification or an unselected eligible Tool
 ```
 
 The nested tool and document aliases are unique case-insensitively within their respective grant categories. Agents should use a document alias, not its path, in the `search.files` selector; `fetch` still requires the absolute path returned by `search`.
@@ -371,7 +390,7 @@ Request:
 
 ### `find_tool`
 
-Resolve a particular executable or script from enabled tool directories, enabled manually added exact tool-file grants, and enabled saved scanned tool selections.
+Use `find_tool` only as a fallback after `list_tool`: either to discover an eligible executable or script that was not saved in the catalog, or to perform fresh filesystem verification. It resolves enabled tool directories, manually added exact tool-file grants, and saved scanned tool selections.
 
 Request:
 
@@ -535,7 +554,8 @@ Do not repeat, log, persist, or expose returned values to unrelated tools. Prefe
 Use the catalog methods for orientation, then narrow and retrieve only what the task needs:
 
 ```text
-list_tool   -> direct saved path or find_tool -> search/fetch selected sibling documentation -> authorized help/preflight/execution
+list_tool   -> matching saved path and invocation metadata -> search/fetch selected sibling documentation -> authorized help/preflight/execution
+            -> find_tool only for unselected-file discovery or fresh verification
 list_prompt -> find_prompt -> read_prompt for one selected prompt
 list_secret -> find_secret -> read_secret only when individual values are required
 list        -> search with optional directory/file names -> fetch one selected document

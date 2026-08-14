@@ -136,11 +136,11 @@ the field is absent, documentation continues to inherit the Tool source
 - `node --check ui/app.js`, `node --test test/ui-server.test.mjs`, `npm test`,
   `npm run test:mcp`, `npm run check`, and `git diff --check` pass.
 
-## Follow-up proposal
+## Follow-up implementation
 
 The implemented scan-selection workflow deliberately preloads exact Tool and
-documentation paths in `list_tool`. The proposed
-[A Stronger Simplification for Tool Discovery](TOOL_DISCOVERY_SIMPLIFICATION_PLAN.md)
-would make those selected Tool entries self-sufficient for normal invocation by
+documentation paths in `list_tool`. The
+[Stronger Simplification for Tool Discovery](TOOL_DISCOVERY_SIMPLIFICATION_PLAN.md)
+now makes those selected Tool entries self-sufficient for normal invocation by
 adding deterministic invocation metadata, while retaining `find_tool` only for
 fresh verification and discovery of unselected files.

@@ -16,6 +16,7 @@ const toolRoot = path.join(temporaryRoot, "tools");
 const readmePath = path.join(docsRoot, "README.md");
 const exactDocumentPath = path.join(temporaryRoot, "exact-workflow.txt");
 const toolPath = path.join(toolRoot, "generate_music_stable_audio3.py");
+const manualToolPath = path.join(toolRoot, "inspect_video.ps1");
 const secretPath = path.join(docsRoot, "credentials.env");
 const configPath = path.join(temporaryRoot, "search.config.json");
 const instructions = {
@@ -34,6 +35,7 @@ try {
   await fs.writeFile(readmePath, "# MCP fixture\nMiniMax H3 local video workflow.\nShared scope marker.\n", "utf8");
   await fs.writeFile(exactDocumentPath, "Exact smoke workflow document.\nShared scope marker.\n", "utf8");
   await fs.writeFile(toolPath, "print('MCP fixture')\n", "utf8");
+  await fs.writeFile(manualToolPath, "Write-Output 'MCP fixture'\n", "utf8");
   await fs.writeFile(secretPath, "hostname=ftp.example.test\npassword=mcp-fixture-password\n", "utf8");
   await fs.writeFile(configPath, JSON.stringify({
     version: 1,
@@ -51,8 +53,16 @@ try {
     caseSensitive: false,
     followLinks: false,
     tools: {
-      directories: [{ name: "smoke-tools", path: toolRoot, documentPath: docsRoot, priority: 100, recursive: true, includeDocs: true }],
-      files: [],
+      directories: [{
+        name: "smoke-tools",
+        path: toolRoot,
+        documentPath: docsRoot,
+        priority: 100,
+        recursive: true,
+        includeDocs: true,
+        scannedToolFiles: [{ name: "smoke-audio-generator", path: toolPath, priority: 150 }]
+      }],
+      files: [{ name: "smoke-video-inspector", path: manualToolPath, priority: 125 }],
       extensions: ".exe;.py;.env"
     },
     secrets: {
@@ -99,6 +109,8 @@ try {
     assert.match(toolsByName.get(catalogName).description, /top-level instruction/i);
     assert.doesNotMatch(toolsByName.get(catalogName).description, /humanNote/);
   }
+  assert.match(toolsByName.get("list_tool").description, /invocation metadata/i);
+  assert.match(toolsByName.get("find_tool").description, /fallback/i);
   assert.deepEqual(Object.keys(toolsByName.get("list").inputSchema.properties), []);
   assert.deepEqual(Object.keys(toolsByName.get("search").inputSchema.properties).sort(), ["directories", "files", "maxResults", "query"]);
   assert.deepEqual(Object.keys(toolsByName.get("fetch").inputSchema.properties), ["path"]);
@@ -138,11 +150,40 @@ try {
     documentPath: docsRoot,
     priority: 100,
     recursive: true,
-    includeDocs: true
+    includeDocs: true,
+    scannedToolFiles: [{
+      name: "smoke-audio-generator",
+      path: toolPath,
+      priority: 150,
+      workingDirectory: toolRoot,
+      extension: ".py",
+      type: "python-script",
+      invocation: {
+        kind: "python",
+        command: "python",
+        argumentsPrefix: [toolPath],
+        requiresEnvironment: true
+      }
+    }]
   }]);
-  assert.deepEqual(listToolPayload.files, []);
+  assert.deepEqual(listToolPayload.files, [{
+    name: "smoke-video-inspector",
+    path: manualToolPath,
+    priority: 125,
+    workingDirectory: toolRoot,
+    extension: ".ps1",
+    type: "powershell-script",
+    invocation: {
+      kind: "powershell",
+      command: "powershell",
+      argumentsPrefix: ["-NoProfile", "-File", manualToolPath],
+      requiresEnvironment: true
+    }
+  }]);
   assert.equal(listToolPayload.meta.enabledOnly, true);
   assert.equal(listToolPayload.meta.executed, false);
+  assert.equal(Object.hasOwn(listToolPayload.directories[0].scannedToolFiles[0], "verified"), false);
+  assert.equal(Object.hasOwn(listToolPayload.files[0], "verified"), false);
 
   const listPromptCall = await client.callTool({
     name: "list_prompt",
@@ -267,6 +308,20 @@ try {
   assert.equal(toolPayload.meta.executed, false);
   assert.equal(toolPayload.results[0].path, toolPath);
   assert.equal(toolPayload.results[0].type, "python-script");
+  assert.deepEqual(
+    {
+      workingDirectory: toolPayload.results[0].workingDirectory,
+      extension: toolPayload.results[0].extension,
+      type: toolPayload.results[0].type,
+      invocation: toolPayload.results[0].invocation
+    },
+    {
+      workingDirectory: listToolPayload.directories[0].scannedToolFiles[0].workingDirectory,
+      extension: listToolPayload.directories[0].scannedToolFiles[0].extension,
+      type: listToolPayload.directories[0].scannedToolFiles[0].type,
+      invocation: listToolPayload.directories[0].scannedToolFiles[0].invocation
+    }
+  );
 
   const promptFindCall = await client.callTool({
     name: "find_prompt",

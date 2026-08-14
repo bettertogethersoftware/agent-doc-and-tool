@@ -1,4 +1,5 @@
 import { getConfiguredSource, loadConfig } from "./config.mjs";
+import { toolMetadataFor } from "./tool-metadata.mjs";
 
 export async function listDocumentCatalog({ source: sourceInput = undefined } = {}, options = {}) {
   const config = await loadConfig(options.configPath);
@@ -100,7 +101,8 @@ export async function listToolCatalog(options = {}) {
         .map((file) => ({
           name: file.name,
           path: file.path,
-          priority: file.priority
+          priority: file.priority,
+          ...toolMetadataFor(file.path)
         }));
       const scannedDocumentFiles = directory.scannedDocumentFiles
         .filter((file) => file.enabled)
@@ -125,7 +127,8 @@ export async function listToolCatalog(options = {}) {
     .map((file) => ({
       name: file.name,
       path: file.path,
-      priority: file.priority
+      priority: file.priority,
+      ...toolMetadataFor(file.path)
     }));
   const scannedToolFilesReturned = directories.reduce((total, directory) => total + (directory.scannedToolFiles?.length ?? 0), 0);
   const scannedDocumentFilesReturned = directories.reduce((total, directory) => total + (directory.scannedDocumentFiles?.length ?? 0), 0);

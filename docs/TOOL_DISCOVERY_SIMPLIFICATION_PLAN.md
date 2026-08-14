@@ -1,8 +1,16 @@
 # A Stronger Simplification for Tool Discovery
 
-Status: Proposed for review  
-Created: 2026-08-14  
+Status: Phase 1 implemented; Phases 2 and 3 remain proposed
+
+Created: 2026-08-14
+
 Compatibility: Additive MCP response change; no configuration migration
+
+Implementation update: Phase 1 now uses a shared Tool metadata helper in both
+`list_tool` and `find_tool`, returns metadata for saved exact Tool entries,
+and aligns the MCP, README, UI guide, and project skill guidance with the
+saved-Tool-first workflow. Phase 2 broad-scan optimization and Phase 3 API
+reassessment remain future work.
 
 ## Decision
 
@@ -275,13 +283,13 @@ fresh filesystem verification. Neither method executes a Tool or grants
 permission to run it.
 ```
 
-Update all matching guidance together:
+Phase 1 updates all matching guidance together:
 
 - MCP server instructions and `list_tool`/`find_tool` descriptions.
 - README method descriptions and recommended sequences.
 - Configuration UI Guide workflow text.
 - Repository and installed agent Tool skill guidance, where applicable.
-- CLI help examples that currently imply `list_tool -> find_tool` is mandatory.
+- CLI/MCP-facing help examples so the normal flow no longer requires a `find_tool` call after `list_tool`.
 
 ## Implementation plan
 
