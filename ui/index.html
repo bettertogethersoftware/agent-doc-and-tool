@@ -441,40 +441,6 @@
             </section>
 
             <section id="tool-source-resource-grants" class="tool-inspector-section tool-source-resource-grants" role="tabpanel" aria-labelledby="tool-source-tools-tab" hidden>
-              <section id="tool-source-document-matching" class="folder-matching-editor tool-source-document-matching" hidden>
-                <div class="folder-matching-heading">
-                  <div>
-                    <p class="step">DOCUMENT MATCHING</p>
-                    <strong>Folder document rules</strong>
-                  </div>
-                  <span class="folder-matching-badge">Documents tab</span>
-                </div>
-                <label class="field">
-                  <span>Rule source</span>
-                  <select id="tool-source-document-matching-mode">
-                    <option value="inherit">Use Documents defaults</option>
-                    <option value="override">Override for this folder</option>
-                  </select>
-                  <small id="tool-source-document-matching-summary">Using the Documents defaults.</small>
-                </label>
-                <div id="tool-source-document-matching-fields" class="field-grid folder-matching-fields">
-                  <label class="field">
-                    <span>Extension patterns</span>
-                    <input id="tool-source-document-matching-extensions" type="text" spellcheck="false" placeholder="**.json;**.ai.md">
-                    <small>Accepted examples: <code>.json</code>, <code>*.json</code>, <code>**.json</code>, <code>**/*.json</code>.</small>
-                  </label>
-                  <label class="field">
-                    <span>Exact filenames</span>
-                    <input id="tool-source-document-matching-file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
-                    <small>Matched anywhere below this Tool folder.</small>
-                  </label>
-                </div>
-                <label class="toggle-row compact-toggle folder-matching-case-toggle">
-                  <input id="tool-source-document-matching-case-sensitive" type="checkbox">
-                  <span class="toggle" aria-hidden="true"></span>
-                  <span><strong>Case-sensitive matching</strong><small>Applies to this Tool folder's document filenames and extensions.</small></span>
-                </label>
-              </section>
               <div class="tool-scan-commandbar">
                 <div class="tool-scan-command-summary">
                   <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
@@ -564,6 +530,40 @@
                   </label>
                 </aside>
               </div>
+              <section id="tool-source-document-matching" class="folder-matching-editor tool-source-document-matching" hidden>
+                <div class="folder-matching-heading">
+                  <div>
+                    <p class="step">DOCUMENT MATCHING</p>
+                    <strong>Folder document rules</strong>
+                  </div>
+                  <span class="folder-matching-badge">Documents tab</span>
+                </div>
+                <label class="field">
+                  <span>Rule source</span>
+                  <select id="tool-source-document-matching-mode">
+                    <option value="inherit">Use Documents defaults</option>
+                    <option value="override">Override for this folder</option>
+                  </select>
+                  <small id="tool-source-document-matching-summary">Using the Documents defaults.</small>
+                </label>
+                <div id="tool-source-document-matching-fields" class="field-grid folder-matching-fields">
+                  <label class="field">
+                    <span>Extension patterns</span>
+                    <input id="tool-source-document-matching-extensions" type="text" spellcheck="false" placeholder="**.json;**.ai.md">
+                    <small>Accepted examples: <code>.json</code>, <code>*.json</code>, <code>**.json</code>, <code>**/*.json</code>.</small>
+                  </label>
+                  <label class="field">
+                    <span>Exact filenames</span>
+                    <input id="tool-source-document-matching-file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
+                    <small>Matched anywhere below this Tool folder.</small>
+                  </label>
+                </div>
+                <label class="toggle-row compact-toggle folder-matching-case-toggle">
+                  <input id="tool-source-document-matching-case-sensitive" type="checkbox">
+                  <span class="toggle" aria-hidden="true"></span>
+                  <span><strong>Case-sensitive matching</strong><small>Applies to this Tool folder's document filenames and extensions.</small></span>
+                </label>
+              </section>
             </section>
 
             <section id="tool-source-instruction" class="tool-inspector-section" role="tabpanel" aria-labelledby="tool-source-instruction-tab" hidden>

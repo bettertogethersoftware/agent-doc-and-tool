@@ -291,6 +291,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(toolsPanelText, /id="tool-source-document-matching"/);
   assert.match(toolsPanelText, /id="tool-source-document-matching-mode"/);
   assert.match(toolsPanelText, /Folder document rules/);
+  assert.ok(toolsPanelText.indexOf('class="tool-scan-commandbar"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
+  assert.ok(toolsPanelText.indexOf('class="tool-grant-workspace"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
   assert.match(pageText, /id="tool-source-resource-grants"/);
   assert.match(pageText, /id="tool-grants-list"/);
   assert.match(pageText, /id="tool-exact-grants"/);
