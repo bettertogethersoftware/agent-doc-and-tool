@@ -186,6 +186,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /data-workspace-splitter="documents"/);
   assert.match(pageText, /data-workspace-splitter="tools"/);
   assert.match(pageText, /data-workspace-splitter="secrets"/);
+  for (const catalog of ["prompts", "documents", "tools", "secrets"]) {
+    assert.match(pageText, new RegExp(`data-workspace-splitter="${catalog}"[^>]*aria-valuenow="35"[^>]*aria-valuetext="35% catalog, 65% detail"`));
+  }
+  assert.match(stylesText, /\.prompt-workspace-grid,\s*\.document-console,\s*\.tool-console,\s*\.secret-console\s*\{\s*--workspace-master-width:\s*35%;/s);
   assert.match(pageText, /data-action="select"/);
   assert.match(pageText, /<textarea data-field="content" hidden><\/textarea>/);
   assert.match(appText, /selectedPromptId:\s*null/);

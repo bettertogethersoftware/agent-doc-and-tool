@@ -5008,26 +5008,29 @@ input.scan-exact-field:focus {
 }
 
 @media (min-width: 1101px) {
+  .prompt-workspace-grid,
+  .document-console,
+  .tool-console,
+  .secret-console {
+    --workspace-master-width: 35%;
+  }
+
   .prompt-workspace-grid {
-    --workspace-master-width: 52%;
     grid-template-columns: minmax(320px, min(var(--workspace-master-width), calc(100% - 432px))) 14px minmax(420px, 1fr);
     gap: 0;
   }
 
   .document-console {
-    --workspace-master-width: 46%;
     grid-template-columns: minmax(300px, min(var(--workspace-master-width), calc(100% - 372px))) 14px minmax(360px, 1fr);
     gap: 0;
   }
 
   .tool-console {
-    --workspace-master-width: 40%;
     grid-template-columns: minmax(330px, min(var(--workspace-master-width), calc(100% - 424px))) 14px minmax(410px, 1fr);
     gap: 0;
   }
 
   .secret-console {
-    --workspace-master-width: 46%;
     grid-template-columns: minmax(300px, min(var(--workspace-master-width), calc(100% - 402px))) 14px minmax(390px, 1fr);
     gap: 0;
   }
@@ -7741,7 +7744,6 @@ textarea::placeholder {
 
 @media (min-width: 1101px) {
   .tool-console {
-    --workspace-master-width: 46%;
     grid-template-columns: minmax(300px, min(var(--workspace-master-width), calc(100% - 424px))) 14px minmax(410px, 1fr);
   }
 }
