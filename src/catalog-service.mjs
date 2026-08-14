@@ -111,6 +111,7 @@ export async function listToolCatalog(options = {}) {
       return {
         name: directory.name,
         path: directory.path,
+        documentPath: directory.documentPath,
         priority: directory.priority,
         recursive: directory.recursive,
         includeDocs: directory.includeDocs,

@@ -23,11 +23,16 @@ Tool sources                 Selected source
                                 - matching scan action per resource tab
 ```
 
-The design preserves the existing tool-discovery MCP output: tool directories
-remain tool catalogs, scanned tools and documents remain owned by their parent
-directory, and direct exact tool files remain separate top-level grants. The
+Each source is one Tool bundle: `path` identifies the Tool root and the optional
+`documentPath` identifies its documentation root. Scanned tools and documents
+remain owned by that same parent directory, so `list_tool` returns both roots
+and every enabled selected exact path together without requiring a follow-up
+search. Direct exact tool files remain separate top-level grants. The
 configuration adds a backward-compatible document scan scope: absent
-`documentRecursive` values inherit the existing `recursive` value.
+`documentRecursive` values inherit the existing `recursive` value. It also
+allows an optional `documentPath` to separate manuals from executables; when
+the field is absent, documentation continues to inherit the Tool source
+`path`.
 
 ## Interaction model
 
@@ -42,21 +47,26 @@ configuration adds a backward-compatible document scan scope: absent
 
 ### Selected-source inspector
 
-- **Overview** is the only place where source name, path, priority,
-  documentation option, and enabled state are edited.
+- **Overview** owns source name, Tool path, priority, documentation option,
+  and enabled state.
 - **Tools** shows only scanned tools. It owns its **Include subfolders** scope
   (`recursive`), **Scan tools**, tool-specific filtering, bulk
   enable/disable, and priority editing. Its scope also controls recursive
   tool discovery. Paths are secondary and copyable; a selected grant opens one
   focused editor rather than turning every table cell into an input.
 - **Documents** shows only scanned documents. It owns its independent
-  **Include subfolders** scope (`documentRecursive`), **Scan documents**,
-  document-specific filtering, and bulk enable/disable. Its scope affects
-  only Document scans; it does not change document discovery, `search`, or
-  `fetch`. It does not show a meaningless Tool priority column. The same tab
-  owns the selected Tool folder's document-matching mode: it can inherit the
-  Documents defaults or override extensions, exact filenames, and filename
-  case sensitivity for nearby documentation and the scan.
+  documentation location (`documentPath`), **Include subfolders** scope
+  (`documentRecursive`), **Scan documents**, document-specific filtering, and
+  bulk enable/disable. A blank documentation location inherits the Tool
+  source path; an explicit location may point to an unrelated folder. Its
+  recursion scope affects only Document scans; it does not change document
+  discovery, `search`, or `fetch`. It does not show a meaningless Tool
+  priority column. The same tab owns the selected Tool source's
+  document-matching mode: it can inherit the Documents defaults or override
+  extensions, exact filenames, and filename case sensitivity for the
+  effective documentation folder and the scan. The command bar always displays
+  the effective scan folder so an operator can verify that an explicit
+  documentation path is being used instead of the Tool-path fallback.
 - **Instruction** owns the optional folder Instruction and keeps that context
   separate from the Tools-tab Catalog Instruction.
 - Each scan control and its own recursion scope live in the matching resource
@@ -90,9 +100,11 @@ configuration adds a backward-compatible document scan scope: absent
    tabs, folder Instruction, and the corresponding scan action without a
    page-length round trip.
 3. Scanning, enable/disable, removing grants, and saving preserve source-owned
-   grants and write independent `recursive` and `documentRecursive` scan
-   scopes plus optional `documentMatching` rules without changing `list_tool`
-   output.
+   grants and write independent `path` and optional `documentPath` locations,
+   `recursive` and `documentRecursive` scan scopes, plus optional
+   `documentMatching` rules. `list_tool` reports the Tool path, effective
+   documentation path, and enabled selected Tool/help paths together without
+   enumerating either folder or requiring an additional search.
 4. Direct exact tool files remain editable and clearly distinguished from
    source-owned grants.
 5. All lists have one intentional local scroll area at large sizes; empty
@@ -101,7 +113,7 @@ configuration adds a backward-compatible document scan scope: absent
    assistive technology.
 7. Existing configuration, UI-server, MCP smoke, and validation tests pass,
    including nested-file coverage for independent Tool and Document scan
-   scopes.
+   scopes and documentation stored outside the Tool source tree.
 
 ## Delivery sequence
 
@@ -123,3 +135,12 @@ configuration adds a backward-compatible document scan scope: absent
   direct exact files are configured.
 - `node --check ui/app.js`, `node --test test/ui-server.test.mjs`, `npm test`,
   `npm run test:mcp`, `npm run check`, and `git diff --check` pass.
+
+## Follow-up proposal
+
+The implemented scan-selection workflow deliberately preloads exact Tool and
+documentation paths in `list_tool`. The proposed
+[A Stronger Simplification for Tool Discovery](TOOL_DISCOVERY_SIMPLIFICATION_PLAN.md)
+would make those selected Tool entries self-sufficient for normal invocation by
+adding deterministic invocation metadata, while retaining `find_tool` only for
+fresh verification and discovery of unselected files.

@@ -421,7 +421,7 @@
                 </label>
               </div>
               <label class="field tool-source-path-field">
-                <span>Source path</span>
+                <span>Tool source path</span>
                 <input id="tool-source-editor-path" type="text" spellcheck="false" placeholder="C:\path\to\tool-folder" required>
                 <small id="tool-source-editor-path-state" class="field-path-state">Path status is shown after validation.</small>
               </label>
@@ -429,7 +429,7 @@
                 <label class="toggle-row compact-toggle">
                   <input id="tool-source-editor-include-docs" type="checkbox">
                   <span class="toggle" aria-hidden="true"></span>
-                  <span><strong>Include documentation</strong><small>Allow matching nearby documents.</small></span>
+                  <span><strong>Include documentation</strong><small>Allow searching and fetching documents from this source's documentation folder.</small></span>
                 </label>
                 <label class="toggle-row compact-toggle">
                   <input id="tool-source-editor-enabled" type="checkbox">
@@ -441,10 +441,29 @@
             </section>
 
             <section id="tool-source-resource-grants" class="tool-inspector-section tool-source-resource-grants" role="tabpanel" aria-labelledby="tool-source-tools-tab" hidden>
+              <section id="tool-source-document-location" class="tool-source-document-location" aria-labelledby="tool-source-document-location-title" hidden>
+                <div class="tool-source-document-location-heading">
+                  <div>
+                    <p class="step">TOOL DOCUMENTS</p>
+                    <strong id="tool-source-document-location-title">Documentation folder for this Tool</strong>
+                  </div>
+                  <span class="folder-matching-badge">Documents tab</span>
+                </div>
+                <div class="tool-source-document-path-control">
+                  <label class="field">
+                    <span>Documentation folder</span>
+                    <input id="tool-source-document-path" type="text" spellcheck="false" placeholder="Leave blank to use the Tool source path">
+                    <small id="tool-source-document-path-state" class="field-path-state">Using the Tool source path.</small>
+                  </label>
+                  <button id="pick-tool-source-document-path" class="button action-browse" type="button">Browse</button>
+                </div>
+                <p id="tool-source-document-location-help">This Tool grant keeps its Tool path and documentation path together. Scan documents uses this folder; when it is blank, it uses the Tool source path.</p>
+              </section>
               <div class="tool-scan-commandbar">
                 <div class="tool-scan-command-summary">
                   <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
                   <p id="tool-scan-summary" class="tool-scan-summary" role="status" aria-live="polite">Ready to scan matching tool files.</p>
+                  <p class="tool-scan-path"><span>Scan folder</span><code id="tool-scan-path">No folder selected</code></p>
                 </div>
                 <div class="tool-scan-command-actions">
                   <details id="tool-scan-options" class="tool-scan-options">
@@ -468,8 +487,8 @@
                     </div>
                   </details>
                   <div class="button-row tool-scan-run-actions" role="group" aria-label="Selected source scan action">
-                    <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the selected source for matching tool files">Scan tools</button>
-                    <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the selected source for matching document files" hidden>Scan documents</button>
+                    <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the Tool path for matching tool files">Scan tools</button>
+                    <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the documentation path for matching document files; if none is set, scan the Tool path" hidden>Scan documents</button>
                   </div>
                 </div>
               </div>
@@ -555,13 +574,13 @@
                   <label class="field">
                     <span>Exact filenames</span>
                     <input id="tool-source-document-matching-file-names" type="text" spellcheck="false" placeholder="README.md;AGENTS.md">
-                    <small>Matched anywhere below this Tool folder.</small>
+                    <small>Matched anywhere below this documentation folder.</small>
                   </label>
                 </div>
                 <label class="toggle-row compact-toggle folder-matching-case-toggle">
                   <input id="tool-source-document-matching-case-sensitive" type="checkbox">
                   <span class="toggle" aria-hidden="true"></span>
-                  <span><strong>Case-sensitive matching</strong><small>Applies to this Tool folder's document filenames and extensions.</small></span>
+                  <span><strong>Case-sensitive matching</strong><small>Applies to this documentation folder's filenames and extensions.</small></span>
                 </label>
               </section>
             </section>
@@ -1014,6 +1033,7 @@
     <article class="entry-row tool-source-entry tool-catalog-entry" role="listitem">
       <input data-field="name" type="hidden">
       <input data-field="path" type="hidden">
+      <input data-field="documentPath" type="hidden">
       <input data-field="priority" type="hidden">
       <input data-field="recursive" type="checkbox" hidden>
       <input data-field="documentRecursive" type="checkbox" hidden>
@@ -1033,6 +1053,7 @@
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool source" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove tool source">×</button>
       <div class="path-state" data-role="state" role="status" aria-live="polite" hidden></div>
+      <div class="path-state" data-role="document-state" role="status" aria-live="polite" hidden></div>
     </article>
   </template>
 

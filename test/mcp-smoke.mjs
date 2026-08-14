@@ -12,9 +12,10 @@ const projectRoot = path.resolve(testDirectory, "..");
 const systemTemporaryRoot = await fs.realpath(os.tmpdir());
 const temporaryRoot = await fs.mkdtemp(path.join(systemTemporaryRoot, "agent-doc-mcp-smoke-"));
 const docsRoot = path.join(temporaryRoot, "docs");
+const toolRoot = path.join(temporaryRoot, "tools");
 const readmePath = path.join(docsRoot, "README.md");
 const exactDocumentPath = path.join(temporaryRoot, "exact-workflow.txt");
-const toolPath = path.join(docsRoot, "generate_music_stable_audio3.py");
+const toolPath = path.join(toolRoot, "generate_music_stable_audio3.py");
 const secretPath = path.join(docsRoot, "credentials.env");
 const configPath = path.join(temporaryRoot, "search.config.json");
 const instructions = {
@@ -26,7 +27,10 @@ const instructions = {
 let client;
 
 try {
-  await fs.mkdir(docsRoot, { recursive: true });
+  await Promise.all([
+    fs.mkdir(docsRoot, { recursive: true }),
+    fs.mkdir(toolRoot, { recursive: true })
+  ]);
   await fs.writeFile(readmePath, "# MCP fixture\nMiniMax H3 local video workflow.\nShared scope marker.\n", "utf8");
   await fs.writeFile(exactDocumentPath, "Exact smoke workflow document.\nShared scope marker.\n", "utf8");
   await fs.writeFile(toolPath, "print('MCP fixture')\n", "utf8");
@@ -47,7 +51,7 @@ try {
     caseSensitive: false,
     followLinks: false,
     tools: {
-      directories: [{ name: "smoke-tools", path: docsRoot, priority: 100, recursive: true, includeDocs: true }],
+      directories: [{ name: "smoke-tools", path: toolRoot, documentPath: docsRoot, priority: 100, recursive: true, includeDocs: true }],
       files: [],
       extensions: ".exe;.py;.env"
     },
@@ -130,7 +134,8 @@ try {
   assert.equal(Object.hasOwn(listToolPayload, "humanNote"), false);
   assert.deepEqual(listToolPayload.directories, [{
     name: "smoke-tools",
-    path: docsRoot,
+    path: toolRoot,
+    documentPath: docsRoot,
     priority: 100,
     recursive: true,
     includeDocs: true

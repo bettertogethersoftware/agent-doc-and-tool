@@ -106,11 +106,13 @@ async function createScopedFixture(t) {
   const primaryRoot = path.join(temporaryRoot, "bts-logs");
   const secondaryRoot = path.join(temporaryRoot, "other-logs");
   const disabledRoot = path.join(temporaryRoot, "disabled-logs");
+  const toolSourceRoot = path.join(temporaryRoot, "tool-bin");
   const toolDocsRoot = path.join(temporaryRoot, "tool-docs");
   await Promise.all([
     fs.mkdir(primaryRoot, { recursive: true }),
     fs.mkdir(secondaryRoot, { recursive: true }),
     fs.mkdir(disabledRoot, { recursive: true }),
+    fs.mkdir(toolSourceRoot, { recursive: true }),
     fs.mkdir(toolDocsRoot, { recursive: true })
   ]);
 
@@ -156,7 +158,8 @@ async function createScopedFixture(t) {
       directories: [
         {
           name: "scope-tools",
-          path: toolDocsRoot,
+          path: toolSourceRoot,
+          documentPath: toolDocsRoot,
           priority: 75,
           recursive: true,
           includeDocs: true,
@@ -190,6 +193,7 @@ async function createScopedFixture(t) {
     exactLog,
     disabledLog,
     disabledExactLog,
+    toolSourceRoot,
     toolReadme
   };
 }
@@ -241,7 +245,7 @@ test("directory-only scope resolves canonical names and excludes every other gra
   assert.equal(result.meta.filesSelected, 0);
 });
 
-test("documentation-enabled Tool folders are listed and accept their Tool name as a selected document scope", async (t) => {
+test("Tool documentation can live outside the Tool source and remains searchable, fetchable, and selectable", async (t) => {
   const fixture = await createScopedFixture(t);
 
   const catalog = await listDocumentCatalog({}, { configPath: fixture.configPath });
@@ -263,6 +267,15 @@ test("documentation-enabled Tool folders are listed and accept their Tool name a
   assert.deepEqual(result.scope.files, []);
   assert.deepEqual(result.results.map((entry) => entry.path), [fixture.toolReadme]);
   assert.deepEqual(result.results[0].grant, { type: "directory", name: "scope-tools" });
+
+  const fetched = await fetchDocument({ path: fixture.toolReadme, source: "local" }, { configPath: fixture.configPath });
+  assert.match(fetched.content, /implicit tool documentation/);
+
+  const checked = await checkConfiguration({ configPath: fixture.configPath });
+  assert.equal(checked.tools.directories[0].path, fixture.toolSourceRoot);
+  assert.equal(checked.tools.directories[0].available, true);
+  assert.equal(checked.tools.directories[0].documentPath, path.dirname(fixture.toolReadme));
+  assert.equal(checked.tools.directories[0].documentAvailable, true);
 });
 
 test("document matching overrides apply independently to document roots and Tool documentation roots", async (t) => {

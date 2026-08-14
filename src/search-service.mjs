@@ -934,6 +934,7 @@ export async function checkConfiguration(options = {}) {
       toolDirectories.push({
         name: directory.name,
         path: directory.path,
+        documentPath: directory.documentPath,
         priority: directory.priority,
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
@@ -941,15 +942,31 @@ export async function checkConfiguration(options = {}) {
         ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: false,
         available: null,
-        type: "disabled"
+        type: "disabled",
+        documentAvailable: null,
+        documentType: "disabled"
       });
       continue;
+    }
+    let documentInspection;
+    try {
+      const documentStat = await fs.lstat(directory.documentPath);
+      documentInspection = {
+        documentAvailable: documentStat.isDirectory() && !documentStat.isSymbolicLink(),
+        documentType: documentStat.isSymbolicLink() ? "link" : documentStat.isDirectory() ? "directory" : "other"
+      };
+    } catch (error) {
+      documentInspection = {
+        documentAvailable: false,
+        documentError: error instanceof Error ? error.message : String(error)
+      };
     }
     try {
       const directoryStat = await fs.lstat(directory.path);
       toolDirectories.push({
         name: directory.name,
         path: directory.path,
+        documentPath: directory.documentPath,
         priority: directory.priority,
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
@@ -957,12 +974,14 @@ export async function checkConfiguration(options = {}) {
         ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: true,
         available: directoryStat.isDirectory() && !directoryStat.isSymbolicLink(),
-        type: directoryStat.isSymbolicLink() ? "link" : directoryStat.isDirectory() ? "directory" : "other"
+        type: directoryStat.isSymbolicLink() ? "link" : directoryStat.isDirectory() ? "directory" : "other",
+        ...documentInspection
       });
     } catch (error) {
       toolDirectories.push({
         name: directory.name,
         path: directory.path,
+        documentPath: directory.documentPath,
         priority: directory.priority,
         recursive: directory.recursive,
         documentRecursive: directory.documentRecursive,
@@ -970,7 +989,8 @@ export async function checkConfiguration(options = {}) {
         ...(directory.documentMatching ? { documentMatching: directory.documentMatching } : {}),
         enabled: true,
         available: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        ...documentInspection
       });
     }
   }

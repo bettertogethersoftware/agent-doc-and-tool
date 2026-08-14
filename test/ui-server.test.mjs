@@ -111,6 +111,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   const app = await fetch(new URL("app.js", fixture.ui.url));
   assert.equal(app.status, 200);
   const appText = await app.text();
+  const bootstrap = await fetch(new URL("bootstrap.js", fixture.ui.url));
+  assert.equal(bootstrap.status, 200);
+  const bootstrapText = await bootstrap.text();
+  assert.match(bootstrapText, /"capabilities":\{"toolDocumentPath":true\}/);
   assert.match(pageText, /Agent Docs &amp; Tools configuration/);
   assert.match(pageText, /<div class="brand">/);
   assert.doesNotMatch(pageText, /<a class="brand"/);
@@ -288,9 +292,16 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /class="tool-grant-workspace"/);
   assert.match(pageText, /id="tool-source-tools-tab"/);
   assert.match(pageText, /id="tool-source-documents-tab"/);
+  assert.match(toolsPanelText, /id="tool-source-document-location"/);
+  assert.match(toolsPanelText, /id="tool-source-document-path"/);
+  assert.match(toolsPanelText, /id="pick-tool-source-document-path"/);
+  assert.match(toolsPanelText, /Documentation folder for this Tool/);
+  assert.match(toolsPanelText, /Scan documents uses this folder; when it is blank, it uses the Tool source path/);
+  assert.match(toolsPanelText, /id="tool-scan-path"/);
   assert.match(toolsPanelText, /id="tool-source-document-matching"/);
   assert.match(toolsPanelText, /id="tool-source-document-matching-mode"/);
   assert.match(toolsPanelText, /Folder document rules/);
+  assert.ok(toolsPanelText.indexOf('id="tool-source-document-location"') < toolsPanelText.indexOf('class="tool-scan-commandbar"'));
   assert.ok(toolsPanelText.indexOf('class="tool-scan-commandbar"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
   assert.ok(toolsPanelText.indexOf('class="tool-grant-workspace"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
   assert.match(pageText, /id="tool-source-resource-grants"/);
@@ -303,6 +314,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /Saved with this source and returned as its nested <code>instruction<\/code> by/);
   assert.match(pageText, /data-field="recursive"/);
   assert.match(pageText, /data-field="documentRecursive"/);
+  assert.match(pageText, /data-field="documentPath"/);
   assert.match(pageText, /data-field="scanLimit"[^>]*min="1"[^>]*max="5000"/);
   assert.doesNotMatch(pageText, /id="tool-source-editor-recursive"/);
   assert.doesNotMatch(pageText, /UI preview only for now/);
@@ -315,6 +327,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /function renderToolSourceGrants\(\)/);
   assert.match(appText, /function activeToolGrantKind\(\)/);
   assert.match(appText, /function syncToolSourceEditor\(\)/);
+  assert.match(appText, /function syncToolSourceDocumentPath\(\)/);
+  assert.match(appText, /directory\.documentPath = documentPath/);
+  assert.match(appText, /function effectiveToolSourceScanPath\(row, kind\)/);
+  assert.match(appText, /function configurationErrorMessage\(error, config\)/);
   assert.match(appText, /function syncToolSourceDocumentMatchingEditor\(\)/);
   assert.match(appText, /function syncToolSourceScanRecursive\(\)/);
   assert.match(appText, /function syncToolSourceScanLimit\(/);
@@ -323,6 +339,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /Remove matches \(\$\{visibleRecords\.length\}\)/);
   assert.match(appText, /documentRecursive/);
   assert.match(appText, /function matchesOperatorFilter\(/);
+  assert.match(stylesText, /\.tool-source-document-location\s*\{/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);
@@ -335,6 +352,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.deepEqual(payload.check.sources.local.extensions, [".json", ".ai.md"]);
   assert.equal(payload.check.tools.directories[0].recursive, true);
   assert.equal(payload.check.tools.directories[0].documentRecursive, true);
+  assert.equal(payload.check.tools.directories[0].documentPath, fixture.docsRoot);
+  assert.equal(payload.check.tools.directories[0].documentAvailable, true);
   assert.equal(payload.check.prompts.enabledCount, 2);
   assert.deepEqual(payload.check.prompts.entries[0].keywords, ["cinematic", "music video", "youtube", "feature length"]);
   assert.deepEqual(payload.check.secrets.files[0].fields, ["hostname", "password"]);
@@ -486,15 +505,18 @@ test("configuration UI classifies dropped files and folders", async (t) => {
 test("configuration UI gives attached scans independent recursive scopes, bypasses global ignores, and uses each source's result limit", async (t) => {
   const fixture = await createUiFixture(t);
   const scanRoot = path.join(path.dirname(fixture.configPath), "attached scan folder");
+  const documentScanRoot = path.join(path.dirname(fixture.configPath), "attached documentation folder");
   const toolDirectory = path.join(scanRoot, "bin");
-  const documentDirectory = path.join(scanRoot, "docs");
-  const readmePath = path.join(scanRoot, "README.md");
+  const documentDirectory = path.join(documentScanRoot, "nested");
+  const readmePath = path.join(documentScanRoot, "README.md");
   const apiPath = path.join(documentDirectory, "api.md");
+  const fallbackDocumentPath = path.join(scanRoot, "fallback.md");
   const rootToolPath = path.join(scanRoot, "root-tool.exe");
   await fs.mkdir(toolDirectory, { recursive: true });
   await fs.mkdir(documentDirectory, { recursive: true });
   await fs.writeFile(readmePath, "Attached folder readme.\n", "utf8");
   await fs.writeFile(apiPath, "Nested attached folder documentation.\n", "utf8");
+  await fs.writeFile(fallbackDocumentPath, "Documentation beside the Tool path.\n", "utf8");
   await fs.writeFile(rootToolPath, "fixture\n", "utf8");
   await Promise.all(Array.from({ length: 99 }, (_unused, index) => (
     fs.writeFile(path.join(toolDirectory, `tool-${String(index).padStart(3, "0")}.exe`), "fixture\n", "utf8")
@@ -504,6 +526,7 @@ test("configuration UI gives attached scans independent recursive scopes, bypass
   draftConfig.tools.directories = [{
     name: "attached-scan-folder",
     path: scanRoot,
+    documentPath: documentScanRoot,
     priority: 100,
     recursive: false,
     scanLimit: 250,
@@ -541,7 +564,24 @@ test("configuration UI gives attached scans independent recursive scopes, bypass
   const documentPayload = await documentResponse.json();
   assert.equal(documentResponse.status, 200);
   assert.equal(documentPayload.meta.recursive, false);
+  assert.equal(documentPayload.directory.path, scanRoot);
+  assert.equal(documentPayload.directory.documentPath, documentScanRoot);
+  assert.equal(documentPayload.directory.scanPath, documentScanRoot);
   assert.deepEqual(documentPayload.results.map((entry) => entry.path), [readmePath]);
+
+  delete draftConfig.tools.directories[0].documentPath;
+  const inheritedDocumentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "document", directoryPath: scanRoot, config: draftConfig })
+  });
+  const inheritedDocumentPayload = await inheritedDocumentResponse.json();
+  assert.equal(inheritedDocumentResponse.status, 200);
+  assert.equal(inheritedDocumentPayload.directory.path, scanRoot);
+  assert.equal(inheritedDocumentPayload.directory.documentPath, scanRoot);
+  assert.equal(inheritedDocumentPayload.directory.scanPath, scanRoot);
+  assert.deepEqual(inheritedDocumentPayload.results.map((entry) => entry.path), [fallbackDocumentPath]);
+  draftConfig.tools.directories[0].documentPath = documentScanRoot;
 
   draftConfig.tools.directories[0].documentRecursive = true;
   const deepDocumentResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
@@ -580,7 +620,7 @@ test("configuration UI gives attached scans independent recursive scopes, bypass
   assert.equal(topLevelDocumentPayload.meta.recursive, false);
   assert.deepEqual(topLevelDocumentPayload.results.map((entry) => entry.path), [readmePath]);
 
-  const toolSpecificDocumentPath = path.join(scanRoot, "tool-specific.txt");
+  const toolSpecificDocumentPath = path.join(documentScanRoot, "tool-specific.txt");
   await fs.writeFile(toolSpecificDocumentPath, "Tool folder-specific document rule.\n", "utf8");
   draftConfig.tools.directories[0].documentMatching = {
     mode: "override",
@@ -826,8 +866,10 @@ test("configuration UI saves disabled states across every tab", async (t) => {
 
 test("configuration UI saves a Folder Instruction and selected scanned tool and document grants", async (t) => {
   const fixture = await createUiFixture(t);
+  const separateDocumentRoot = path.join(path.dirname(fixture.configPath), "separate tool documentation");
   const scannedToolPath = path.join(fixture.docsRoot, "generate_video.py");
-  const scannedDocumentPath = path.join(fixture.docsRoot, "custom-tool.md");
+  const scannedDocumentPath = path.join(separateDocumentRoot, "custom-tool.md");
+  await fs.mkdir(separateDocumentRoot, { recursive: true });
   await Promise.all([
     fs.writeFile(scannedToolPath, "print('custom generator')\n", "utf8"),
     fs.writeFile(scannedDocumentPath, "Custom tool guide marker.\n", "utf8")
@@ -835,6 +877,7 @@ test("configuration UI saves a Folder Instruction and selected scanned tool and 
 
   const nextConfig = structuredClone(fixture.config);
   nextConfig.tools.directories[0].instruction = "This folder contains custom media utilities.";
+  nextConfig.tools.directories[0].documentPath = separateDocumentRoot;
   nextConfig.tools.directories[0].documentRecursive = false;
   nextConfig.tools.directories[0].scannedToolFiles = [{
     name: "ui-tools-generate-video",
@@ -859,6 +902,9 @@ test("configuration UI saves a Folder Instruction and selected scanned tool and 
 
   const saved = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
   assert.equal(saved.tools.directories[0].instruction, "This folder contains custom media utilities.");
+  assert.equal(saved.tools.directories[0].documentPath, separateDocumentRoot);
+  assert.equal(savePayload.check.tools.directories[0].documentPath, separateDocumentRoot);
+  assert.equal(savePayload.check.tools.directories[0].documentAvailable, true);
   assert.equal(saved.tools.directories[0].documentRecursive, false);
   assert.equal(savePayload.check.tools.directories[0].documentRecursive, false);
   assert.deepEqual(saved.tools.directories[0].scannedToolFiles, [{

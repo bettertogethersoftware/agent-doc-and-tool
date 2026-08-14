@@ -610,7 +610,10 @@ export async function startUiServer({ configPath = DEFAULT_CONFIG_PATH, port = D
         const bootstrap = `window.AGENT_DOC_UI = ${JSON.stringify({
           token: sessionToken,
           configPath: resolvedConfigPath,
-          nativePickers: process.platform === "win32"
+          nativePickers: process.platform === "win32",
+          capabilities: {
+            toolDocumentPath: true
+          }
         })};\n`;
         response.writeHead(200, securityHeaders("text/javascript; charset=utf-8"));
         response.end(bootstrap);

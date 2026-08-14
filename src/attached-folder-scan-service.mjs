@@ -113,13 +113,13 @@ async function resolveScanDirectory(directory, state) {
       if (directoryStat.isSymbolicLink()) {
         state.stats.skippedLinks += 1;
       }
-      addWarning(state, "SCAN_DIRECTORY_INVALID", "Attached tool folder must be a regular non-link directory.", directory.path);
+      addWarning(state, "SCAN_DIRECTORY_INVALID", "Configured scan folder must be a regular non-link directory.", directory.path);
       return null;
     }
     const realRoot = await fs.realpath(directory.path);
     if (!state.config.followLinks && !samePath(directory.path, realRoot)) {
       state.stats.skippedLinks += 1;
-      addWarning(state, "SCAN_DIRECTORY_LINK_NOT_ALLOWED", "Attached tool folder resolves through a link or junction.", directory.path);
+      addWarning(state, "SCAN_DIRECTORY_LINK_NOT_ALLOWED", "Configured scan folder resolves through a link or junction.", directory.path);
       return null;
     }
     return realRoot;
@@ -255,6 +255,9 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
   const started = performance.now();
   const config = await parseConfig(rawConfig, options.configPath);
   const directory = resolveAttachedDirectory(config, directoryPath);
+  const scanDirectory = kind === "document"
+    ? { ...directory, path: directory.documentPath }
+    : directory;
   const documentSource = kind === "document" ? getConfiguredSource(config) : null;
   const matchesFile = kind === "tool"
     ? (filePath) => matchesTool(filePath, config)
@@ -266,7 +269,7 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
   const state = createState(config);
   const results = [];
 
-  for await (const filePath of walkAttachedDirectory(directory, matchesFile, state, recursive)) {
+  for await (const filePath of walkAttachedDirectory(scanDirectory, matchesFile, state, recursive)) {
     if (results.length === resultLimit) {
       state.hasMore = true;
       state.stopped = true;
@@ -287,7 +290,9 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
     kind,
     directory: {
       name: directory.name,
-      path: directory.path
+      path: directory.path,
+      scanPath: scanDirectory.path,
+      ...(kind === "document" ? { documentPath: directory.documentPath } : {})
     },
     results,
     meta: {

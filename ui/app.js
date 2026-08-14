@@ -4,6 +4,9 @@ if (!runtime?.token) {
   throw new Error("The configuration UI did not receive a local session token.");
 }
 
+const supportsToolDocumentPath = runtime.capabilities?.toolDocumentPath === true;
+const toolDocumentLocationHelp = "This Tool grant keeps its Tool path and documentation path together. Scan documents uses this folder; when it is blank, it uses the Tool source path.";
+
 const elements = {
   configPath: document.querySelector("#config-path"),
   pageStatus: document.querySelector("#page-status"),
@@ -118,6 +121,11 @@ const elements = {
   toolSourceInstructionTab: document.querySelector("#tool-source-instruction-tab"),
   toolSourceOverview: document.querySelector("#tool-source-overview"),
   toolSourceResourceGrants: document.querySelector("#tool-source-resource-grants"),
+  toolSourceDocumentLocation: document.querySelector("#tool-source-document-location"),
+  toolSourceDocumentPath: document.querySelector("#tool-source-document-path"),
+  toolSourceDocumentPathState: document.querySelector("#tool-source-document-path-state"),
+  pickToolSourceDocumentPath: document.querySelector("#pick-tool-source-document-path"),
+  toolSourceDocumentLocationHelp: document.querySelector("#tool-source-document-location-help"),
   toolSourceDocumentMatching: document.querySelector("#tool-source-document-matching"),
   toolSourceDocumentMatchingMode: document.querySelector("#tool-source-document-matching-mode"),
   toolSourceDocumentMatchingSummary: document.querySelector("#tool-source-document-matching-summary"),
@@ -135,6 +143,7 @@ const elements = {
   toolSourceScanRecursiveHelp: document.querySelector("#tool-source-scan-recursive-help"),
   toolSourceScanLimit: document.querySelector("#tool-source-scan-limit"),
   toolScanSummary: document.querySelector("#tool-scan-summary"),
+  toolScanPath: document.querySelector("#tool-scan-path"),
   toolScanOptions: document.querySelector("#tool-scan-options"),
   toolScanOptionsSummary: document.querySelector("#tool-scan-options-summary"),
   toolGrantSectionStep: document.querySelector("#tool-grant-section-step"),
@@ -501,6 +510,34 @@ function folderScanKey(directoryPath) {
   return comparableLocalPath(directoryPath);
 }
 
+function effectiveToolSourceScanPath(row, kind) {
+  if (!row) {
+    return "";
+  }
+  const toolPath = row.querySelector('[data-field="path"]').value.trim();
+  if (kind !== "document") {
+    return toolPath;
+  }
+  return row.querySelector('[data-field="documentPath"]').value.trim() || toolPath;
+}
+
+function usesSeparateToolDocumentPath(config) {
+  return (config?.tools?.directories ?? []).some((directory) => (
+    typeof directory?.documentPath === "string" && directory.documentPath.trim().length > 0
+  ));
+}
+
+function configurationErrorMessage(error, config) {
+  if (
+    error?.code === "CONFIG_SCHEMA_INVALID"
+    && !supportsToolDocumentPath
+    && usesSeparateToolDocumentPath(config)
+  ) {
+    return "The page supports a separate documentation folder, but the running Configuration server was started before that feature was loaded. Restart the Configuration UI once, then Scan documents will use the selected documentation folder and Save will keep both paths together.";
+  }
+  return error?.message ?? "The request could not be completed.";
+}
+
 function scanFileKey(filePath) {
   return comparableLocalPath(filePath);
 }
@@ -640,6 +677,74 @@ function availabilityState(availability, expectedKind) {
 function applyEntryAvailability(row, pathState, availability, expectedKind) {
   const next = availabilityState(availability, expectedKind);
   setEntryPathState(row, pathState, next.text, next.status, next.title);
+}
+
+function toolDocumentAvailability(availability) {
+  if (!availability) {
+    return undefined;
+  }
+  return {
+    path: availability.documentPath ?? availability.path,
+    available: availability.documentAvailable ?? availability.available,
+    type: availability.documentType ?? availability.type,
+    error: availability.documentError ?? availability.error
+  };
+}
+
+function setToolDocumentPathState(row, text = "", status = "idle", title = "") {
+  const pathState = row.querySelector('[data-role="document-state"]');
+  pathState.dataset.activeText = text;
+  pathState.dataset.activeStatus = status;
+  pathState.title = title;
+  refreshToolDocumentPathInspectorState(row);
+}
+
+function applyToolDocumentAvailability(row, availability) {
+  const next = availabilityState(toolDocumentAvailability(availability), "directory");
+  setToolDocumentPathState(row, next.text, next.status, next.title);
+}
+
+function toolDocumentPathDisplayState(row) {
+  const documentPath = row.querySelector('[data-field="documentPath"]').value.trim();
+  const inherited = documentPath.length === 0;
+  const pathState = row.querySelector(inherited ? '[data-role="state"]' : '[data-role="document-state"]');
+  const sourcePath = row.querySelector('[data-field="path"]').value.trim();
+  const enabled = row.querySelector('[data-field="enabled"]').checked;
+  const status = pathState?.dataset.activeStatus ?? "idle";
+  const activeText = pathState?.dataset.activeText
+    || (inherited && !sourcePath ? "Directory path is required" : "Path has not been validated");
+  const inheritedPrefix = inherited ? "Using Tool source path · " : "";
+  return {
+    text: `${enabled ? "" : "Disabled · "}${inheritedPrefix}${activeText}`,
+    status,
+    title: pathState?.title ?? ""
+  };
+}
+
+function refreshToolDocumentRuntimeSupport() {
+  if (!elements.toolSourceDocumentLocationHelp) {
+    return;
+  }
+  elements.toolSourceDocumentLocation.classList.toggle("is-runtime-stale", !supportsToolDocumentPath);
+  elements.toolSourceDocumentLocationHelp.textContent = supportsToolDocumentPath
+    ? toolDocumentLocationHelp
+    : "Restart the Configuration UI once before scanning or saving a separate documentation folder. The page has the new field, but the running server still has the older rules.";
+}
+
+function refreshToolDocumentPathInspectorState(row) {
+  if (!elements.toolSourceDocumentPathState || row.dataset.toolSourceId !== state.selectedToolSourceId) {
+    return;
+  }
+  const next = toolDocumentPathDisplayState(row);
+  elements.toolSourceDocumentPathState.textContent = next.text;
+  elements.toolSourceDocumentPathState.dataset.validationStatus = next.status;
+  elements.toolSourceDocumentPathState.title = next.title;
+  if (next.status === "invalid") {
+    elements.toolSourceDocumentPath.setAttribute("aria-invalid", "true");
+  } else {
+    elements.toolSourceDocumentPath.removeAttribute("aria-invalid");
+  }
+  refreshToolDocumentRuntimeSupport();
 }
 
 function initializePathValidation(row, pathState, pathInput, kind) {
@@ -1028,6 +1133,7 @@ function toolSourceStatusText(row) {
 function updateToolSourceEntrySummary(row) {
   const name = row.querySelector('[data-field="name"]').value.trim();
   const sourcePath = row.querySelector('[data-field="path"]').value.trim();
+  const documentPath = row.querySelector('[data-field="documentPath"]').value.trim();
   const toolRecursive = row.querySelector('[data-field="recursive"]').checked;
   const documentRecursive = row.querySelector('[data-field="documentRecursive"]').checked;
   const includeDocs = row.querySelector('[data-field="includeDocs"]').checked;
@@ -1041,12 +1147,14 @@ function updateToolSourceEntrySummary(row) {
   row.querySelector('[data-role="tool-source-name"]').textContent = name || "Untitled source";
   row.querySelector('[data-role="tool-source-path"]').textContent = compactLocalPath(sourcePath);
   row.querySelector('[data-role="tool-source-path"]').title = sourcePath;
-  row.querySelector('[data-role="tool-source-meta"]').textContent = `${metaText} Â· ${documentMatchingMode(documentMatching) === "override" ? "custom doc rules" : "doc defaults"}`;
-  row.querySelector('[data-role="tool-source-meta"]').title = `${metaText} Â· ${documentMatchingMode(documentMatching) === "override" ? "custom document matching rules" : "Documents default matching rules"}`;
+  const documentLocationText = documentPath ? "separate docs folder" : "docs beside tools";
+  const matchingText = documentMatchingMode(documentMatching) === "override" ? "custom doc rules" : "doc defaults";
+  row.querySelector('[data-role="tool-source-meta"]').textContent = `${metaText} · ${documentLocationText} · ${matchingText}`;
+  row.querySelector('[data-role="tool-source-meta"]').title = `${metaText} · ${documentPath ? `documentation folder ${documentPath}` : "documentation uses the Tool source path"} · ${matchingText}`;
   row.querySelector('[data-role="tool-source-validation"]').textContent = toolSourceStatusText(row);
   row.querySelector('[data-role="tool-source-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit tool source ${name || "untitled source"}`);
-  row.dataset.toolSourceSearch = `${name}\n${sourcePath}`.toLocaleLowerCase();
+  row.dataset.toolSourceSearch = `${name}\n${sourcePath}\n${documentPath}`.toLocaleLowerCase();
   row.dataset.documentMatchingMode = documentMatchingMode(documentMatching);
   row.classList.toggle("is-empty-path", !sourcePath);
   row.classList.toggle("is-disabled", !enabled);
@@ -1082,6 +1190,7 @@ function updateToolSourceInspectorHeader(row) {
   elements.toolSourceDocumentsTabCount.textContent = String(counts.documents);
   elements.toolSourceEditorPathState.textContent = toolSourceStatusText(row);
   elements.toolSourceEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  refreshToolDocumentPathInspectorState(row);
 }
 
 function activeToolGrantKind() {
@@ -1120,6 +1229,27 @@ function updateToolScanSummary(source, kind) {
   elements.toolScanSummary.textContent = `${count} matching ${label}${count === 1 ? "" : "s"} found${elapsed}.`;
 }
 
+function updateToolScanPath(source, kind) {
+  const scan = source
+    ? state.folderScanResults.get(source.dataset.folderScanKey)?.[kind]
+    : null;
+  const configuredPath = effectiveToolSourceScanPath(source, kind);
+  const scanPath = scan?.payload?.directory?.scanPath ?? configuredPath;
+  const isDocument = kind === "document";
+  const inheritsToolPath = isDocument
+    && !source?.querySelector('[data-field="documentPath"]')?.value.trim();
+  const label = isDocument ? "Document scan folder" : "Tool scan folder";
+  elements.toolScanPath.previousElementSibling.textContent = label;
+  elements.toolScanPath.textContent = scanPath || "No folder selected";
+  elements.toolScanPath.title = scanPath
+    ? `${scanPath}${inheritsToolPath ? " (using the Tool path because no documentation path is set)" : ""}`
+    : "";
+  const button = isDocument ? elements.toolSourceScanDocument : elements.toolSourceScanTool;
+  button.title = scanPath
+    ? `Scan matching ${isDocument ? "documents" : "tools"} from ${scanPath}`
+    : `Choose a ${isDocument ? "documentation" : "Tool"} folder before scanning.`;
+}
+
 function updateToolGrantSection(kind = activeToolGrantKind()) {
   const isDocument = kind === "document";
   const label = isDocument ? "Documents" : "Tools";
@@ -1147,8 +1277,10 @@ function updateToolGrantSection(kind = activeToolGrantKind()) {
   elements.toolSourceScanRecursiveHelp.textContent = isDocument
     ? "Scan nested documents only. It does not broaden documentation discovery."
     : "Scan nested tool files. This also controls recursive tool discovery.";
+  elements.toolSourceDocumentLocation.hidden = !isDocument || !source;
   elements.toolSourceDocumentMatching.hidden = !isDocument || !source;
   if (isDocument && source) {
+    refreshToolDocumentPathInspectorState(source);
     const matching = documentMatchingFromRow(source);
     const mode = documentMatchingMode(matching);
     const values = documentMatchingValues(matching);
@@ -1160,6 +1292,7 @@ function updateToolGrantSection(kind = activeToolGrantKind()) {
     setFolderMatchingControlState(elements.toolSourceDocumentMatchingFields, mode);
     elements.toolSourceDocumentMatchingCaseSensitive.disabled = mode !== "override";
   }
+  updateToolScanPath(source, kind);
   updateToolScanSummary(source, kind);
 }
 
@@ -1230,6 +1363,7 @@ function refreshToolSourceInspector() {
   if (selectedSource) {
     elements.toolSourceEditorName.value = selectedSource.querySelector('[data-field="name"]').value;
     elements.toolSourceEditorPath.value = selectedSource.querySelector('[data-field="path"]').value;
+    elements.toolSourceDocumentPath.value = selectedSource.querySelector('[data-field="documentPath"]').value;
     elements.toolSourceEditorPriority.value = selectedSource.querySelector('[data-field="priority"]').value;
     elements.toolSourceEditorIncludeDocs.checked = selectedSource.querySelector('[data-field="includeDocs"]').checked;
     elements.toolSourceEditorEnabled.checked = selectedSource.querySelector('[data-field="enabled"]').checked;
@@ -1359,6 +1493,46 @@ function syncToolSourceEditor() {
   updateToolSourceEntrySummary(row);
   updateToolSourceInspectorHeader(row);
   updateToolSourceCatalog();
+  markDirty();
+}
+
+function clearToolSourceScanKind(row, kind) {
+  const key = row.dataset.folderScanKey;
+  const sourceResults = state.folderScanResults.get(key);
+  if (!sourceResults?.[kind]) {
+    return;
+  }
+  const nextResults = { ...sourceResults };
+  delete nextResults[kind];
+  if (Object.keys(nextResults).length === 0) {
+    state.folderScanResults.delete(key);
+  } else {
+    state.folderScanResults.set(key, nextResults);
+  }
+}
+
+function syncToolSourceDocumentPath() {
+  const row = toolSourceRowById();
+  if (!row) {
+    return;
+  }
+  const documentPathInput = row.querySelector('[data-field="documentPath"]');
+  const nextPath = elements.toolSourceDocumentPath.value;
+  const changed = documentPathInput.value !== nextPath;
+  documentPathInput.value = nextPath;
+  if (changed) {
+    clearToolSourceScanKind(row, "document");
+    state.selectedToolGrantId = null;
+    setToolDocumentPathState(
+      row,
+      nextPath.trim() ? "Not validated · path changed" : "Path has not been validated",
+      nextPath.trim() ? "pending" : "idle"
+    );
+  }
+  updateToolSourceEntrySummary(row);
+  updateToolSourceInspectorHeader(row);
+  updateToolSourceCatalog();
+  updateToolGrantSection("document");
   markDirty();
 }
 
@@ -1752,6 +1926,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   const row = fragment.querySelector(".entry-row");
   const nameInput = row.querySelector('[data-field="name"]');
   const pathInput = row.querySelector('[data-field="path"]');
+  const documentPathInput = row.querySelector('[data-field="documentPath"]');
   const priorityInput = row.querySelector('[data-field="priority"]');
   const recursiveInput = row.querySelector('[data-field="recursive"]');
   const documentRecursiveInput = row.querySelector('[data-field="documentRecursive"]');
@@ -1768,6 +1943,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
     : directory;
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "tool-folder");
   pathInput.value = normalized.path ?? "";
+  documentPathInput.value = normalized.documentPath ?? "";
   priorityInput.value = normalized.priority ?? 0;
   recursiveInput.checked = normalized.recursive !== false;
   documentRecursiveInput.checked = normalized.documentRecursive ?? recursiveInput.checked;
@@ -1776,6 +1952,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   writeDocumentMatchingToRow(row, normalized.documentMatching);
   instructionInput.value = normalized.instruction ?? normalized.humanNote ?? "";
   applyEntryAvailability(row, pathState, availability, "directory");
+  applyToolDocumentAvailability(row, availability);
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "directory");
   row.dataset.folderScanKey = folderScanKey(pathInput.value);
@@ -2552,6 +2729,38 @@ function pathValidationTarget(row) {
   };
 }
 
+function toolDocumentPathValidationTarget(row) {
+  const pathInput = row.querySelector('[data-field="documentPath"]');
+  const pathState = row.querySelector('[data-role="document-state"]');
+  const inputPath = pathInput?.value.trim() ?? "";
+  if (!inputPath || !pathState) {
+    return null;
+  }
+  return {
+    id: `${row.dataset.pathValidationId}-document`,
+    kind: "directory",
+    path: inputPath,
+    enabled: row.querySelector('[data-field="enabled"]')?.checked !== false,
+    setChecking() {
+      setToolDocumentPathState(row, "Checking path…", "pending");
+    },
+    apply(result) {
+      if (pathInput.value.trim() !== result.inputPath) {
+        return;
+      }
+      setToolDocumentPathState(
+        row,
+        validationResultText(result),
+        result.valid ? "valid" : "invalid",
+        result.valid ? result.path : result.message
+      );
+    },
+    fail(message) {
+      setToolDocumentPathState(row, "Path check failed", "pending", message);
+    }
+  };
+}
+
 function ignoreFileValidationTarget() {
   const inputPath = elements.ignoreFile.value.trim();
   if (!inputPath) {
@@ -2672,6 +2881,7 @@ async function validateAllPaths() {
   setBusy(elements.validatePaths, true, "Validating…");
   try {
     const targets = allPathValidationRows().map(pathValidationTarget);
+    targets.push(...toolSourceRows().map(toolDocumentPathValidationTarget));
     targets.push(ignoreFileValidationTarget());
     await validatePathTargets(targets, true);
   } finally {
@@ -2732,6 +2942,21 @@ function applySavedEntryChecks(rows, savedEntries, checkedEntries, expectedKind,
   });
 }
 
+function applySavedToolDocumentChecks(rows, savedEntries, checkedEntries) {
+  rows.forEach((row, index) => {
+    const savedEntry = savedEntries?.[index];
+    if (!rowStillMatchesSavedEntry(row, savedEntry)) {
+      return;
+    }
+    const normalized = typeof savedEntry === "string" ? { path: savedEntry } : savedEntry;
+    if (row.querySelector('[data-field="documentPath"]').value !== (normalized?.documentPath ?? "")) {
+      return;
+    }
+    const checkedEntry = checkedEntryForSavedEntry(checkedEntries, savedEntry, index);
+    applyToolDocumentAvailability(row, checkedEntry);
+  });
+}
+
 function updateConfigurationStatus(config, check, source, { saved = false } = {}) {
   const tools = config.tools ?? { directories: [], files: [] };
   const prompts = Array.isArray(config.prompts) ? config.prompts : [];
@@ -2740,9 +2965,15 @@ function updateConfigurationStatus(config, check, source, { saved = false } = {}
   const unavailableRoots = checkedSource?.roots?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
   const unavailableFiles = checkedSource?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
   const unavailableToolDirectories = check?.tools?.directories?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
+  const unavailableToolDocumentDirectories = check?.tools?.directories?.filter((entry) => (
+    entry.enabled !== false
+    && entry.documentAvailable === false
+    && comparableLocalPath(entry.documentPath ?? "") !== comparableLocalPath(entry.path ?? "")
+  )).length ?? 0;
   const unavailableToolFiles = check?.tools?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
   const unavailableSecrets = check?.secrets?.files?.filter((entry) => entry.enabled !== false && entry.available === false).length ?? 0;
-  const unavailableTotal = unavailableRoots + unavailableFiles + unavailableToolDirectories + unavailableToolFiles + unavailableSecrets;
+  const unavailableTotal = unavailableRoots + unavailableFiles + unavailableToolDirectories
+    + unavailableToolDocumentDirectories + unavailableToolFiles + unavailableSecrets;
   const configuredEntries = [
     ...(source.roots ?? []),
     ...(source.files ?? []),
@@ -2782,6 +3013,7 @@ function applySavedConfigurationState(config, check) {
   applySavedEntryChecks(documentGrantRowsByKind("directory"), source.roots, checkedSource?.roots, "directory");
   applySavedEntryChecks(documentGrantRowsByKind("file"), source.files, checkedSource?.files, "file");
   applySavedEntryChecks(toolSourceRows(), tools.directories, check?.tools?.directories, "directory");
+  applySavedToolDocumentChecks(toolSourceRows(), tools.directories, check?.tools?.directories);
   applySavedEntryChecks(toolExactRows(), tools.files, check?.tools?.files, "file");
   applySavedEntryChecks(secretRows(), secrets.files, check?.secrets?.files, "file", { secret: true });
 
@@ -3022,6 +3254,7 @@ function collectConfig() {
     directories: [...elements.toolDirectoriesList.querySelectorAll(".entry-row")].map((row, index) => {
       const name = row.querySelector('[data-field="name"]').value.trim();
       const folderPath = row.querySelector('[data-field="path"]').value.trim();
+      const documentPath = row.querySelector('[data-field="documentPath"]').value.trim();
       const priority = Number(row.querySelector('[data-field="priority"]').value);
       const scanLimit = Number(row.querySelector('[data-field="scanLimit"]').value);
       if (!name || !folderPath || !Number.isInteger(priority) || !Number.isInteger(scanLimit) || scanLimit < 1 || scanLimit > 5_000) {
@@ -3038,6 +3271,9 @@ function collectConfig() {
         enabled: row.querySelector('[data-field="enabled"]').checked
       };
       const documentMatching = documentMatchingFromRow(row);
+      if (documentPath) {
+        directory.documentPath = documentPath;
+      }
       if (documentMatching) {
         directory.documentMatching = documentMatching;
       }
@@ -3168,8 +3404,9 @@ async function saveConfig() {
   state.saving = true;
   setBusy(elements.saveConfig, true, "Saving…");
   showSavingState();
+  let config;
   try {
-    const config = collectConfig();
+    config = collectConfig();
     const payload = await api("/api/config", { method: "POST", body: { config } });
     applySavedConfigurationState(config, payload.check);
     const hasNewerChanges = state.changeVersion !== saveVersion;
@@ -3184,7 +3421,8 @@ async function saveConfig() {
       : "Configuration saved.";
     showToast(hasNewerChanges ? `${savedMessage} Newer edits remain unsaved.` : savedMessage);
   } catch (error) {
-    setPageStatus("error", "Configuration was not saved", error.message);
+    const message = configurationErrorMessage(error, config);
+    setPageStatus("error", "Configuration was not saved", message);
     if (state.dirty) {
       showDirtyState();
     } else {
@@ -3212,6 +3450,27 @@ async function inspectAndAppendSecretFile(filePath) {
   const row = appendSecretFile({ name, path: filePath, format: "auto" }, inspection);
   selectSecret(row, { focus: true });
   return row;
+}
+
+async function pickToolSourceDocumentFolder() {
+  const row = toolSourceRowById();
+  if (!row) {
+    return;
+  }
+  setBusy(elements.pickToolSourceDocumentPath, true, "Waiting for picker…");
+  try {
+    const payload = await api("/api/pick", { method: "POST", body: { kind: "directory" } });
+    if (payload.cancelled) {
+      return;
+    }
+    elements.toolSourceDocumentPath.value = payload.path;
+    syncToolSourceDocumentPath();
+    await validatePathTargets([toolDocumentPathValidationTarget(row)]);
+  } catch (error) {
+    showToast(message, "error");
+  } finally {
+    setBusy(elements.pickToolSourceDocumentPath, false);
+  }
 }
 
 async function pickPath(kind, target = "documents") {
@@ -3672,7 +3931,10 @@ async function runFolderScan(row, kind) {
     if (error.code === "UI_NOT_FOUND") {
       showToast("The running Configuration UI needs a restart before folder scans are available. Restart it, then try again.", "error");
     } else {
-      showToast(error.message, "error");
+      const message = configurationErrorMessage(error, config);
+      elements.toolScanSummary.dataset.state = "warning";
+      elements.toolScanSummary.textContent = message;
+      showToast(message, "error");
     }
   } finally {
     setFolderScanBusy(row, button, false);
@@ -4002,6 +4264,15 @@ for (const input of [
 ]) {
   input.addEventListener("change", syncToolSourceEditor);
 }
+elements.toolSourceDocumentPath.addEventListener("input", syncToolSourceDocumentPath);
+elements.toolSourceDocumentPath.addEventListener("blur", () => {
+  const row = toolSourceRowById();
+  const target = row ? toolDocumentPathValidationTarget(row) : null;
+  if (target) {
+    validatePathTargets([target]);
+  }
+});
+elements.pickToolSourceDocumentPath.addEventListener("click", pickToolSourceDocumentFolder);
 elements.toolSourceScanRecursive.addEventListener("change", syncToolSourceScanRecursive);
 elements.toolSourceScanLimit.addEventListener("change", () => syncToolSourceScanLimit());
 elements.toolSourceDocumentMatchingMode.addEventListener("change", syncToolSourceDocumentMatchingEditor);
@@ -4342,6 +4613,7 @@ if (!runtime.nativePickers) {
   elements.openDropBox.hidden = true;
   elements.pickToolFolder.hidden = true;
   elements.pickToolFile.hidden = true;
+  elements.pickToolSourceDocumentPath.hidden = true;
   elements.toolOpenDropBox.hidden = true;
   elements.pickSecretFile.hidden = true;
   elements.secretOpenDropBox.hidden = true;

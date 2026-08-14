@@ -102,6 +102,7 @@ const ToolDirectoryEntrySchema = z.union([
   z.object({
     name: z.string().trim().min(1).optional(),
     path: z.string().trim().min(1),
+    documentPath: z.string().trim().min(1).optional(),
     priority: z.number().int().min(-10_000).max(10_000).default(0),
     recursive: z.boolean().default(true),
     // Kept optional so existing configurations inherit the established tool
@@ -375,9 +376,11 @@ function normalizeTools(rawTools, configDirectory) {
     }
     directoryNames.add(comparableName);
     const recursive = directory.recursive !== false;
+    const resolvedPath = resolveConfiguredPath(directory.path, configDirectory);
     return {
       name,
-      path: resolveConfiguredPath(directory.path, configDirectory),
+      path: resolvedPath,
+      documentPath: resolveConfiguredPath(directory.documentPath ?? directory.path, configDirectory),
       priority: directory.priority ?? 0,
       recursive,
       documentRecursive: directory.documentRecursive ?? recursive,
@@ -657,7 +660,7 @@ function getToolDocumentationRoots(config, source) {
 
     roots.push({
       name,
-      path: directory.path,
+      path: directory.documentPath,
       priority: directory.priority,
       enabled: true,
       ...(directory.documentMatching
@@ -695,8 +698,7 @@ export function getExactToolFiles(config) {
         ...file,
         enabled: directory.enabled && file.enabled,
         sourceDirectoryName: directory.name,
-        documentationSearchEnabled: directory.enabled
-          && directory.scannedDocumentFiles.some((document) => document.enabled)
+        documentationSearchEnabled: directory.enabled && directory.includeDocs
       }))
     ))
   ];

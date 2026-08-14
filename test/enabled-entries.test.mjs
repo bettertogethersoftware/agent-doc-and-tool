@@ -319,6 +319,7 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
   assert.deepEqual(listed.directories, [{
     name: "enabled-tools",
     path: fixture.enabledTools,
+    documentPath: fixture.enabledTools,
     priority: 100,
     recursive: true,
     includeDocs: true
@@ -339,7 +340,7 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
 test("saved scan selections are listed as direct tools and searchable exact documents", async (t) => {
   const fixture = await createFixture(t);
   const scanToolPath = path.join(fixture.enabledTools, "generate_video.py");
-  const scanDocsDirectory = path.join(fixture.enabledTools, "docs");
+  const scanDocsDirectory = path.join(path.dirname(fixture.configPath), "enabled-tool-docs");
   const scanDocumentPath = path.join(scanDocsDirectory, "README.md");
   const disabledScanDocumentPath = path.join(scanDocsDirectory, "disabled.md");
   const disabledScanToolPath = path.join(fixture.enabledTools, "disabled_generate.py");
@@ -353,6 +354,7 @@ test("saved scan selections are listed as direct tools and searchable exact docu
 
   const rawConfig = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
   const directory = rawConfig.tools.directories.find((entry) => entry.name === "enabled-tools");
+  directory.documentPath = scanDocsDirectory;
   directory.humanNote = "Custom video utilities. Read the selected README before using the generator.";
   directory.scannedToolFiles = [
     { name: "enabled-tools-generate-video", path: scanToolPath, priority: 275, enabled: true },
@@ -367,6 +369,8 @@ test("saved scan selections are listed as direct tools and searchable exact docu
   const listedTools = await listToolCatalog({ configPath: fixture.configPath });
   const listedDirectory = listedTools.directories.find((entry) => entry.name === "enabled-tools");
   assert.equal(listedTools.instruction, fixture.instructions.tools);
+  assert.equal(listedDirectory.path, fixture.enabledTools);
+  assert.equal(listedDirectory.documentPath, scanDocsDirectory);
   assert.equal(listedDirectory.instruction, directory.humanNote);
   assert.equal(Object.hasOwn(listedDirectory, "humanNote"), false);
   assert.notEqual(listedTools.instruction, listedDirectory.instruction);
@@ -387,6 +391,7 @@ test("saved scan selections are listed as direct tools and searchable exact docu
   assert.doesNotMatch(JSON.stringify(listedTools), /disabled-generate|disabled-document/);
 
   const listedDocuments = await listDocumentCatalog({ source: "local" }, { configPath: fixture.configPath });
+  assert.ok(listedDocuments.directories.some((entry) => entry.name === "enabled-tools" && entry.path === scanDocsDirectory));
   assert.ok(listedDocuments.files.some((file) => file.name === "enabled-tools-readme" && file.path === scanDocumentPath));
   assert.ok(listedDocuments.files.every((file) => file.name !== "enabled-tools-disabled-document"));
 

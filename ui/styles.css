@@ -3690,6 +3690,63 @@ input.scan-exact-field:focus {
   background: linear-gradient(145deg, rgb(22 64 88 / 20%), rgb(8 18 27 / 62%));
 }
 
+.tool-source-document-location {
+  margin-bottom: 8px;
+  padding: 9px 10px;
+  border: 1px solid #31566d;
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgb(22 64 88 / 20%), rgb(8 18 27 / 62%));
+}
+
+.tool-source-document-location[hidden] {
+  display: none;
+}
+
+.tool-source-document-location-heading {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.tool-source-document-location-heading .step {
+  margin: 0 0 2px;
+  color: #93d7f6;
+}
+
+.tool-source-document-location-heading strong {
+  color: #e3edf3;
+  font-size: 0.65rem;
+}
+
+.tool-source-document-path-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.tool-source-document-path-control .button {
+  min-height: 29px;
+}
+
+.tool-source-document-location > p {
+  margin: 6px 0 0;
+  color: #8799a8;
+  font-size: 0.56rem;
+  line-height: 1.4;
+}
+
+.tool-source-document-location.is-runtime-stale {
+  border-color: #806d3c;
+  background: linear-gradient(145deg, rgb(112 82 23 / 20%), rgb(8 18 27 / 62%));
+}
+
+.tool-source-document-location.is-runtime-stale > p {
+  color: #e5c986;
+}
+
 .folder-matching-editor[hidden] {
   display: none;
 }
@@ -8052,6 +8109,33 @@ textarea::placeholder {
 
 .tool-scan-summary[data-state="warning"] {
   color: #e5c986;
+}
+
+.tool-scan-path {
+  display: flex;
+  min-width: 0;
+  max-width: min(82ch, 54vw);
+  gap: 5px;
+  align-items: center;
+  margin: 2px 0 0;
+  color: #8298a5;
+  font-size: 8.5px;
+  line-height: 1.2;
+}
+
+.tool-scan-path span {
+  flex: 0 0 auto;
+  color: #9eb0bb;
+  font-weight: 700;
+}
+
+.tool-scan-path code {
+  overflow: hidden;
+  min-width: 0;
+  color: #bad6e4;
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tool-grant-workspace {
