@@ -1,6 +1,6 @@
 # MCP Workflow Efficiency Priorities
 
-Status: Priority 0 implemented; Priorities 1-5 remain proposed
+Status: Priority 0 and the `find_tool` fallback optimization are implemented; structured capability, dry-run, document-scope, and execution priorities remain proposed.
 
 ## Decision
 
@@ -8,25 +8,13 @@ The highest-priority MCP change is to make `list_tool` a complete,
 self-sufficient Tool bundle and update the MCP guidance so an agent does not
 call `find_tool` after an already-selected Tool has been returned.
 
-This is the missing bridge between discovering the correct capability and
-constructing a reproducible invocation. It should be implemented before
-optimizing fallback discovery or adding execution capabilities.
+This is the bridge between discovering the correct capability and constructing+a reproducible invocation. It was implemented before optimizing fallback+discovery and remains a prerequisite for adding any execution capability.
 
-## Current gap
+## Implemented foundation
 
-The current implementation has the invocation mapping in
-`src/tool-service.mjs`, but `list_tool` does not yet return that metadata from
-`src/catalog-service.mjs`. The normal agent path can therefore still become:
-
-```text
-list_tool
-  -> receive a selected script path
-  -> infer whether it needs Python, Node, PowerShell, or direct execution
-  -> call find_tool
-  -> repeat discovery and verification
-```
-
-The intended path is:
+Priority 0 added the shared invocation-metadata helper and returns that
+metadata from `list_tool` for every enabled selected or manual exact Tool. The
+normal agent path is now:
 
 ```text
 list_tool
@@ -36,13 +24,12 @@ list_tool
   -> skip find_tool
 ```
 
-The MCP server guidance must be updated at the same time. Guidance that says
-to call `find_tool` whenever a local executable or script is needed conflicts
-with the saved-Tool workflow.
+The MCP server guidance identifies `find_tool` as fallback discovery or fresh
+verification, rather than a mandatory step after a matching saved Tool.
 
-## Priority 0: complete `list_tool`
+## Priority 0: complete `list_tool` (implemented)
 
-### 0.1 Create a shared Tool metadata helper
+### 0.1 Create a shared Tool metadata helper (implemented)
 
 Extract the existing extension-to-invocation mapping into a shared module,
 for example:
@@ -54,7 +41,7 @@ src/tool-metadata.mjs
 Use the same helper in both `list_tool` and `find_tool` so both methods return
 consistent metadata for the same path.
 
-### 0.2 Enrich selected Tool entries
+### 0.2 Enrich selected Tool entries (implemented)
 
 Add the following fields to every enabled selected Tool entry returned by
 `list_tool`, including entries in `scannedToolFiles` and top-level exact
@@ -93,7 +80,7 @@ The metadata describes how the configured file would normally be launched. It
 does not verify that the file currently exists, confirm that an interpreter is
 installed, or grant permission to execute the Tool.
 
-### 0.3 Update MCP guidance
+### 0.3 Update MCP guidance (implemented)
 
 Replace unconditional guidance such as:
 
@@ -119,7 +106,7 @@ Keep this wording aligned across:
 - the base agent skill;
 - any future Tool workflow companion skill.
 
-### 0.4 Add regression tests
+### 0.4 Add regression tests (implemented)
 
 Test that:
 
@@ -267,10 +254,14 @@ publishing or uploading results
 Prompt selection and human notes must never silently become permission to run
 an arbitrary script.
 
-### Priority 5: optimize `find_tool` fallback behavior
+### Priority 5: optimize `find_tool` fallback behavior (implemented as Phase 2 of the simplification plan)
 
-After the normal saved-Tool path is self-sufficient, optimize `find_tool` so
-it verifies matching saved candidates before scanning entire enabled folders.
+After the normal saved-Tool path became self-sufficient, `find_tool` was
+optimized to score enabled saved exact candidates first, verify only those with
+at least one query-term match, and skip enabled-folder enumeration when one or
+more verified candidates exactly match a configured alias or executable
+basename. When no such verified exact match exists, it retains the existing
+bounded directory discovery path.
 
 Keep `find_tool` available for:
 

@@ -10,7 +10,7 @@ The tools are:
 - `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. An enabled Tool folder with `includeDocs: true` is a selectable document directory, so agents can pass its listed name through `directories`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
 - `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
 - `list_tool()` returns only enabled tool directories and manually added exact tool files. Each directory reports its tool `path` and effective `documentPath`, which may be different. A returned tool directory can also include its folder Instruction, selected scanned tool files, and selected scanned document files with their direct paths. Every selected or manually added exact Tool entry also includes `workingDirectory`, lower-case `extension`, `type`, and deterministic `invocation` metadata. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. The catalog does not enumerate, verify, invoke, or execute tools, so it never reports `verified: true`.
-- `find_tool(query)` is a fallback for discovering an eligible Tool that was not saved in `list_tool` or for fresh filesystem verification. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
+- `find_tool(query)` is a fallback for discovering an eligible Tool that was not saved in `list_tool` or for fresh filesystem verification. It first verifies matching saved exact candidates; when an enabled configured alias or executable basename exactly matches the query, it returns the verified saved matches without walking Tool directories. Otherwise it performs bounded directory discovery. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
 - `read_prompt(prompt)` returns the complete text and SHA-256 identity of one enabled prompt selected by its exact configured name or alias.
@@ -390,7 +390,7 @@ Request:
 
 ### `find_tool`
 
-Use `find_tool` only as a fallback after `list_tool`: either to discover an eligible executable or script that was not saved in the catalog, or to perform fresh filesystem verification. It resolves enabled tool directories, manually added exact tool-file grants, and saved scanned tool selections.
+Use `find_tool` only as a fallback after `list_tool`: either to discover an eligible executable or script that was not saved in the catalog, or to perform fresh filesystem verification. It scores saved exact Tool entries before inspecting them. If one or more enabled configured aliases or executable basenames exactly match the query and verify successfully, it returns those matches without walking Tool directories; otherwise it retains bounded discovery across enabled directories. It resolves enabled tool directories, manually added exact tool-file grants, and saved scanned tool selections.
 
 Request:
 

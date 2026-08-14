@@ -252,35 +252,38 @@ async function *enumerateToolDirectory(directory, state, seenPaths) {
   }
 }
 
-async function *enumerateExactToolFiles(state, seenPaths) {
-  for (const configuredFile of state.exactToolFiles) {
-    if (!configuredFile.enabled) {
-      continue;
-    }
-    if (shouldStop(state)) {
-      return;
-    }
-    state.stats.filesConsidered += 1;
-    const realPath = await verifyToolFile(configuredFile.path, state);
-    if (!realPath) {
-      continue;
-    }
-    const comparable = comparablePath(realPath);
-    if (seenPaths.has(comparable)) {
-      continue;
-    }
-    seenPaths.add(comparable);
-    state.stats.eligibleFiles += 1;
-    yield {
-      name: configuredFile.name,
-      path: realPath,
-      relativePath: path.basename(realPath),
-      source: "exact-file",
-      sourceName: configuredFile.sourceDirectoryName ?? configuredFile.name,
-      priority: configuredFile.priority,
-      documentationSearchEnabled: configuredFile.documentationSearchEnabled === true
-    };
+function configuredExactToolCandidate(configuredFile) {
+  return {
+    name: configuredFile.name,
+    path: configuredFile.path,
+    relativePath: path.basename(configuredFile.path),
+    source: "exact-file",
+    sourceName: configuredFile.sourceDirectoryName ?? configuredFile.name,
+    priority: configuredFile.priority,
+    documentationSearchEnabled: configuredFile.documentationSearchEnabled === true
+  };
+}
+
+async function verifyExactToolCandidate(candidate, state, seenPaths) {
+  if (shouldStop(state)) {
+    return null;
   }
+  state.stats.filesConsidered += 1;
+  const realPath = await verifyToolFile(candidate.path, state);
+  if (!realPath) {
+    return null;
+  }
+  const comparable = comparablePath(realPath);
+  if (seenPaths.has(comparable)) {
+    return null;
+  }
+  seenPaths.add(comparable);
+  state.stats.eligibleFiles += 1;
+  return {
+    ...candidate,
+    path: realPath,
+    relativePath: path.basename(realPath)
+  };
 }
 
 function normalizedToolText(value, caseSensitive) {
@@ -331,6 +334,13 @@ function scoreCandidate(candidate, queryPlan, caseSensitive) {
   return { score, matchedTerms, allTermsMatched };
 }
 
+function hasExactSavedMatch(candidate, queryPlan, caseSensitive) {
+  const extension = path.extname(candidate.path);
+  const baseName = path.basename(candidate.path, extension);
+  return normalizedToolText(candidate.name, caseSensitive) === queryPlan.normalizedQuery
+    || normalizedToolText(baseName, caseSensitive) === queryPlan.normalizedQuery;
+}
+
 function documentationEnabledFor(filePath, config) {
   const source = config.sources[config.defaultSource];
   const documentationRoots = [
@@ -357,27 +367,63 @@ export async function findTools({ query, maxResults = undefined }, options = {})
   const resultLimit = Math.min(maxResults ?? config.limits.maxResults, config.limits.maxResults);
   const state = createState(config);
   const seenPaths = new Set();
-  const candidates = [];
+  const matchingCandidates = [];
+  const exactSavedMatches = [];
+  const savedCandidateMatches = [];
 
-  for await (const candidate of enumerateExactToolFiles(state, seenPaths)) {
-    candidates.push(candidate);
+  for (const configuredFile of state.exactToolFiles) {
+    if (!configuredFile.enabled) {
+      continue;
+    }
+    const configuredCandidate = configuredExactToolCandidate(configuredFile);
+    const match = scoreCandidate(configuredCandidate, queryPlan, config.caseSensitive);
+    if (!match) {
+      continue;
+    }
+    savedCandidateMatches.push({
+      candidate: configuredCandidate,
+      match,
+      exact: hasExactSavedMatch(configuredCandidate, queryPlan, config.caseSensitive)
+    });
   }
-  for (const directory of config.tools.directories.filter((entry) => entry.enabled)) {
+
+  const candidatesToVerify = [
+    ...savedCandidateMatches.filter((entry) => entry.exact),
+    ...savedCandidateMatches.filter((entry) => !entry.exact)
+  ];
+  for (const savedCandidate of candidatesToVerify) {
     if (state.stopped) {
       break;
     }
-    for await (const candidate of enumerateToolDirectory(directory, state, seenPaths)) {
-      candidates.push(candidate);
+    const candidate = await verifyExactToolCandidate(savedCandidate.candidate, state, seenPaths);
+    if (!candidate) {
+      continue;
+    }
+    const matchedCandidate = { candidate, match: savedCandidate.match };
+    matchingCandidates.push(matchedCandidate);
+    if (savedCandidate.exact) {
+      exactSavedMatches.push(matchedCandidate);
     }
   }
 
-  const results = candidates.flatMap((candidate) => {
-    const match = scoreCandidate(candidate, queryPlan, config.caseSensitive);
-    if (!match) {
-      return [];
+  if (exactSavedMatches.length === 0 && !state.stopped) {
+    for (const directory of config.tools.directories.filter((entry) => entry.enabled)) {
+      if (state.stopped) {
+        break;
+      }
+      for await (const candidate of enumerateToolDirectory(directory, state, seenPaths)) {
+        const match = scoreCandidate(candidate, queryPlan, config.caseSensitive);
+        if (match) {
+          matchingCandidates.push({ candidate, match });
+        }
+      }
     }
+  }
+
+  const candidatesForResult = exactSavedMatches.length > 0 ? exactSavedMatches : matchingCandidates;
+  const results = candidatesForResult.map(({ candidate, match }) => {
     const metadata = toolMetadataFor(candidate.path);
-    return [{
+    return {
       name: candidate.name,
       path: candidate.path,
       workingDirectory: metadata.workingDirectory,
@@ -393,7 +439,7 @@ export async function findTools({ query, maxResults = undefined }, options = {})
       score: match.score,
       matchedTerms: match.matchedTerms,
       allTermsMatched: match.allTermsMatched
-    }];
+    };
   });
 
   results.sort((left, right) => (

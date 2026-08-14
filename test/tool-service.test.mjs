@@ -58,9 +58,15 @@ async function createToolFixture(t) {
     tools: {
       directories: [
         { name: "media-bin", path: binaryDirectory, priority: 100, recursive: false, includeDocs: false },
-        { name: "music-tools", path: musicDirectory, priority: 90, includeDocs: true }
+        {
+          name: "music-tools",
+          path: musicDirectory,
+          priority: 90,
+          includeDocs: true,
+          scannedToolFiles: [{ name: "saved-portrait-runner", path: deepToolPath, priority: 150 }]
+        }
       ],
-      files: [{ name: "stable-audio-generator", path: musicScriptPath, priority: 200 }],
+      files: [{ name: "manual-video-renderer", path: musicScriptPath, priority: 200 }],
       extensions: ".exe;.py"
     },
     limits: {
@@ -106,6 +112,7 @@ test("find_tool resolves executables from a configured directory", async (t) => 
   assert.equal(result.results[0].path, fixture.ffprobePath);
   assert.equal(result.results[0].type, "executable");
   assert.equal(result.results[0].invocation.command, fixture.ffprobePath);
+  assert.ok(result.meta.directoriesScanned > 0);
 });
 
 test("find_tool normalizes letter-number names and returns Python invocation metadata", async (t) => {
@@ -122,6 +129,98 @@ test("find_tool normalizes letter-number names and returns Python invocation met
   });
   assert.equal(result.results[0].workingDirectory, path.dirname(fixture.musicScriptPath));
   assert.equal(result.results[0].allTermsMatched, true);
+});
+
+test("find_tool verifies a matching saved exact alias without scanning directories", async (t) => {
+  const fixture = await createToolFixture(t);
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.tools.files.push({
+    name: "unrelated-stale-tool",
+    path: path.join(path.dirname(fixture.configPath), "missing-tool.py"),
+    priority: 100
+  });
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const result = await findTools({ query: "manual video renderer" }, { configPath: fixture.configPath });
+
+  assert.deepEqual(result.results.map((entry) => entry.path), [fixture.musicScriptPath]);
+  assert.equal(result.meta.directoriesScanned, 0);
+  assert.equal(result.meta.filesConsidered, 1);
+  assert.equal(result.meta.unavailablePaths, 0);
+  assert.deepEqual(result.warnings, []);
+});
+
+test("find_tool verifies a matching saved scanned Tool without scanning directories", async (t) => {
+  const fixture = await createToolFixture(t);
+
+  const result = await findTools({ query: "saved portrait runner" }, { configPath: fixture.configPath });
+
+  assert.deepEqual(result.results.map((entry) => entry.path), [fixture.deepToolPath]);
+  assert.equal(result.results[0].name, "saved-portrait-runner");
+  assert.equal(result.meta.directoriesScanned, 0);
+  assert.equal(result.meta.filesConsidered, 1);
+});
+
+test("find_tool returns every verified exact basename match without scanning directories", async (t) => {
+  const fixture = await createToolFixture(t);
+  const firstPath = path.join(path.dirname(fixture.configPath), "primary", "quartz_engine.py");
+  const secondPath = path.join(path.dirname(fixture.configPath), "secondary", "quartz_engine.py");
+  await fs.mkdir(path.dirname(firstPath), { recursive: true });
+  await fs.mkdir(path.dirname(secondPath), { recursive: true });
+  await fs.writeFile(firstPath, "print('primary fixture')\n", "utf8");
+  await fs.writeFile(secondPath, "print('secondary fixture')\n", "utf8");
+
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.tools.files.push(
+    { name: "primary-renderer", path: firstPath, priority: 100 },
+    { name: "secondary-renderer", path: secondPath, priority: 200 }
+  );
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const result = await findTools({ query: "quartz engine" }, { configPath: fixture.configPath });
+
+  assert.deepEqual(result.results.map((entry) => entry.path), [secondPath, firstPath]);
+  assert.equal(result.meta.directoriesScanned, 0);
+  assert.equal(result.meta.filesConsidered, 2);
+});
+
+test("find_tool prioritizes an exact saved alias over a partial duplicate path", async (t) => {
+  const fixture = await createToolFixture(t);
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.tools.files[0] = {
+    ...config.tools.files[0],
+    name: "script-fallback"
+  };
+  config.tools.files.push({
+    name: "explicit-script",
+    path: fixture.musicScriptPath,
+    priority: 300
+  });
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const result = await findTools({ query: "explicit script" }, { configPath: fixture.configPath });
+
+  assert.deepEqual(result.results.map((entry) => entry.name), ["explicit-script"]);
+  assert.deepEqual(result.results.map((entry) => entry.path), [fixture.musicScriptPath]);
+  assert.equal(result.meta.directoriesScanned, 0);
+});
+
+test("find_tool falls back to directory discovery when a matching saved Tool is stale", async (t) => {
+  const fixture = await createToolFixture(t);
+  const config = JSON.parse(await fs.readFile(fixture.configPath, "utf8"));
+  config.tools.files[0] = {
+    ...config.tools.files[0],
+    name: "stable-audio-3",
+    path: path.join(path.dirname(fixture.configPath), "stale-stable-audio.py")
+  };
+  await fs.writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const result = await findTools({ query: "stable audio 3" }, { configPath: fixture.configPath });
+
+  assert.ok(result.results.some((entry) => entry.path === fixture.musicScriptPath));
+  assert.ok(result.meta.directoriesScanned > 0);
+  assert.equal(result.meta.unavailablePaths, 1);
+  assert.ok(result.warnings.some((warning) => warning.code === "TOOL_FILE_UNAVAILABLE"));
 });
 
 test("tool directories honor recursion, suffixes, and ignore rules", async (t) => {

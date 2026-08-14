@@ -1,6 +1,6 @@
 # A Stronger Simplification for Tool Discovery
 
-Status: Phase 1 implemented; Phases 2 and 3 remain proposed
+Status: Phases 1 and 2 implemented; Phase 3 remains proposed
 
 Created: 2026-08-14
 
@@ -241,8 +241,8 @@ The public `find_tool` request and result contract can remain compatible. Its
 description and server guidance must identify it as fallback discovery and
 verification rather than a mandatory resolution step after `list_tool`.
 
-As a follow-up optimization, process saved exact Tool candidates before broad
-directory discovery:
+Phase 2 implements saved-exact candidate processing before broad directory
+discovery:
 
 1. Normalize and score enabled manual exact files and selected
    `scannedToolFiles`.
@@ -258,7 +258,7 @@ within the configured result limit; it must not silently choose between two
 different Tool bundles. The response metadata should expose whether directory
 discovery ran, for example through the existing `directoriesScanned` count.
 
-This optimization is not required for the first additive delivery. Correct
+This completed optimization is additive to the primary saved-Tool path. Correct
 agent guidance and invocation metadata remove the redundant call from the
 normal path; the shortcut reduces cost when a caller explicitly asks for fresh
 verification.
@@ -293,7 +293,7 @@ Phase 1 updates all matching guidance together:
 
 ## Implementation plan
 
-### Phase 1: Make saved Tool entries self-sufficient
+### Phase 1: Make saved Tool entries self-sufficient (implemented)
 
 1. Extract the existing extension-to-invocation logic from
    `src/tool-service.mjs` into a small shared Tool metadata module.
@@ -308,7 +308,7 @@ Phase 1 updates all matching guidance together:
 6. Update response examples and counts without changing the saved configuration
    schema.
 
-### Phase 2: Avoid broad scans during explicit verification
+### Phase 2: Avoid broad scans during explicit verification (implemented)
 
 1. Refactor `find_tool` so query scoring can identify matching saved exact
    candidates before directory enumeration.

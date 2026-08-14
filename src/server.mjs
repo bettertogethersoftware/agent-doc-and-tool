@@ -117,7 +117,7 @@ server.registerTool(
   "find_tool",
   {
     title: "Find an allowed local tool",
-    description: "Fallback discovery and fresh-verification for a human-allowlisted local executable or script. Call list_tool first; use this only when no enabled saved Tool matches or when current filesystem verification is materially required. Returns verified absolute paths, tool type, and invocation metadata. This never executes the result, modifies PATH, or grants permission to run it.",
+    description: "Fallback discovery and fresh-verification for a human-allowlisted local executable or script. Call list_tool first; use this only when no enabled saved Tool matches or when current filesystem verification is materially required. Matching saved exact candidates are scored before filesystem inspection; verified exact aliases or executable basenames return without directory discovery, otherwise bounded discovery runs across enabled Tool directories. Returns verified absolute paths, tool type, and invocation metadata. This never executes the result, modifies PATH, or grants permission to run it.",
     inputSchema: z.object({
       query: z.string().trim().min(1).max(500).describe("Executable, script, or capability to find, for example 'ffprobe' or 'stable audio 3'."),
       maxResults: z.number().int().min(1).max(500).optional().describe("Optional result limit, capped by the human configuration.")

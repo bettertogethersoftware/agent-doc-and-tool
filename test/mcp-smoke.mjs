@@ -111,6 +111,7 @@ try {
   }
   assert.match(toolsByName.get("list_tool").description, /invocation metadata/i);
   assert.match(toolsByName.get("find_tool").description, /fallback/i);
+  assert.match(toolsByName.get("find_tool").description, /exact candidates/i);
   assert.deepEqual(Object.keys(toolsByName.get("list").inputSchema.properties), []);
   assert.deepEqual(Object.keys(toolsByName.get("search").inputSchema.properties).sort(), ["directories", "files", "maxResults", "query"]);
   assert.deepEqual(Object.keys(toolsByName.get("fetch").inputSchema.properties), ["path"]);
@@ -322,6 +323,16 @@ try {
       invocation: listToolPayload.directories[0].scannedToolFiles[0].invocation
     }
   );
+
+  const exactToolCall = await client.callTool({
+    name: "find_tool",
+    arguments: { query: "smoke video inspector" }
+  });
+  const exactToolPayload = JSON.parse(exactToolCall.content[0].text);
+  assert.equal(exactToolPayload.ok, true);
+  assert.deepEqual(exactToolPayload.results.map((entry) => entry.path), [manualToolPath]);
+  assert.equal(exactToolPayload.results[0].verified, true);
+  assert.equal(exactToolPayload.meta.directoriesScanned, 0);
 
   const promptFindCall = await client.callTool({
     name: "find_prompt",
