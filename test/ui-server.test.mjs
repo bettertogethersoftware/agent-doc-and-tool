@@ -121,6 +121,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(stylesText, /\.button\.action-test/);
   assert.match(stylesText, /\.button\.action-validate/);
   assert.match(stylesText, /\.button\.action-danger/);
+  assert.match(stylesText, /\.toast\s*\{[^}]*top:\s*auto;[^}]*bottom:\s*64px;[^}]*pointer-events:\s*none;/s);
   assert.match(stylesText, /\.instruction-disclosure/);
   assert.match(stylesText, /\.instruction-summary\[data-state="configured"\]/);
   assert.match(stylesText, /\.help-overview\s*\{/);
@@ -145,6 +146,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(stylesText, /\.tool-grant-pagination\s*\{/);
   assert.match(stylesText, /\.tool-source-inspector\.has-selection\s*\{[^}]*min-block-size:\s*clamp\([^}]*overflow:\s*visible/s);
   assert.match(stylesText, /\.tool-source-resource-grants\.has-grant-selection \.tool-grant-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(350px, 1\.45fr\) minmax\(300px, 0\.82fr\)/s);
+  assert.match(stylesText, /\.tool-grant-editor-heading > div\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-width:\s*0;/s);
+  assert.match(stylesText, /\.tool-grant-editor-heading \.button\s*\{[^}]*flex:\s*0 0 auto;[^}]*white-space:\s*nowrap;/s);
   assert.match(stylesText, /\.tool-scan-options-popover\s*\{[^}]*position:\s*absolute/s);
   assert.match(stylesText, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
   assert.doesNotMatch(pageText, /human-readme-panel|README for every catalog|human-note/);
@@ -242,6 +245,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="document-grant-filter"/);
   assert.match(pageText, /id="document-grant-inspector"/);
   assert.match(pageText, /id="document-editor-name"/);
+  assert.match(appText, /return kind === "directory" \? "Folder root" : "File";/);
+  assert.match(appText, /textContent = kind === "directory" \? "Folder" : "File";/);
   assert.match(appText, /function updateDocumentGrantCatalog\(\)/);
   assert.match(appText, /function syncDocumentGrantEditor\(\)/);
   assert.match(appText, /selectedDocumentGrantId:\s*null/);
@@ -255,6 +260,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="tool-source-filter"/);
   assert.match(pageText, /id="tool-source-type-filter"/);
   assert.match(pageText, /id="tool-catalog-list"/);
+  assert.match(pageText, /class="document-editor-kind tool-editor-kind is-file">File<\/span>/);
+  assert.match(pageText, /class="tool-catalog-kind">File<\/span>/);
   assert.match(toolsPanelText, /Tool grants/);
   assert.match(toolsPanelText, /Grant catalog/);
   assert.doesNotMatch(toolsPanelText, /Exact tool grants/);

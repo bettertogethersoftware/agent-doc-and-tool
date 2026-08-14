@@ -709,7 +709,7 @@ function uniqueDocumentGrantName(kind, baseName) {
 }
 
 function documentGrantKindLabel(kind) {
-  return kind === "directory" ? "Folder root" : "Exact file";
+  return kind === "directory" ? "Folder root" : "File";
 }
 
 function documentGrantStatusText(row) {
@@ -726,7 +726,7 @@ function updateDocumentGrantEntrySummary(row) {
   const selection = row.querySelector('[data-action="select-document-grant"]');
 
   row.querySelector('[data-role="document-grant-name"]').textContent = name || "Untitled document grant";
-  row.querySelector('[data-role="document-grant-kind"]').textContent = kind === "directory" ? "Folder" : "Exact";
+  row.querySelector('[data-role="document-grant-kind"]').textContent = kind === "directory" ? "Folder" : "File";
   row.querySelector('[data-role="document-grant-kind"]').className = `document-grant-kind is-${kind}`;
   row.querySelector('[data-role="document-grant-path"]').textContent = compactLocalPath(documentPath);
   row.querySelector('[data-role="document-grant-path"]').title = documentPath;
