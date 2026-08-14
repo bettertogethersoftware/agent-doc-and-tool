@@ -68,9 +68,9 @@ If the user supplied an exact prompt name and also clearly requested execution, 
 
 After prompt confirmation, inspect only the resources needed for the task.
 
-If the prompt requires a local tool, call `list_tool({})` first. Read the returned Tools `instruction`, inspect enabled Tool bundles, and use a saved exact tool path when one matches. Keep the tool's folder instruction and sibling document selections associated with that tool. Use `find_tool` only when the required tool is not among the enabled saved entries or when fresh filesystem verification is materially required.
+If the prompt requires a local tool, call `list_tool({})` first. Read the returned Tools `instruction`, inspect enabled Tool bundles' optional `capabilities`, `operations`, `inputKinds`, and `outputKinds`, and use a saved exact tool path when one matches. Those labels only select an already configured grant; they never authorize execution or broaden access. Keep the tool's folder instruction and sibling document selections associated with that tool. Scanned child tools use their parent bundle's routing context rather than copied labels. Use `find_tool` only when the required tool is not among the enabled saved entries or when fresh filesystem verification is materially required.
 
-If the prompt requires local documentation, call `list({})` before a scoped search. Use the exact directory and file names returned by `list`, not filesystem paths, as search selectors. Search for the workflow or interface, then call `fetch` with the absolute path returned by search and read the complete selected document before constructing a command or applying its procedure.
+If the prompt requires local documentation, call `list({})` before a scoped search unless `list_tool({})` already returned the exact sibling `scannedDocumentFiles` alias for the selected Tool. In that case, pass the exact alias through `search.files` with `directories: []`; `list` is unnecessary for rediscovering that same grant. If no exact sibling alias is available, use `list` to resolve the Tool's documentation directory or another exact document file. Use exact names returned by `list` or `list_tool`, never filesystem paths, as search selectors. Search for the workflow or interface, then call `fetch` with the absolute path returned by search and read the complete selected document before constructing a command or applying its procedure.
 
 If the prompt requires a credential or secret, use the configured secret workflow. Never use document search or tool discovery to locate a secret, and request only the minimum named field needed by the authorized process.
 
@@ -91,7 +91,7 @@ Before acting, translate the selected prompt and grounded documentation into a s
 
 Ask focused questions when a missing input would change the operation materially. Do not fill in consequential values by guessing.
 
-For a dry run, make the planned command or operation visible as structured data but set execution to false. A dry run must not create, modify, publish, upload, delete, or send anything.
+For a dry run, return the versioned [dry-run plan contract](../../docs/DRY_RUN_PLAN_CONTRACT.md), not an informal prose promise. The contract must make the selected aliases, exact paths and fetched-document provenance, operation, planned arguments, provided and missing inputs, expected outputs, blockers, and planned side effects visible. It must always contain `execution: { "mode": "dry-run", "performed": false }` and `sideEffects.performed: []`. A dry run must not create, modify, publish, upload, delete, or send anything. Use placeholders for missing values and never copy secret values into the plan.
 
 ### 5. Execute only with explicit authority
 
@@ -126,25 +126,59 @@ Use the smallest catalog sequence that still grounds the requested operation:
 - Prompt-only task: `list_prompt` -> `read_prompt` -> confirmation when required.
 - Prompt plus local tool: prompt discovery -> `list_tool` -> relevant documentation search/fetch -> plan or execution.
 - Prompt plus local documentation: prompt discovery -> `list` -> scoped `search` -> `fetch` -> plan or execution.
-- Prompt plus both tool and documentation: prompt discovery -> `list_tool` -> `list` if a document scope is needed -> scoped `search` -> `fetch` -> plan or execution.
+- Prompt plus both tool and documentation: prompt discovery -> `list_tool` -> direct scoped `search.files` when an exact sibling alias is present, otherwise `list` -> scoped `search` -> `fetch` -> plan or execution.
 
 Do not call every catalog method automatically. In particular, do not call `find_prompt` after an unambiguous `list_prompt` match or `find_tool` after `list_tool` already returns the exact selected tool and sufficient invocation metadata.
 
-When a Tool bundle already returns sibling documentation aliases, prefer those exact aliases for a narrow search. Keep the search scope visible and never silently broaden it after an unsuccessful query. Retry once with a shorter query; then report that the configured documentation was insufficient.
+When a Tool bundle already returns sibling documentation aliases, prefer those exact aliases for a narrow search and skip `list` for that exact scope. Keep the search scope visible and never silently broaden it after an unsuccessful query. Retry once with a shorter query; then report that the configured documentation was insufficient.
 
 ## Generic response shape
 
-Use a response with these fields when reporting the workflow to the user:
+For a dry-run response, use the following machine-readable shape. The
+`prompt`, `tool`, and `documentation` values are exact configured aliases or
+`null` when that resource is not part of the task:
 
-```text
-Selected prompt: <exact configured name>
-Reason for selection: <matched intent or keyword>
-Preview: <short prompt preview>
-Resources: <selected tools and documents, if any>
-Inputs: <provided and missing inputs>
-Plan: <operation to be performed>
-Mode: discovery | dry-run | execution
-Status: awaiting-confirmation | ready | executed | verified | blocked
+```json
+{
+  "schemaVersion": "1.0",
+  "kind": "agent-dry-run-plan",
+  "ok": true,
+  "status": "ready",
+  "request": {
+    "outcome": "<user's intended outcome>",
+    "constraints": []
+  },
+  "prompt": "<exact prompt alias>",
+  "tool": "<exact Tool alias>",
+  "documentation": "<exact document alias>",
+  "operation": {
+    "name": "<operation>",
+    "description": "<what would happen>",
+    "plannedArguments": ["<placeholder or non-sensitive argument>"]
+  },
+  "inputs": {
+    "provided": [{"name": "<input>", "kind": "<kind>"}],
+    "missing": []
+  },
+  "outputs": [{"kind": "<output>", "destination": "<placeholder>"}],
+  "provenance": {
+    "tool": {"name": "<alias>", "path": "<exact path>"},
+    "documentation": {"name": "<alias>", "path": "<exact path>"}
+  },
+  "sideEffects": {
+    "planned": ["<intended effect>"],
+    "performed": []
+  },
+  "execution": {
+    "mode": "dry-run",
+    "performed": false
+  },
+  "blockers": []
+}
 ```
 
-Keep the response domain-neutral. The same structure applies whether the prompt routes to a configured tool, document workflow, code operation, research process, data transformation, automation, or another capability.
+Use `status: "blocked"` when `inputs.missing` or `blockers` is non-empty, and
+`status: "awaiting-confirmation"` when the prompt workflow still requires
+confirmation. This structure is domain-neutral: it applies to media, code,
+research, data, automation, deployment, or any other configured workflow. It
+is an agent response, not an MCP execution request.

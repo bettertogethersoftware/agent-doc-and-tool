@@ -89,12 +89,32 @@ async function createFixture(t) {
     followLinks: false,
     tools: {
       directories: [
-        { name: "enabled-tools", path: enabledTools, priority: 100, recursive: true, includeDocs: true, enabled: true },
+        {
+          name: "enabled-tools",
+          path: enabledTools,
+          priority: 100,
+          recursive: true,
+          includeDocs: true,
+          enabled: true,
+          capabilities: ["Video-Generation", "video-generation", "Talking-Portrait"],
+          operations: ["Create", "create", "Edit"],
+          inputKinds: ["Image", "script"],
+          outputKinds: ["Video"]
+        },
         { name: "disabled-tools", path: disabledTools, priority: 100, recursive: true, includeDocs: true, enabled: false },
         { name: "disabled-missing-tools", path: missingPath, priority: 100, recursive: true, includeDocs: true, enabled: false }
       ],
       files: [
-        { name: "enabled-exact-tool", path: enabledExactTool, priority: 100, enabled: true },
+        {
+          name: "enabled-exact-tool",
+          path: enabledExactTool,
+          priority: 100,
+          enabled: true,
+          capabilities: ["Media-Inspection", "media-inspection"],
+          operations: ["Inspect"],
+          inputKinds: ["Video"],
+          outputKinds: ["Media-Metadata"]
+        },
         { name: "disabled-exact-tool", path: disabledExactTool, priority: 100, enabled: false },
         { name: "disabled-missing-tool", path: `${missingPath}.py`, priority: 100, enabled: false }
       ],
@@ -196,6 +216,70 @@ test("exact document grants require a name and object shape", async () => {
       (error) => error?.code === "CONFIG_SCHEMA_INVALID"
     );
   }
+});
+
+test("tool routing metadata is normalized on configured bundles and manual exact files only", async () => {
+  const baseConfig = {
+    version: 1,
+    defaultSource: "local",
+    sources: {
+      local: {
+        roots: [],
+        extensions: ".md",
+        fileNames: ["README.md"],
+        files: []
+      }
+    }
+  };
+  const config = await parseConfig({
+    ...baseConfig,
+    tools: {
+      directories: [{
+        name: "media-bundle",
+        path: "C:\\tools\\media",
+        capabilities: [" Video Generation ", "video   generation", "Talking-Portrait"],
+        operations: ["Create", " create "],
+        inputKinds: [],
+        outputKinds: ["Video"]
+      }],
+      files: [{
+        name: "media-inspector",
+        path: "C:\\tools\\inspect.ps1",
+        capabilities: [" Media-Inspection ", "media-inspection"],
+        operations: [],
+        inputKinds: ["Video"],
+        outputKinds: ["Media Metadata"]
+      }]
+    }
+  }, "C:\\config\\search.config.json");
+
+  assert.deepEqual(config.tools.directories[0].capabilities, ["video generation", "talking-portrait"]);
+  assert.deepEqual(config.tools.directories[0].operations, ["create"]);
+  assert.deepEqual(config.tools.directories[0].outputKinds, ["video"]);
+  assert.equal(Object.hasOwn(config.tools.directories[0], "inputKinds"), false);
+  assert.deepEqual(config.tools.files[0].capabilities, ["media-inspection"]);
+  assert.deepEqual(config.tools.files[0].inputKinds, ["video"]);
+  assert.deepEqual(config.tools.files[0].outputKinds, ["media metadata"]);
+  assert.equal(Object.hasOwn(config.tools.files[0], "operations"), false);
+
+  await assert.rejects(
+    parseConfig({
+      ...baseConfig,
+      tools: {
+        directories: [{
+          name: "media-bundle",
+          path: "C:\\tools\\media",
+          scannedToolFiles: [{
+            name: "child-tool",
+            path: "C:\\tools\\media\\child.py",
+            capabilities: ["video-generation"]
+          }]
+        }],
+        files: []
+      }
+    }, "C:\\config\\search.config.json"),
+    (error) => error?.code === "CONFIG_SCHEMA_INVALID"
+  );
 });
 
 test("catalog Instructions remain independent, trim text, and migrate legacy notes", async () => {
@@ -322,12 +406,20 @@ test("tool catalog lists enabled directories and exact files only", async (t) =>
     documentPath: fixture.enabledTools,
     priority: 100,
     recursive: true,
-    includeDocs: true
+    includeDocs: true,
+    capabilities: ["video-generation", "talking-portrait"],
+    operations: ["create", "edit"],
+    inputKinds: ["image", "script"],
+    outputKinds: ["video"]
   }]);
   assert.deepEqual(listed.files, [{
     name: "enabled-exact-tool",
     path: fixture.enabledExactTool,
     priority: 100,
+    capabilities: ["media-inspection"],
+    operations: ["inspect"],
+    inputKinds: ["video"],
+    outputKinds: ["media-metadata"],
     workingDirectory: path.dirname(fixture.enabledExactTool),
     extension: ".py",
     type: "python-script",
@@ -356,6 +448,10 @@ test("tool catalog preserves configured metadata when a saved exact Tool is miss
     name: "enabled-exact-tool",
     path: fixture.enabledExactTool,
     priority: 100,
+    capabilities: ["media-inspection"],
+    operations: ["inspect"],
+    inputKinds: ["video"],
+    outputKinds: ["media-metadata"],
     workingDirectory: path.dirname(fixture.enabledExactTool),
     extension: ".py",
     type: "python-script",

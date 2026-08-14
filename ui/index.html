@@ -437,6 +437,19 @@
                   <span><strong>Source enabled</strong><small>Disabled sources and all owned grants are omitted.</small></span>
                 </label>
               </div>
+              <section class="tool-routing-metadata" aria-labelledby="tool-source-routing-title">
+                <div>
+                  <p class="step">AGENT ROUTING</p>
+                  <strong id="tool-source-routing-title">Optional capability labels</strong>
+                </div>
+                <p>Use comma-separated labels to help an agent select this configured Tool source. They describe the grant only; they do not run a tool or expand access.</p>
+                <div class="field-grid">
+                  <label class="field"><span>Capabilities</span><input id="tool-source-editor-capabilities" type="text" maxlength="5000" placeholder="video-generation, talking-portrait"></label>
+                  <label class="field"><span>Operations</span><input id="tool-source-editor-operations" type="text" maxlength="5000" placeholder="create, edit, inspect"></label>
+                  <label class="field"><span>Input kinds</span><input id="tool-source-editor-input-kinds" type="text" maxlength="5000" placeholder="image, script, audio"></label>
+                  <label class="field"><span>Output kinds</span><input id="tool-source-editor-output-kinds" type="text" maxlength="5000" placeholder="video, media-metadata"></label>
+                </div>
+              </section>
               <p class="tool-source-scan-note">Source scans are read-only until this configuration is saved. Review matching files in their <strong>Tools</strong> or <strong>Documents</strong> tab.</p>
             </section>
 
@@ -612,6 +625,19 @@
                 </div>
                 <label class="field tool-source-path-field"><span>Exact tool path</span><input id="tool-exact-editor-path" type="text" spellcheck="false" placeholder="C:\path\to\tool.py" required><small id="tool-exact-editor-path-state" class="field-path-state">Path status is shown after validation.</small></label>
                 <label class="toggle-row compact-toggle tool-grant-enabled-toggle"><input id="tool-exact-editor-enabled" type="checkbox"><span class="toggle" aria-hidden="true"></span><span><strong>Grant enabled</strong><small>Disabled files remain saved but are not exposed to the agent.</small></span></label>
+                <section class="tool-routing-metadata" aria-labelledby="tool-exact-routing-title">
+                  <div>
+                    <p class="step">AGENT ROUTING</p>
+                    <strong id="tool-exact-routing-title">Optional capability labels</strong>
+                  </div>
+                  <p>Use comma-separated labels to help an agent select this configured exact file. They describe the grant only; they do not run a tool or expand access.</p>
+                  <div class="field-grid">
+                    <label class="field"><span>Capabilities</span><input id="tool-exact-editor-capabilities" type="text" maxlength="5000" placeholder="media-inspection"></label>
+                    <label class="field"><span>Operations</span><input id="tool-exact-editor-operations" type="text" maxlength="5000" placeholder="inspect"></label>
+                    <label class="field"><span>Input kinds</span><input id="tool-exact-editor-input-kinds" type="text" maxlength="5000" placeholder="video"></label>
+                    <label class="field"><span>Output kinds</span><input id="tool-exact-editor-output-kinds" type="text" maxlength="5000" placeholder="media-metadata"></label>
+                  </div>
+                </section>
                 <p class="tool-source-scan-note"><strong>Direct file grant.</strong> Its parent folder is not scanned and no nearby files are exposed.</p>
               </div>
             </div>
@@ -951,7 +977,7 @@
         <article class="panel guide-card tool-intro" aria-labelledby="tool-help-heading">
           <p class="step">TOOLS</p>
           <h2 id="tool-help-heading">Discover tools before running them</h2>
-          <p>Register reviewed paths and nearby documentation. A saved Tool is returned with invocation metadata; use fallback discovery only for an unselected Tool or fresh verification. Neither path launches a program or changes the system environment.</p>
+          <p>Register reviewed paths and nearby documentation. A saved Tool is returned with invocation metadata; use an exact sibling manual alias directly when it is available, and use <code>list</code> only for broader or unresolved document scope. Use fallback discovery only for an unselected Tool or fresh verification. Neither path launches a program or changes the system environment.</p>
           <p class="guide-methods"><code>list_tool</code><span>→</span><code>saved Tool</code><span>→</span><code>find_tool fallback</code></p>
           <button class="button action-browse" type="button" data-guide-tab="tools">Open Tools</button>
         </article>
@@ -1040,6 +1066,10 @@
       <input data-field="scanLimit" type="number" min="1" max="5000" hidden>
       <input data-field="includeDocs" type="checkbox" hidden>
       <input data-field="documentMatching" type="hidden">
+      <input data-field="capabilities" type="hidden">
+      <input data-field="operations" type="hidden">
+      <input data-field="inputKinds" type="hidden">
+      <input data-field="outputKinds" type="hidden">
       <textarea data-role="folder-instruction" hidden></textarea>
       <button class="tool-source-select" data-action="select-source" type="button" aria-label="Edit tool source">
         <span class="tool-catalog-identity">
@@ -1062,6 +1092,10 @@
       <input data-field="name" type="hidden">
       <input data-field="path" type="hidden">
       <input data-field="priority" type="hidden">
+      <input data-field="capabilities" type="hidden">
+      <input data-field="operations" type="hidden">
+      <input data-field="inputKinds" type="hidden">
+      <input data-field="outputKinds" type="hidden">
       <button class="tool-exact-select" data-action="select-exact-tool" type="button" aria-label="Edit exact tool file">
         <span class="tool-catalog-identity">
           <span class="tool-exact-name" data-role="tool-exact-name"></span>

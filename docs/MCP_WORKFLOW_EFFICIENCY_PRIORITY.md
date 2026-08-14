@@ -1,6 +1,6 @@
 # MCP Workflow Efficiency Priorities
 
-Status: Priority 0 and the `find_tool` fallback optimization are implemented; structured capability, dry-run, document-scope, and execution priorities remain proposed.
+Status: Priorities 0, 1, 2, and 3 and the `find_tool` fallback optimization are implemented; the execution priority remains proposed.
 
 ## Decision
 
@@ -141,17 +141,19 @@ list_tool
   -> select the exact human-approved Tool
   -> receive its path and invocation metadata
 
-list
-  -> obtain the exact document scope when needed
+list (only when the exact document scope is not already in list_tool)
+  -> obtain the broader Tool documentation directory or another exact grant
 
 search
-  -> search the selected manual
+  -> search the selected sibling alias directly with directories: [] when available
+  -> otherwise search the exact names resolved by list
 
 fetch
   -> read the complete manual
 
 plan
-  -> produce the command and identify missing inputs
+  -> return the versioned agent-dry-run-plan contract
+  -> include the command or operation, missing inputs, provenance, and side effects
 
 execute
   -> use a separate authorized execution channel
@@ -165,10 +167,13 @@ selected Tool and sufficient invocation metadata.
 
 ## Follow-up priorities
 
-### Priority 1: add structured capability metadata
+### Priority 1: add structured capability metadata (implemented)
 
-Add optional routing metadata to Tool bundles so selection is based on
-capabilities and operations, not only names and free-text keywords:
+`list_tool` now returns optional, human-configured routing metadata directly
+on each enabled Tool bundle and manually added exact Tool file. The fields are
+intended to help an agent select an already allowlisted grant using the task's
+capabilities and operations, rather than relying only on names and free-text
+keywords:
 
 ```json
 {
@@ -194,41 +199,86 @@ capabilities and operations, not only names and free-text keywords:
 Keep this metadata domain-neutral so the same model supports document,
 coding, research, data, automation, and media workflows.
 
-### Priority 2: define a dry-run plan contract
+The Configuration UI exposes all four comma-separated fields for Tool folders
+and exact Tool files. The schema validates bounded label lists, normalizes
+labels to lower case with collapsed whitespace, de-duplicates them, and omits
+empty fields from the catalog response. Existing configurations remain valid.
 
-The agent should be able to return a consistent plan without executing a
-process:
+Scanned Tool children deliberately do not receive copied or inferred routing
+metadata. They remain nested in their parent Tool bundle, whose labels provide
+the authoritative context. Routing labels are descriptive configuration only:
+they do not verify a path, inspect a file, authorize execution, or broaden the
+configured access boundary.
+
+### Priority 2: define a dry-run plan contract (implemented)
+
+The agent now has one machine-readable response shape for plans that describe
+an operation without executing it. The contract is documented in
+[DRY_RUN_PLAN_CONTRACT.md](DRY_RUN_PLAN_CONTRACT.md) and is enforced by the
+reusable `src/dry-run-plan.mjs` builder and validator.
+
+The contract retains the selected prompt, Tool, and documentation aliases,
+then adds the operation, provided and missing inputs, expected outputs,
+provenance, planned side effects, blockers, and an explicit execution marker:
 
 ```json
 {
+  "schemaVersion": "1.0",
+  "kind": "agent-dry-run-plan",
+  "status": "ready",
   "prompt": "Youtube-Video",
   "tool": "h3-video",
   "documentation": "h3-talking-portrait-workflow",
   "execution": {
     "mode": "dry-run",
     "performed": false
+  },
+  "sideEffects": {
+    "planned": ["create local video file"],
+    "performed": []
   }
 }
 ```
 
-A dry run must not create, modify, publish, upload, delete, or send anything.
+`status` is `blocked` when required inputs or material blockers remain and
+`awaiting-confirmation` when the prompt workflow still requires confirmation.
+Paths, invocation metadata, and fetched-document identity are copied into
+`provenance` from exact MCP results; the agent must use placeholders for
+missing values and never place secret values in a plan. The plan is an agent
+response contract, not a new MCP execution method, so the public MCP method
+set remains read-only and unchanged.
 
-### Priority 3: make document discovery conditional
+### Priority 3: make document discovery conditional (implemented)
 
-`list` remains a useful scope and authorization check, but it should not be
-called repeatedly when `list_tool` already provides exact sibling document
-aliases.
+`list` remains a useful document-scope and authorization check, but it is now
+conditional for a selected Tool. When `list_tool` already provides an enabled
+exact sibling `scannedDocumentFiles` alias, the agent can search that alias
+directly without calling `list` to rediscover the same grant.
 
-Use the following rule:
+The implemented rule is:
 
 ```text
-Use list when the document scope is not already known.
-Use exact sibling document aliases when list_tool already provides them.
+Use list when a selected Tool's document scope is not already known.
+Use list_tool's exact sibling scannedDocumentFiles aliases directly in search.files.
+Pass directories: [] with an exact sibling files selector.
+Use list when the whole Tool documentation directory or another document grant is needed.
 Always use scoped search for a selected Tool.
 ```
 
-Do not silently broaden a scoped search after an unsuccessful query. Retry once
-with a shorter query, then report that the configured documentation was
+The exact-alias path is:
+
+```text
+list_tool
+  -> select the Tool bundle and its exact sibling document alias
+search({ query: "usage and arguments", directories: [], files: ["tool-readme"] })
+  -> fetch the returned absolute path
+```
+
+The `search` method accepts exact file names returned by either `list` or
+`list_tool`'s `scannedDocumentFiles`. It still rejects paths, unknown names,
+disabled grants, and empty scopes. Do not silently broaden a scoped search
+after an unsuccessful query. Retry once with a shorter query while preserving
+the same exact scope, then report that the configured documentation was
 insufficient.
 
 ### Priority 4: keep execution separate from discovery
@@ -279,10 +329,16 @@ Given a saved Python Tool:
 
 ```text
 list_tool returns its exact path and Python invocation metadata
-the agent locates its associated manual
+list_tool returns an exact sibling document alias when one is saved
+the agent searches that alias with directories: [] and files: [alias]
+the agent does not call list merely to rediscover that exact alias
+the agent calls list only when a broader or unresolved document scope is needed
 the agent does not call find_tool
 no process is executed during discovery
-the dry-run plan is complete and reproducible
+the agent returns kind: agent-dry-run-plan
+the plan has execution.mode: dry-run and execution.performed: false
+the plan has sideEffects.performed: []
+missing inputs and blockers make the plan status blocked
 ```
 
 This is the smallest end-to-end test that demonstrates the proposed MCP

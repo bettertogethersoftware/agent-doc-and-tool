@@ -60,9 +60,22 @@ try {
         priority: 100,
         recursive: true,
         includeDocs: true,
-        scannedToolFiles: [{ name: "smoke-audio-generator", path: toolPath, priority: 150 }]
+        capabilities: ["Video-Generation", "Talking-Portrait"],
+        operations: ["Create", "Edit"],
+        inputKinds: ["Image", "script", "audio"],
+        outputKinds: ["Video"],
+        scannedToolFiles: [{ name: "smoke-audio-generator", path: toolPath, priority: 150 }],
+        scannedDocumentFiles: [{ name: "smoke-tool-readme", path: readmePath }]
       }],
-      files: [{ name: "smoke-video-inspector", path: manualToolPath, priority: 125 }],
+      files: [{
+        name: "smoke-video-inspector",
+        path: manualToolPath,
+        priority: 125,
+        capabilities: ["Media-Inspection"],
+        operations: ["Inspect"],
+        inputKinds: ["Video"],
+        outputKinds: ["Media-Metadata"]
+      }],
       extensions: ".exe;.py;.env"
     },
     secrets: {
@@ -110,6 +123,8 @@ try {
     assert.doesNotMatch(toolsByName.get(catalogName).description, /humanNote/);
   }
   assert.match(toolsByName.get("list_tool").description, /invocation metadata/i);
+  assert.match(toolsByName.get("list_tool").description, /capabilities/i);
+  assert.match(toolsByName.get("list_tool").description, /search\.files/i);
   assert.match(toolsByName.get("find_tool").description, /fallback/i);
   assert.match(toolsByName.get("find_tool").description, /exact candidates/i);
   assert.deepEqual(Object.keys(toolsByName.get("list").inputSchema.properties), []);
@@ -131,10 +146,16 @@ try {
     { name: "smoke", path: docsRoot, priority: 100 },
     { name: "smoke-tools", path: docsRoot, priority: 100 }
   ]);
-  assert.deepEqual(listPayload.files, [{
-    name: "smoke-exact-workflow",
-    path: exactDocumentPath
-  }]);
+  assert.deepEqual(listPayload.files, [
+    {
+      name: "smoke-exact-workflow",
+      path: exactDocumentPath
+    },
+    {
+      name: "smoke-tool-readme",
+      path: readmePath
+    }
+  ]);
   assert.equal(listPayload.meta.enabledOnly, true);
 
   const listToolCall = await client.callTool({
@@ -152,6 +173,14 @@ try {
     priority: 100,
     recursive: true,
     includeDocs: true,
+    capabilities: ["video-generation", "talking-portrait"],
+    operations: ["create", "edit"],
+    inputKinds: ["image", "script", "audio"],
+    outputKinds: ["video"],
+    scannedDocumentFiles: [{
+      name: "smoke-tool-readme",
+      path: readmePath
+    }],
     scannedToolFiles: [{
       name: "smoke-audio-generator",
       path: toolPath,
@@ -171,6 +200,10 @@ try {
     name: "smoke-video-inspector",
     path: manualToolPath,
     priority: 125,
+    capabilities: ["media-inspection"],
+    operations: ["inspect"],
+    inputKinds: ["video"],
+    outputKinds: ["media-metadata"],
     workingDirectory: toolRoot,
     extension: ".ps1",
     type: "powershell-script",
@@ -185,6 +218,23 @@ try {
   assert.equal(listToolPayload.meta.executed, false);
   assert.equal(Object.hasOwn(listToolPayload.directories[0].scannedToolFiles[0], "verified"), false);
   assert.equal(Object.hasOwn(listToolPayload.files[0], "verified"), false);
+
+  const directSiblingSearchCall = await client.callTool({
+    name: "search",
+    arguments: {
+      query: "MiniMax H3",
+      directories: [],
+      files: ["smoke-tool-readme"]
+    }
+  });
+  const directSiblingSearchPayload = JSON.parse(directSiblingSearchCall.content[0].text);
+  assert.equal(directSiblingSearchPayload.scope.mode, "selected");
+  assert.deepEqual(directSiblingSearchPayload.scope.directories, []);
+  assert.deepEqual(directSiblingSearchPayload.scope.files, [{
+    name: "smoke-tool-readme",
+    path: readmePath
+  }]);
+  assert.deepEqual(directSiblingSearchPayload.results.map((entry) => entry.path), [readmePath]);
 
   const listPromptCall = await client.callTool({
     name: "list_prompt",
@@ -228,8 +278,8 @@ try {
   assert.equal(searchPayload.results[0].lineNumber, 2);
   assert.equal(searchPayload.scope.mode, "all-enabled");
   assert.deepEqual(searchPayload.scope.directories.map((entry) => entry.name), ["smoke"]);
-  assert.deepEqual(searchPayload.scope.files.map((entry) => entry.name), ["smoke-exact-workflow"]);
-  assert.deepEqual(searchPayload.results[0].grant, { type: "directory", name: "smoke" });
+  assert.deepEqual(searchPayload.scope.files.map((entry) => entry.name), ["smoke-exact-workflow", "smoke-tool-readme"]);
+  assert.deepEqual(searchPayload.results[0].grant, { type: "file", name: "smoke-tool-readme" });
   assert.equal(searchPayload.meta.resultUnit, "file");
   assert.equal(searchPayload.meta.scopeMode, "all-enabled");
   assert.equal(searchPayload.meta.uniqueFilesMatched, 1);

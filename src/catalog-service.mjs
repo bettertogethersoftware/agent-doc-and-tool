@@ -1,4 +1,4 @@
-import { getConfiguredSource, loadConfig } from "./config.mjs";
+import { getConfiguredSource, loadConfig, toolRoutingMetadata } from "./config.mjs";
 import { toolMetadataFor } from "./tool-metadata.mjs";
 
 export async function listDocumentCatalog({ source: sourceInput = undefined } = {}, options = {}) {
@@ -117,6 +117,7 @@ export async function listToolCatalog(options = {}) {
         priority: directory.priority,
         recursive: directory.recursive,
         includeDocs: directory.includeDocs,
+        ...toolRoutingMetadata(directory),
         ...(directory.instruction ? { instruction: directory.instruction } : {}),
         ...(scannedToolFiles.length > 0 ? { scannedToolFiles } : {}),
         ...(scannedDocumentFiles.length > 0 ? { scannedDocumentFiles } : {})
@@ -128,6 +129,7 @@ export async function listToolCatalog(options = {}) {
       name: file.name,
       path: file.path,
       priority: file.priority,
+      ...toolRoutingMetadata(file),
       ...toolMetadataFor(file.path)
     }));
   const scannedToolFilesReturned = directories.reduce((total, directory) => total + (directory.scannedToolFiles?.length ?? 0), 0);

@@ -45,6 +45,15 @@ The primary line is the best ranked snippet found after scanning the whole file,
 
 `fetch` returns the complete text plus its size, encoding, line count, and SHA-256 hash. The agent then follows the fetched preflight and verification instructions while retaining normal authorization and safety boundaries.
 
+Before any authorized execution, the agent can return the structured
+[`agent-dry-run-plan`](DRY_RUN_PLAN_CONTRACT.md) response. It carries the exact
+prompt, Tool, and manual aliases, the selected path and invocation metadata,
+the fetched manual identity, planned arguments, missing inputs, expected
+outputs, and intended side effects. The response must set
+`execution.mode` to `dry-run`, `execution.performed` to `false`, and keep
+`sideEffects.performed` empty. It is a plan only; it does not run MiniMax H3,
+create a video, or authorize a later execution.
+
 If the user also asks to use a saved prompt such as `youtube-mv`, the agent discovers it separately with `find_prompt`:
 
 ```json

@@ -318,6 +318,26 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /data-field="documentRecursive"/);
   assert.match(pageText, /data-field="documentPath"/);
   assert.match(pageText, /data-field="scanLimit"[^>]*min="1"[^>]*max="5000"/);
+  for (const field of ["capabilities", "operations", "inputKinds", "outputKinds"]) {
+    assert.match(pageText, new RegExp(`data-field="${field}"`));
+  }
+  for (const id of [
+    "tool-source-editor-capabilities",
+    "tool-source-editor-operations",
+    "tool-source-editor-input-kinds",
+    "tool-source-editor-output-kinds",
+    "tool-exact-editor-capabilities",
+    "tool-exact-editor-operations",
+    "tool-exact-editor-input-kinds",
+    "tool-exact-editor-output-kinds"
+  ]) {
+    assert.match(pageText, new RegExp(`id="${id}"`));
+  }
+  assert.match(pageText, /Optional capability labels/);
+  assert.match(stylesText, /\.tool-routing-metadata\s*\{/);
+  assert.match(appText, /const TOOL_ROUTING_FIELDS = \["capabilities", "operations", "inputKinds", "outputKinds"\]/);
+  assert.match(appText, /function toolRoutingMetadataFromInputs\(inputs\)/);
+  assert.match(appText, /function toolRoutingMetadataFromRow\(row\)/);
   assert.doesNotMatch(pageText, /id="tool-source-editor-recursive"/);
   assert.doesNotMatch(pageText, /UI preview only for now/);
   assert.doesNotMatch(pageText, /Scan results for this folder/);

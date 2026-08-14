@@ -6,6 +6,7 @@ if (!runtime?.token) {
 
 const supportsToolDocumentPath = runtime.capabilities?.toolDocumentPath === true;
 const toolDocumentLocationHelp = "This Tool grant keeps its Tool path and documentation path together. Scan documents uses this folder; when it is blank, it uses the Tool source path.";
+const TOOL_ROUTING_FIELDS = ["capabilities", "operations", "inputKinds", "outputKinds"];
 
 const elements = {
   configPath: document.querySelector("#config-path"),
@@ -115,6 +116,10 @@ const elements = {
   toolSourceEditorEnabled: document.querySelector("#tool-source-editor-enabled"),
   toolSourceEditorPathState: document.querySelector("#tool-source-editor-path-state"),
   toolSourceEditorInstruction: document.querySelector("#tool-source-editor-instruction"),
+  toolSourceEditorCapabilities: document.querySelector("#tool-source-editor-capabilities"),
+  toolSourceEditorOperations: document.querySelector("#tool-source-editor-operations"),
+  toolSourceEditorInputKinds: document.querySelector("#tool-source-editor-input-kinds"),
+  toolSourceEditorOutputKinds: document.querySelector("#tool-source-editor-output-kinds"),
   toolSourceOverviewTab: document.querySelector("#tool-source-overview-tab"),
   toolSourceToolsTab: document.querySelector("#tool-source-tools-tab"),
   toolSourceDocumentsTab: document.querySelector("#tool-source-documents-tab"),
@@ -179,6 +184,10 @@ const elements = {
   toolExactEditorPriority: document.querySelector("#tool-exact-editor-priority"),
   toolExactEditorEnabled: document.querySelector("#tool-exact-editor-enabled"),
   toolExactEditorPathState: document.querySelector("#tool-exact-editor-path-state"),
+  toolExactEditorCapabilities: document.querySelector("#tool-exact-editor-capabilities"),
+  toolExactEditorOperations: document.querySelector("#tool-exact-editor-operations"),
+  toolExactEditorInputKinds: document.querySelector("#tool-exact-editor-input-kinds"),
+  toolExactEditorOutputKinds: document.querySelector("#tool-exact-editor-output-kinds"),
   deleteToolExact: document.querySelector("#delete-tool-exact"),
   toolDirectoryTemplate: document.querySelector("#tool-directory-row-template"),
   toolFileTemplate: document.querySelector("#tool-file-row-template"),
@@ -325,6 +334,66 @@ function splitKeywords(value) {
       seen.add(comparable);
       return true;
     });
+}
+
+function toolSourceRoutingInputs() {
+  return {
+    capabilities: elements.toolSourceEditorCapabilities,
+    operations: elements.toolSourceEditorOperations,
+    inputKinds: elements.toolSourceEditorInputKinds,
+    outputKinds: elements.toolSourceEditorOutputKinds
+  };
+}
+
+function toolExactRoutingInputs() {
+  return {
+    capabilities: elements.toolExactEditorCapabilities,
+    operations: elements.toolExactEditorOperations,
+    inputKinds: elements.toolExactEditorInputKinds,
+    outputKinds: elements.toolExactEditorOutputKinds
+  };
+}
+
+function toolRoutingMetadataFromInputs(inputs) {
+  const metadata = {};
+  for (const field of TOOL_ROUTING_FIELDS) {
+    const values = splitKeywords(inputs[field]?.value ?? "");
+    if (values.length > 0) {
+      metadata[field] = values;
+    }
+  }
+  return metadata;
+}
+
+function toolRoutingMetadataFromRow(row) {
+  const metadata = {};
+  for (const field of TOOL_ROUTING_FIELDS) {
+    const values = splitKeywords(row?.querySelector(`[data-field="${field}"]`)?.value ?? "");
+    if (values.length > 0) {
+      metadata[field] = values;
+    }
+  }
+  return metadata;
+}
+
+function writeToolRoutingMetadataToInputs(inputs, metadata = {}) {
+  for (const field of TOOL_ROUTING_FIELDS) {
+    inputs[field].value = Array.isArray(metadata[field]) ? metadata[field].join(", ") : "";
+  }
+}
+
+function writeToolRoutingMetadataToRow(row, metadata = {}) {
+  for (const field of TOOL_ROUTING_FIELDS) {
+    const input = row?.querySelector(`[data-field="${field}"]`);
+    if (input) {
+      input.value = Array.isArray(metadata[field]) ? metadata[field].join(", ") : "";
+    }
+  }
+}
+
+function toolRoutingSearchText(row) {
+  return TOOL_ROUTING_FIELDS
+    .flatMap((field) => splitKeywords(row?.querySelector(`[data-field="${field}"]`)?.value ?? ""));
 }
 
 function extensionText(value) {
@@ -1154,7 +1223,7 @@ function updateToolSourceEntrySummary(row) {
   row.querySelector('[data-role="tool-source-validation"]').textContent = toolSourceStatusText(row);
   row.querySelector('[data-role="tool-source-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit tool source ${name || "untitled source"}`);
-  row.dataset.toolSourceSearch = `${name}\n${sourcePath}\n${documentPath}`.toLocaleLowerCase();
+  row.dataset.toolSourceSearch = `${name}\n${sourcePath}\n${documentPath}\n${toolRoutingSearchText(row).join("\n")}`.toLocaleLowerCase();
   row.dataset.documentMatchingMode = documentMatchingMode(documentMatching);
   row.classList.toggle("is-empty-path", !sourcePath);
   row.classList.toggle("is-disabled", !enabled);
@@ -1175,7 +1244,7 @@ function updateToolExactEntrySummary(row) {
   row.querySelector('[data-role="tool-exact-validation"]').textContent = toolSourceStatusText(row);
   row.querySelector('[data-role="tool-exact-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit exact tool ${name || "untitled exact tool"}`);
-  row.dataset.toolExactSearch = `${name}\n${filePath}`.toLocaleLowerCase();
+  row.dataset.toolExactSearch = `${name}\n${filePath}\n${toolRoutingSearchText(row).join("\n")}`.toLocaleLowerCase();
   row.classList.toggle("is-empty-path", !filePath);
   row.classList.toggle("is-disabled", !enabled);
 }
@@ -1368,6 +1437,7 @@ function refreshToolSourceInspector() {
     elements.toolSourceEditorIncludeDocs.checked = selectedSource.querySelector('[data-field="includeDocs"]').checked;
     elements.toolSourceEditorEnabled.checked = selectedSource.querySelector('[data-field="enabled"]').checked;
     elements.toolSourceEditorInstruction.value = selectedSource.querySelector('[data-role="folder-instruction"]').value;
+    writeToolRoutingMetadataToInputs(toolSourceRoutingInputs(), toolRoutingMetadataFromRow(selectedSource));
     updateToolSourceInspectorHeader(selectedSource);
     setToolSourceSection(state.activeToolSourceSection);
     return;
@@ -1378,6 +1448,7 @@ function refreshToolSourceInspector() {
   elements.toolExactEditorPath.value = selectedExact.querySelector('[data-field="path"]').value;
   elements.toolExactEditorPriority.value = selectedExact.querySelector('[data-field="priority"]').value;
   elements.toolExactEditorEnabled.checked = selectedExact.querySelector('[data-field="enabled"]').checked;
+  writeToolRoutingMetadataToInputs(toolExactRoutingInputs(), toolRoutingMetadataFromRow(selectedExact));
   elements.toolExactEditorTitle.textContent = elements.toolExactEditorName.value || "Untitled exact tool";
   elements.toolExactEditorMeta.textContent = `Direct file · ${elements.toolExactEditorEnabled.checked ? "Enabled" : "Disabled"}`;
   elements.toolExactEditorPathState.textContent = toolSourceStatusText(selectedExact);
@@ -1476,6 +1547,7 @@ function syncToolSourceEditor() {
   includeDocsInput.checked = elements.toolSourceEditorIncludeDocs.checked;
   enabledInput.checked = elements.toolSourceEditorEnabled.checked;
   instructionInput.value = elements.toolSourceEditorInstruction.value;
+  writeToolRoutingMetadataToRow(row, toolRoutingMetadataFromInputs(toolSourceRoutingInputs()));
 
   const nextKey = folderScanKey(nextPath);
   if (previousKey !== nextKey) {
@@ -1650,6 +1722,7 @@ function syncToolExactEditor() {
   pathInput.value = nextPath;
   priorityInput.value = elements.toolExactEditorPriority.value;
   enabledInput.checked = elements.toolExactEditorEnabled.checked;
+  writeToolRoutingMetadataToRow(row, toolRoutingMetadataFromInputs(toolExactRoutingInputs()));
   if (changedPath) {
     setEntryPathState(
       row,
@@ -1951,6 +2024,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   includeDocsInput.checked = normalized.includeDocs !== false;
   writeDocumentMatchingToRow(row, normalized.documentMatching);
   instructionInput.value = normalized.instruction ?? normalized.humanNote ?? "";
+  writeToolRoutingMetadataToRow(row, normalized);
   applyEntryAvailability(row, pathState, availability, "directory");
   applyToolDocumentAvailability(row, availability);
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
@@ -2158,6 +2232,7 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   nameInput.value = normalized.name ?? friendlyPathName(normalized.path ?? "", "tool-file");
   pathInput.value = normalized.path ?? "";
   priorityInput.value = normalized.priority ?? 0;
+  writeToolRoutingMetadataToRow(row, normalized);
   applyEntryAvailability(row, pathState, availability, "file");
   initializeEntryToggle(row, pathState, entryEnabled(normalized));
   initializePathValidation(row, pathState, pathInput, "file");
@@ -3268,7 +3343,8 @@ function collectConfig() {
         documentRecursive: row.querySelector('[data-field="documentRecursive"]').checked,
         scanLimit,
         includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
-        enabled: row.querySelector('[data-field="enabled"]').checked
+        enabled: row.querySelector('[data-field="enabled"]').checked,
+        ...toolRoutingMetadataFromRow(row)
       };
       const documentMatching = documentMatchingFromRow(row);
       if (documentPath) {
@@ -3302,7 +3378,8 @@ function collectConfig() {
         name,
         path: filePath,
         priority,
-        enabled: row.querySelector('[data-field="enabled"]').checked
+        enabled: row.querySelector('[data-field="enabled"]').checked,
+        ...toolRoutingMetadataFromRow(row)
       };
     }),
     extensions: elements.toolExtensions.value.trim() || []
@@ -4254,7 +4331,11 @@ for (const input of [
   elements.toolSourceEditorName,
   elements.toolSourceEditorPath,
   elements.toolSourceEditorPriority,
-  elements.toolSourceEditorInstruction
+  elements.toolSourceEditorInstruction,
+  elements.toolSourceEditorCapabilities,
+  elements.toolSourceEditorOperations,
+  elements.toolSourceEditorInputKinds,
+  elements.toolSourceEditorOutputKinds
 ]) {
   input.addEventListener("input", syncToolSourceEditor);
 }
@@ -4368,7 +4449,15 @@ elements.toolSourceScanDocument.addEventListener("click", () => {
     runFolderScan(row, "document");
   }
 });
-for (const input of [elements.toolExactEditorName, elements.toolExactEditorPath, elements.toolExactEditorPriority]) {
+for (const input of [
+  elements.toolExactEditorName,
+  elements.toolExactEditorPath,
+  elements.toolExactEditorPriority,
+  elements.toolExactEditorCapabilities,
+  elements.toolExactEditorOperations,
+  elements.toolExactEditorInputKinds,
+  elements.toolExactEditorOutputKinds
+]) {
   input.addEventListener("input", syncToolExactEditor);
 }
 elements.toolExactEditorPath.addEventListener("blur", () => {

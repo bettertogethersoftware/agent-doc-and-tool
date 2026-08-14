@@ -53,6 +53,20 @@ try {
   assert.ok(Array.isArray(listToolPayload.directories));
   assert.ok(Array.isArray(listToolPayload.files));
 
+  const siblingDocument = listToolPayload.directories
+    .flatMap((directory) => directory.scannedDocumentFiles ?? [])[0];
+  if (siblingDocument) {
+    const directSiblingSearchCall = await client.callTool({
+      name: "search",
+      arguments: { query, directories: [], files: [siblingDocument.name], maxResults: 10 }
+    });
+    const directSiblingSearchPayload = JSON.parse(directSiblingSearchCall.content[0].text);
+    assert.equal(directSiblingSearchPayload.ok, true);
+    assert.equal(directSiblingSearchPayload.scope.mode, "selected");
+    assert.deepEqual(directSiblingSearchPayload.scope.directories, []);
+    assert.deepEqual(directSiblingSearchPayload.scope.files, [siblingDocument]);
+  }
+
   const listPromptCall = await client.callTool({ name: "list_prompt", arguments: {} });
   const listPromptPayload = JSON.parse(listPromptCall.content[0].text);
   assert.equal(listPromptPayload.ok, true);

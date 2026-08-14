@@ -4,12 +4,20 @@ Read-only local documentation, tool, reusable-prompt, and exact secret-file acce
 
 Each catalog method returns its own top-level `instruction` written in the matching Configuration UI tab: `list` uses Documents, `list_tool` uses Tools, `list_prompt` uses Prompts, and `list_secret` uses Secrets. An Instruction is task context only: it does not broaden grants, authorize execution, permit secret disclosure, or override the current request.
 
+After discovery and documentation grounding, an agent can report a structured
+`agent-dry-run-plan` without executing anything. The contract is defined in
+[Dry-run plan contract](docs/DRY_RUN_PLAN_CONTRACT.md); it records exact
+resource aliases and provenance, the intended operation, inputs, outputs,
+blockers, and planned side effects while requiring
+`execution.performed: false` and an empty `sideEffects.performed` array. This
+is an agent response contract, not an additional MCP execution method.
+
 The tools are:
 
 - `list()` returns only the enabled document folders and enabled exact files, including enabled Tool documentation folders configured with `includeDocs` and enabled scanned document selections saved beneath tool sources. A Tool source may keep its documentation in a separate `documentPath`; that documentation path, rather than the executable folder, becomes its document grant. Folder entries include their configured name, resolved path, and priority; exact-file entries include their configured name and resolved path. It reports grants rather than recursively enumerating directory contents, and disabled entries are omitted.
-- `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`. An enabled Tool folder with `includeDocs: true` is a selectable document directory, so agents can pass its listed name through `directories`. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
+- `search(query, directories?, files?)` scans all enabled document grants by default, or only directory and exact-file grants selected by names returned from `list`, or exact sibling `scannedDocumentFiles` aliases returned by `list_tool`. An enabled Tool folder with `includeDocs: true` is a selectable document directory, so agents can pass its listed name through `directories`. When `list_tool` already supplies an exact sibling alias, use `files: [alias]` with `directories: []` and skip `list` for that exact scope. Scope names stay separate from document-content terms. It returns one ranked result per distinct matching file, led by the best matching line rather than the first line encountered. Byte-identical copies are collapsed.
 - `fetch(path)` returns the complete text and SHA-256 identity of a file selected from search results.
-- `list_tool()` returns only enabled tool directories and manually added exact tool files. Each directory reports its tool `path` and effective `documentPath`, which may be different. A returned tool directory can also include its folder Instruction, selected scanned tool files, and selected scanned document files with their direct paths. Every selected or manually added exact Tool entry also includes `workingDirectory`, lower-case `extension`, `type`, and deterministic `invocation` metadata. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. The catalog does not enumerate, verify, invoke, or execute tools, so it never reports `verified: true`.
+- `list_tool()` returns only enabled tool directories and manually added exact tool files. Each directory reports its tool `path` and effective `documentPath`, which may be different. A returned Tool bundle or manually added exact Tool file can also expose optional human-configured routing labels—`capabilities`, `operations`, `inputKinds`, and `outputKinds`—to help select an already allowlisted grant. A returned tool directory can also include its folder Instruction, selected scanned tool files, and selected scanned document files with their direct paths. Every selected or manually added exact Tool entry also includes `workingDirectory`, lower-case `extension`, `type`, and deterministic `invocation` metadata. Scanned children stay nested under their bundle and do not receive copied routing labels. Those nested selections have no `origin` field: they are the saved, enabled agent grants owned by that folder. The catalog does not enumerate, verify, invoke, or execute tools, so it never reports `verified: true`.
 - `find_tool(query)` is a fallback for discovering an eligible Tool that was not saved in `list_tool` or for fresh filesystem verification. It first verifies matching saved exact candidates; when an enabled configured alias or executable basename exactly matches the query, it returns the verified saved matches without walking Tool directories. Otherwise it performs bounded directory discovery. It returns a verified full path, type, and invocation metadata without running anything or changing `PATH`.
 - `list_prompt()` returns enabled reusable-prompt names and discovery keywords without returning prompt bodies.
 - `find_prompt(query)` finds enabled reusable prompts by name, alias, or optional keywords and returns names with bounded previews. Every query term must match across the name and keywords; prompt body text is never searched.
@@ -77,7 +85,7 @@ The four catalog methods provide a broad view of the grants that are currently e
 | MCP method | Input | Enabled entries returned | Deliberately not performed |
 | --- | --- | --- | --- |
 | `list` | `{}` | Documents top-level `instruction`; document directories with `name`, `path`, and `priority`, including enabled Tool folders with `includeDocs`; exact document files with `name` and `path`, including enabled selected scanned documents | Recursive file enumeration or document-content search |
-| `list_tool` | `{}` | Tools top-level `instruction`; tool directories with `name`, tool `path`, effective `documentPath`, `priority`, `recursive`, `includeDocs`, optional folder-specific `instruction`, and enabled selected scan entries; selected and manually added exact Tool files include `name`, `path`, `priority`, `workingDirectory`, `extension`, `type`, and `invocation` | Directory enumeration, file verification, help calls, invocation, or execution |
+| `list_tool` | `{}` | Tools top-level `instruction`; Tool directories with `name`, tool `path`, effective `documentPath`, `priority`, `recursive`, `includeDocs`, optional `capabilities`, `operations`, `inputKinds`, `outputKinds`, optional folder-specific `instruction`, and enabled selected scan entries; manually added exact Tool files can expose the same optional routing labels plus `name`, `path`, `priority`, `workingDirectory`, `extension`, `type`, and `invocation` | Directory enumeration, file verification, help calls, invocation, or execution |
 | `list_prompt` | `{}` | Prompts top-level `instruction`; reusable prompts with `name` and discovery `keywords` | Prompt-body retrieval or preview generation |
 | `list_secret` | `{}` | Secrets top-level `instruction`; exact secret-file grants with `name`, `path`, and configured `format` | Opening secret files, detecting fields, or returning values |
 
@@ -150,6 +158,10 @@ An enabled tool catalog response has this shape:
       "priority": 100,
       "recursive": true,
       "includeDocs": true,
+      "capabilities": ["media-conversion", "media-inspection"],
+      "operations": ["convert", "inspect"],
+      "inputKinds": ["audio", "video"],
+      "outputKinds": ["video", "media-metadata"],
       "instruction": "Use these media utilities for conversion and inspection.",
       "scannedToolFiles": [
         {
@@ -180,6 +192,10 @@ An enabled tool catalog response has this shape:
       "name": "ffprobe",
       "path": "C:\\path\\to\\ffprobe.exe",
       "priority": 100,
+      "capabilities": ["media-inspection"],
+      "operations": ["inspect"],
+      "inputKinds": ["audio", "video"],
+      "outputKinds": ["media-metadata"],
       "workingDirectory": "C:\\path\\to",
       "extension": ".exe",
       "type": "executable",
@@ -207,12 +223,15 @@ An enabled tool catalog response has this shape:
 }
 ```
 
-`files` continues to contain manually added exact tool files. The top-level `instruction` is the Tools-tab Instruction and is always present. Saved scan selections stay nested under the tool folder that owns its separate Instruction and scan controls; that folder-specific `instruction` and the scan arrays are omitted when empty. No `origin` or `verified` field is returned by this configuration-only catalog. A matching saved Tool already has its configured path and invocation metadata, so it does not require `find_tool` merely because it is absent from `PATH`. A selected scanned tool remains discoverable by `find_tool` when fresh verification or unselected-file discovery is needed; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
+`files` continues to contain manually added exact tool files. The top-level `instruction` is the Tools-tab Instruction and is always present. `capabilities`, `operations`, `inputKinds`, and `outputKinds` are optional, human-authored label arrays for Tool bundles and manual exact tools. They are normalized to lower case, empty fields are omitted, and they only help choose a configured grant—they do not authorize execution, verification, or access beyond that grant. Saved scan selections stay nested under the tool folder that owns its separate Instruction, routing context, and scan controls; scanned children intentionally do not receive copied or inferred labels. That folder-specific `instruction` and the scan arrays are omitted when empty. No `origin` or `verified` field is returned by this configuration-only catalog. A matching saved Tool already has its configured path and invocation metadata, so it does not require `find_tool` merely because it is absent from `PATH`. A selected scanned tool remains discoverable by `find_tool` when fresh verification or unselected-file discovery is needed; a selected scanned document also appears as an exact document file in `list` and can be selected by name in `search` and read with `fetch`.
+
+When `list_tool` returns a sibling scanned-document alias for the selected Tool, `list` is not needed for that exact file scope. Pass the alias through `search.files` with `directories: []`, then use the absolute path returned by `search` with `fetch`. Call `list` when the selected Tool has no exact sibling alias or when a broader documentation directory or another document grant is required.
 
 For an unfamiliar saved custom tool, keep the direct tool/document relationship rather than performing a broad machine search:
 
 ```text
 list_tool({})
+  -> use routing labels to choose a matching Tool bundle or manual exact Tool
   -> read the Tools Instruction, then the parent folder's separate Instruction and direct scanned tool path with invocation metadata
   -> identify a sibling scanned document alias, when one is present
 search({ query: "usage and arguments", directories: [], files: ["folder-readme"] })
@@ -281,7 +300,7 @@ Use `list_secret` with an empty object. An enabled secret catalog exposes grant 
 
 ### `search`
 
-Search enabled document roots and enabled exact document files. An enabled tool folder whose `includeDocs` setting allows documentation search is also a document-directory grant: it appears in `list` and can be passed by name through `search.directories`. Enabled scanned document selections saved under tool folders are exact document files: they appear in `list`, can be passed by name through `search.files`, and can be read with `fetch`. When a Tool folder name collides with a configured Document-folder name, `list` exposes the Tool grant under a collision-safe `tool:<name>` form; use that returned name. An unscoped request uses the complete default document allowlist:
+Search enabled document roots and enabled exact document files. An enabled tool folder whose `includeDocs` setting allows documentation search is also a document-directory grant: it appears in `list` and can be passed by name through `search.directories`. Enabled scanned document selections saved under tool folders are exact document files: they appear in `list`, can also be passed directly by name through `search.files` when returned by `list_tool`, and can be read with `fetch`. When `list_tool` already returned an exact sibling alias for the selected Tool, use `directories: []` and that alias in `files` without calling `list` again. When a Tool folder name collides with a configured Document-folder name, `list` exposes the Tool grant under a collision-safe `tool:<name>` form; use that returned name. An unscoped request uses the complete default document allowlist:
 
 ```json
 {
@@ -290,7 +309,7 @@ Search enabled document roots and enabled exact document files. An enabled tool 
 }
 ```
 
-To search selected document grants, call `list`, keep only document-content terms in `query`, and pass the chosen configured names through `directories` and `files`:
+To search selected document grants, call `list` when the scope is not already known from `list_tool`. For an exact sibling alias already returned by `list_tool`, use `directories: []` and pass the alias through `files`. Keep only document-content terms in `query`:
 
 ```json
 {
@@ -310,7 +329,7 @@ To search selected document grants, call `list`, keep only document-content term
 | `query` | Yes | Non-empty document-content terms, at most 500 characters. Punctuation, symbols, case, and letter-number boundaries are normalized into search terms. Do not put grant names here merely to constrain scope. |
 | `maxResults` | No | Positive integer from 1 to 500, additionally capped by `limits.maxResults`. |
 | `directories` | No | At most 500 configured document-directory names returned by `list`, including enabled Tool folders with `includeDocs`. Values are names, not paths. Supplying this or `files` activates selected mode. |
-| `files` | No | At most 500 configured exact-document-file names returned by `list`. Values are names, not paths. Supplying this or `directories` activates selected mode. |
+| `files` | No | At most 500 configured exact-document-file names returned by `list`, or exact sibling `scannedDocumentFiles` aliases returned by `list_tool`. Values are names, not paths. Supplying this or `directories` activates selected mode. |
 
 When neither selector is supplied, `scope.mode` is `all-enabled`. When either selector is supplied, `scope.mode` is `selected`; an omitted selector category means none from that category. One empty array is valid when the other contains at least one name, but two explicit empty arrays return `SEARCH_SCOPE_EMPTY`. Selected mode searches only the named document grants. An enabled Tool folder is searched only when its listed document-directory name is explicitly selected; unrelated Tool documentation is never added implicitly.
 
@@ -554,7 +573,7 @@ Do not repeat, log, persist, or expose returned values to unrelated tools. Prefe
 Use the catalog methods for orientation, then narrow and retrieve only what the task needs:
 
 ```text
-list_tool   -> matching saved path and invocation metadata -> search/fetch selected sibling documentation -> authorized help/preflight/execution
+list_tool   -> matching saved path and invocation metadata -> search/fetch selected sibling documentation (skip list when an exact alias is returned) -> agent-dry-run-plan -> authorized help/preflight/execution
             -> find_tool only for unselected-file discovery or fresh verification
 list_prompt -> find_prompt -> read_prompt for one selected prompt
 list_secret -> find_secret -> read_secret only when individual values are required
@@ -562,6 +581,50 @@ list        -> search with optional directory/file names -> fetch one selected d
 ```
 
 The catalog methods themselves do not authorize later execution or secret access. Normal user authorization and safety checks still apply to every subsequent operation.
+
+### Dry-run plan response
+
+The MCP is used for discovery and grounding; the agent reports the dry-run
+plan after it has enough context. Use the exact aliases from `list_prompt`,
+`list_tool`, `list`, or the Priority 3 direct sibling-document path, and copy
+resolved paths, invocation metadata, and document identity into `provenance`.
+Keep the operation visible without running it:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "kind": "agent-dry-run-plan",
+  "status": "ready",
+  "prompt": "Youtube-Video",
+  "tool": "dry-run-h3-video",
+  "documentation": "dry-run-h3-talking-portrait-workflow",
+  "operation": {
+    "name": "create",
+    "description": "Create a talking-portrait video.",
+    "plannedArguments": ["<input image>", "<script text>", "--output", "<output path>"]
+  },
+  "inputs": {
+    "provided": [{"name": "source image", "kind": "image"}],
+    "missing": [{"name": "script", "kind": "text"}]
+  },
+  "outputs": [{"kind": "video", "destination": "<output path>"}],
+  "sideEffects": {
+    "planned": ["create a local video file after authorization"],
+    "performed": []
+  },
+  "execution": {
+    "mode": "dry-run",
+    "performed": false
+  },
+  "blockers": ["The script is required."]
+}
+```
+
+`status` must be `blocked` when required inputs or blockers remain, and
+`awaiting-confirmation` when the prompt workflow still requires confirmation.
+Never put secret values in planned arguments, inputs, provenance, or output
+text. See [Dry-run plan contract](docs/DRY_RUN_PLAN_CONTRACT.md) for the
+complete shape and invariants.
 
 ## Configuration UI
 
@@ -664,6 +727,25 @@ Tool access is configured separately in the same file:
         "scanLimit": 500,
         "includeDocs": true,
         "enabled": true,
+        "capabilities": [
+          "video-generation",
+          "talking-portrait",
+          "video-editing"
+        ],
+        "operations": [
+          "create",
+          "edit",
+          "render"
+        ],
+        "inputKinds": [
+          "image",
+          "script",
+          "audio",
+          "video"
+        ],
+        "outputKinds": [
+          "video"
+        ],
         "instruction": "Custom video helpers and their reference documentation.",
         "scannedToolFiles": [
           {
@@ -687,6 +769,18 @@ Tool access is configured separately in the same file:
         "name": "one-exact-script",
         "path": "C:\\path\\to\\one-tool.py",
         "priority": 100,
+        "capabilities": [
+          "media-inspection"
+        ],
+        "operations": [
+          "inspect"
+        ],
+        "inputKinds": [
+          "video"
+        ],
+        "outputKinds": [
+          "media-metadata"
+        ],
         "enabled": true
       }
     ],
@@ -695,7 +789,7 @@ Tool access is configured separately in the same file:
 }
 ```
 
-Enabled `directories` use `path` as the Tool discovery root and `recursive` for recursive tool discovery by default. Optional `documentPath` is the documentation discovery and Document-scan root; when it is omitted, it inherits `path` for backward compatibility. Both paths are resolved relative to the configuration file under the same path-expansion rules. `list_tool` reports the effective absolute `documentPath`, while `list` exposes that path as the Tool source's document-directory grant when `includeDocs` is enabled. `documentRecursive` controls only the UI's Document scan scope; when it is omitted, it inherits `recursive` for backward compatibility. `scanLimit` controls the maximum number of matching Tool or Document paths reviewed in one scan for that source. It defaults to `500`, accepts values from `1` through `5000`, and is not added to the public `list_tool` response. `includeDocs` makes matching documentation beneath the effective `documentPath` available to `search` and `fetch`, and makes the Tool folder name an explicit directory selector in `list` and `search.directories`; without an override, document suffixes and exact filenames come from the selected document source. A Tool directory can set its own `documentMatching` object with the same inherit/override fields used by document roots. That override applies to documentation discovery, `fetch`, and the UI's **Scan documents** action for that Tool source; it does not affect tool suffix matching. If that Tool name collides with a Document-folder name, `list` returns a collision-safe `tool:<name>` selector for the Tool grant. Exact tool files do not need to match a suffix. An `instruction` nested inside a tool directory is optional and belongs only to that folder; it is separate from the always-returned Tools top-level `instruction`. `scannedToolFiles` and `scannedDocumentFiles` are optional explicit selections created by the UI scan controls; a scan result is not selected until it is saved. Tool names must be unique case-insensitively across `tools.files` and every `scannedToolFiles` entry. Document names must be unique case-insensitively across the default source's `files` and every `scannedDocumentFiles` entry. A disabled folder disables all of its saved child selections; disabled child selections are omitted from `list_tool`, `list`, `find_tool`, `search`, and `fetch`.
+Enabled `directories` use `path` as the Tool discovery root and `recursive` for recursive tool discovery by default. Optional `documentPath` is the documentation discovery and Document-scan root; when it is omitted, it inherits `path` for backward compatibility. Both paths are resolved relative to the configuration file under the same path-expansion rules. `list_tool` reports the effective absolute `documentPath`, while `list` exposes that path as the Tool source's document-directory grant when `includeDocs` is enabled. `capabilities`, `operations`, `inputKinds`, and `outputKinds` are optional bounded arrays of human-authored routing labels on Tool directories and manual exact Tool files. The parser normalizes label text to lower case, collapses whitespace, and removes duplicates; blank arrays are omitted from the normalized configuration and catalog. Use them to select a matching configured grant only: they do not authorize execution, verify the file, or broaden access. Scanned child selections remain associated with their parent directory and do not accept copied or inferred routing fields. `documentRecursive` controls only the UI's Document scan scope; when it is omitted, it inherits `recursive` for backward compatibility. `scanLimit` controls the maximum number of matching Tool or Document paths reviewed in one scan for that source. It defaults to `500`, accepts values from `1` through `5000`, and is not added to the public `list_tool` response. `includeDocs` makes matching documentation beneath the effective `documentPath` available to `search` and `fetch`, and makes the Tool folder name an explicit directory selector in `list` and `search.directories`; without an override, document suffixes and exact filenames come from the selected document source. A Tool directory can set its own `documentMatching` object with the same inherit/override fields used by document roots. That override applies to documentation discovery, `fetch`, and the UI's **Scan documents** action for that Tool source; it does not affect tool suffix matching. If that Tool name collides with a Document-folder name, `list` returns a collision-safe `tool:<name>` selector for the Tool grant. Exact tool files do not need to match a suffix. An `instruction` nested inside a tool directory is optional and belongs only to that folder; it is separate from the always-returned Tools top-level `instruction`. `scannedToolFiles` and `scannedDocumentFiles` are optional explicit selections created by the UI scan controls; a scan result is not selected until it is saved. Tool names must be unique case-insensitively across `tools.files` and every `scannedToolFiles` entry. Document names must be unique case-insensitively across the default source's `files` and every `scannedDocumentFiles` entry. A disabled folder disables all of its saved child selections; disabled child selections are omitted from `list_tool`, `list`, `find_tool`, `search`, and `fetch`.
 
 In the Configuration UI, **Scan tools** is available from the selected source's **Tools** tab and **Scan documents** from its **Documents** tab. The Documents tab also owns **Documentation folder**: leave it blank to inherit the Tool source path, paste a different path, or select one with **Browse**. The Tool source path and the effective documentation path are validated independently. Their independent **Include subfolders** controls map to `recursive` and `documentRecursive`, respectively: `true` scans the complete matching tree, while `false` scans only files directly inside the corresponding Tool or documentation folder. The Tools value continues to govern recursive tool discovery; the Documents value does not broaden document discovery, search, or `fetch`. Scans do not apply global ignore patterns or the source's `includeDocs` catalog setting. Tool scans use only `tools.extensions`; document scans use the selected Tool source's `documentMatching` rules, falling back to the Documents defaults when the source inherits them. Each source owns its Folder Instruction and saved Tool/Document grants in the selected-source inspector. Separate Tool and Document tabs keep child grants out of the source catalog and remove type filtering while still allowing alias, enabled-state, and Tool-priority changes. The Overview, Tools, Documents, and Instruction sections share a stable minimum-height inspector without an inspector scrollbar. Scan settings collapse into an anchored **Scan options** overlay, and large result sets use compact pages while the selected grant editor remains visible beside them on desktop. Saving writes the source-owned Instruction, selected rows, documentation path, folder document-matching mode, independent scan scopes, and result limit to the folder configuration. Enabled Tool selections are returned nested under their folder in `list_tool` and directly resolve through `find_tool`; enabled Document selections are returned nested in `list_tool`, also appear as exact file entries in `list`, and are searchable/fetchable through `search` and `fetch`. Results are full absolute paths and use the selected source's **Result limit** rather than a fixed cap. When more matches exist, the scan summary identifies the reached limit so it can be increased before rescanning. **Enable**, **Disable**, and **Remove matches** apply to every row matching the current filters, not only the current page, allowing a large scan to be reviewed or cleared in one operation. Built-in link and secret safety exclusions continue to apply.
 

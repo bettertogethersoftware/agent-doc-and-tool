@@ -2773,6 +2773,34 @@ input.scan-exact-field:focus {
   background: rgb(10 20 23 / 62%);
 }
 
+.tool-routing-metadata {
+  margin-top: 11px;
+  padding: 10px;
+  border: 1px solid #263b3b;
+  border-radius: 8px;
+  background: rgb(10 20 23 / 62%);
+}
+
+.tool-routing-metadata .step {
+  margin: 0 0 2px;
+}
+
+.tool-routing-metadata > div:first-child > strong {
+  color: #d9e6e5;
+  font-size: 0.7rem;
+}
+
+.tool-routing-metadata > p {
+  margin: 5px 0 9px;
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.tool-routing-metadata .field-grid {
+  gap: 8px;
+}
+
 .compact-toggle {
   width: auto;
   min-width: 0;

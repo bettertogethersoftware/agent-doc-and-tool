@@ -33,8 +33,11 @@ export const MAX_INSTRUCTION_CHARS = 5_000;
 // Kept for callers that imported the previous constant. New configuration and
 // response contracts use "instruction" instead of "humanNote".
 export const MAX_HUMAN_NOTE_CHARS = MAX_INSTRUCTION_CHARS;
+export const TOOL_ROUTING_FIELDS = Object.freeze(["capabilities", "operations", "inputKinds", "outputKinds"]);
 const MAX_PROMPT_KEYWORDS = 100;
 const MAX_PROMPT_KEYWORD_CHARS = 200;
+const MAX_TOOL_ROUTING_TERMS = 50;
+const MAX_TOOL_ROUTING_TERM_CHARS = 100;
 const CATALOG_INSTRUCTION_KEYS = ["documents", "tools", "prompts", "secrets"];
 
 const InstructionTextSchema = z.string().max(MAX_INSTRUCTION_CHARS);
@@ -49,6 +52,10 @@ const ExtensionListSchema = z.union([
   z.string().trim().min(1),
   z.array(z.string().trim().min(1))
 ]);
+
+const ToolRoutingTermListSchema = z.array(
+  z.string().trim().min(1).max(MAX_TOOL_ROUTING_TERM_CHARS)
+).max(MAX_TOOL_ROUTING_TERMS).optional();
 
 const DocumentMatchingOverrideSchema = z.object({
   // A missing override inherits the source defaults. Keep an explicit mode so
@@ -115,6 +122,10 @@ const ToolDirectoryEntrySchema = z.union([
     // Accept the former field when loading an existing private configuration.
     // The UI writes only "instruction" going forward.
     humanNote: InstructionTextSchema.optional(),
+    capabilities: ToolRoutingTermListSchema,
+    operations: ToolRoutingTermListSchema,
+    inputKinds: ToolRoutingTermListSchema,
+    outputKinds: ToolRoutingTermListSchema,
     scanLimit: z.number().int().min(1).max(MAX_TOOL_SCAN_LIMIT).default(DEFAULT_TOOL_SCAN_LIMIT),
     scannedToolFiles: z.array(ScannedToolFileEntrySchema).max(MAX_TOOL_SCAN_LIMIT).default([]),
     scannedDocumentFiles: z.array(ScannedDocumentFileEntrySchema).max(MAX_TOOL_SCAN_LIMIT).default([])
@@ -127,7 +138,11 @@ const ToolFileEntrySchema = z.union([
     name: z.string().trim().min(1).optional(),
     path: z.string().trim().min(1),
     priority: z.number().int().min(-10_000).max(10_000).default(0),
-    enabled: z.boolean().default(true)
+    enabled: z.boolean().default(true),
+    capabilities: ToolRoutingTermListSchema,
+    operations: ToolRoutingTermListSchema,
+    inputKinds: ToolRoutingTermListSchema,
+    outputKinds: ToolRoutingTermListSchema
   }).strict()
 ]);
 
@@ -283,6 +298,31 @@ function normalizeFileNamePatterns(value) {
   return [...new Set(value.map((fileName) => fileName.trim()).filter(Boolean))];
 }
 
+function normalizeToolRoutingTerms(value = []) {
+  const seen = new Set();
+  return value
+    .map((term) => term.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase())
+    .filter(Boolean)
+    .filter((term) => {
+      if (seen.has(term)) {
+        return false;
+      }
+      seen.add(term);
+      return true;
+    });
+}
+
+export function toolRoutingMetadata(entry) {
+  const metadata = {};
+  for (const field of TOOL_ROUTING_FIELDS) {
+    const values = normalizeToolRoutingTerms(entry?.[field] ?? []);
+    if (values.length > 0) {
+      metadata[field] = values;
+    }
+  }
+  return metadata;
+}
+
 function normalizeDocumentMatchingOverride(value) {
   if (!value) {
     return undefined;
@@ -391,6 +431,7 @@ function normalizeTools(rawTools, configDirectory) {
         ? { documentMatching: normalizeDocumentMatchingOverride(directory.documentMatching) }
         : {}),
       instruction: (directory.instruction ?? directory.humanNote ?? "").trim(),
+      ...toolRoutingMetadata(directory),
       scannedToolFiles: (directory.scannedToolFiles ?? []).map((file) => ({
         name: file.name,
         path: resolveConfiguredPath(file.path, configDirectory),
@@ -412,7 +453,8 @@ function normalizeTools(rawTools, configDirectory) {
       name: file.name ?? (path.basename(resolvedPath) || `tool-file-${index + 1}`),
       path: resolvedPath,
       priority: file.priority ?? 0,
-      enabled: file.enabled !== false
+      enabled: file.enabled !== false,
+      ...toolRoutingMetadata(file)
     };
   }).sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name));
 
