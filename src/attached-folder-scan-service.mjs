@@ -11,7 +11,6 @@ import {
 } from "./config.mjs";
 import { AgentDocError } from "./errors.mjs";
 
-const RESULT_LIMIT = 100;
 const MAX_WARNINGS = 50;
 const PROTECTED_DIRECTORY_NAMES = new Set([".aws", ".azure", ".gnupg", ".ssh"]);
 const PROTECTED_FILE_NAMES = new Set([
@@ -263,18 +262,19 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
   const recursive = kind === "tool"
     ? directory.recursive !== false
     : directory.documentRecursive !== false;
+  const resultLimit = directory.scanLimit;
   const state = createState(config);
   const results = [];
 
   for await (const filePath of walkAttachedDirectory(directory, matchesFile, state, recursive)) {
-    if (results.length === RESULT_LIMIT) {
+    if (results.length === resultLimit) {
       state.hasMore = true;
       state.stopped = true;
       state.truncated = true;
       addWarning(
         state,
         "SCAN_RESULT_LIMIT_REACHED",
-        `Scan found more than ${RESULT_LIMIT} matching files. Showing the first ${RESULT_LIMIT} results.`
+        `Scan found more than ${resultLimit} matching files. Showing the first ${resultLimit} results.`
       );
       break;
     }
@@ -294,7 +294,7 @@ export async function scanAttachedFolder({ kind, directoryPath, config: rawConfi
       backend: "direct-scan",
       indexed: false,
       networkUsed: false,
-      resultLimit: RESULT_LIMIT,
+      resultLimit,
       hasMore: state.hasMore,
       truncated: state.truncated,
       recursive,

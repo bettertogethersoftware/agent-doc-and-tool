@@ -274,38 +274,46 @@
         <div class="tool-registry-title-row">
           <div class="tool-registry-heading">
             <p class="step">TOOL REGISTRY</p>
-            <h2 id="tools-registry-heading">Tool sources <span id="tool-source-count" class="catalog-count">0 sources</span></h2>
-            <p>Add a source folder, then choose which discovered tools and documents the agent can use.</p>
+            <h2 id="tools-registry-heading">Tool grants <span id="tool-source-count" class="catalog-count">0 grants</span></h2>
+            <p>Choose what the agent can use: scan source folders or grant individual files.</p>
           </div>
           <details class="resource-add-menu tool-add-menu">
-            <summary class="button primary action-add">Add source</summary>
+            <summary class="button primary action-add">Add grant</summary>
             <div class="resource-add-popover">
               <div class="resource-add-popover-heading">
-                <strong>Add a tool source</strong>
-                <span>Choose a local folder, import paths, or enter one manually.</span>
+                <strong>Add a tool grant</strong>
+                <span>Choose a source folder or an individual tool file.</span>
               </div>
               <div class="resource-add-section">
                 <span class="resource-add-section-label">Choose from this computer</span>
                 <div class="resource-add-options">
                   <button id="pick-tool-folder" class="button action-browse" type="button">Choose folder</button>
+                  <button id="pick-tool-file" class="button action-browse" type="button">Choose file</button>
                   <button id="tool-open-drop-box" class="button action-import" type="button">Import paths</button>
                 </div>
               </div>
               <div class="resource-add-section">
                 <span class="resource-add-section-label">Enter a path manually</span>
-                <div class="resource-add-options single-option">
+                <div class="resource-add-options">
                   <button id="add-tool-folder" class="button" type="button">Source folder path</button>
+                  <button id="add-tool-file" class="button" type="button">Exact file path</button>
                 </div>
               </div>
             </div>
           </details>
         </div>
         <div class="tool-registry-controls">
-          <label class="sr-only" for="tool-source-filter">Filter tool sources</label>
-          <input id="tool-source-filter" type="search" maxlength="500" placeholder="Filter sources">
-          <label class="sr-only" for="tool-source-status-filter">Filter tool sources by status</label>
-          <select id="tool-source-status-filter" aria-label="Filter tool sources by status">
-            <option value="all">All sources</option>
+          <label class="sr-only" for="tool-source-filter">Filter tool grants</label>
+          <input id="tool-source-filter" type="search" maxlength="500" placeholder="Filter grants">
+          <label class="sr-only" for="tool-source-type-filter">Filter tool grants by type</label>
+          <select id="tool-source-type-filter" aria-label="Filter tool grants by type">
+            <option value="all">All grants</option>
+            <option value="directory">Folders</option>
+            <option value="file">Exact files</option>
+          </select>
+          <label class="sr-only" for="tool-source-status-filter">Filter tool grants by status</label>
+          <select id="tool-source-status-filter" aria-label="Filter tool grants by status">
+            <option value="all">All statuses</option>
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
           </select>
@@ -319,40 +327,46 @@
         </div>
       </section>
 
-      <section class="panel tool-console resizable-workspace" data-resizable-workspace="tools" aria-label="Tool source workspace">
+      <section class="panel tool-console resizable-workspace" data-resizable-workspace="tools" aria-label="Tool grant workspace">
         <section class="tool-source-pane" aria-labelledby="tool-sources-heading">
           <div class="tool-pane-heading">
             <div>
-              <p class="step">TOOL SOURCES</p>
-              <h2 id="tool-sources-heading">Source catalog</h2>
+              <p class="step">TOOL GRANTS</p>
+              <h2 id="tool-sources-heading">Grant catalog</h2>
             </div>
             <span id="tool-source-enabled-count" class="catalog-count">0 enabled</span>
           </div>
-          <div id="tool-directories-list" class="tool-source-list" role="list"></div>
-          <p id="tool-directories-empty" class="empty-state" hidden>No tool sources yet. Add a source folder to start discovering tools.</p>
-          <p id="tool-sources-filter-empty" class="empty-state" hidden>No tool sources match this filter.</p>
+          <div class="tool-catalog-list-head" aria-hidden="true"><span>Name</span><span>Type</span><span>Path</span><span>Status</span></div>
+          <div id="tool-catalog-list" class="tool-source-list tool-catalog-list" role="list">
+            <div id="tool-directories-list" class="tool-catalog-list-part" role="presentation"></div>
+            <div id="tool-files-list" class="tool-catalog-list-part" role="presentation"></div>
+          </div>
+          <p id="tool-directories-empty" class="empty-state" hidden>No tool grants yet. Use <strong>Add grant</strong> to choose a source folder or exact file.</p>
+          <p id="tool-sources-filter-empty" class="empty-state" hidden>No tool grants match this filter.</p>
         </section>
 
-        <div class="workspace-splitter" data-workspace-splitter="tools" data-master-min="330" data-detail-min="410" role="separator" aria-orientation="vertical" aria-label="Resize tool source catalog and selected-source detail" aria-valuemin="28" aria-valuemax="70" aria-valuenow="40" tabindex="0" title="Drag or use Arrow keys to resize the catalog and detail panes"><span aria-hidden="true"></span></div>
+        <div class="workspace-splitter" data-workspace-splitter="tools" data-master-min="300" data-detail-min="410" role="separator" aria-orientation="vertical" aria-label="Resize tool grant catalog and selected-grant detail" aria-valuemin="28" aria-valuemax="70" aria-valuenow="46" tabindex="0" title="Drag or use Arrow keys to resize the catalog and detail panes"><span aria-hidden="true"></span></div>
 
-        <aside id="tool-source-inspector" class="tool-source-inspector" aria-labelledby="tool-source-inspector-heading">
+        <aside id="tool-source-inspector" class="tool-source-inspector" aria-label="Selected tool grant">
           <div id="tool-source-inspector-empty" class="tool-inspector-empty">
             <span class="prompt-editor-empty-icon" aria-hidden="true">↗</span>
             <div>
-              <strong id="tool-source-inspector-heading">Select a tool source</strong>
-              <p>Manage its saved grants, scan options, and folder Instruction here.</p>
+              <strong id="tool-source-inspector-heading">Select a tool grant</strong>
+              <p>Folder scan options or exact-file details appear here.</p>
             </div>
           </div>
 
           <div id="tool-source-inspector-body" hidden>
             <div class="tool-inspector-heading">
               <div>
-                <p class="step">SELECTED SOURCE</p>
+                <p class="step">SELECTED GRANT</p>
                 <h2 id="tool-source-editor-title">Tool source</h2>
                 <p id="tool-source-editor-meta">0 grants</p>
               </div>
-              <button id="delete-tool-source" class="button action-danger" type="button">Delete source</button>
+              <button id="delete-tool-source" class="button action-danger" type="button">Delete grant</button>
             </div>
+
+            <span class="document-editor-kind tool-editor-kind">Folder source</span>
 
             <div class="tool-inspector-tabs" role="tablist" aria-label="Selected tool source sections">
               <button id="tool-source-overview-tab" class="tool-inspector-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="tool-source-overview">Overview</button>
@@ -393,23 +407,36 @@
             </section>
 
             <section id="tool-source-resource-grants" class="tool-inspector-section tool-source-resource-grants" role="tabpanel" aria-labelledby="tool-source-tools-tab" hidden>
-              <div class="tool-grant-section-heading">
-                <div>
-                  <p id="tool-grant-section-step" class="step">TOOL SCANS</p>
-                  <h3 id="tool-grant-section-title">Tool grants</h3>
-                  <p id="tool-grant-section-description">Review matching executable and script files from this source.</p>
+              <div class="tool-scan-commandbar">
+                <div class="tool-scan-command-summary">
+                  <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
+                  <p id="tool-scan-summary" class="tool-scan-summary" role="status" aria-live="polite">Ready to scan matching tool files.</p>
                 </div>
-                <label class="toggle-row compact-toggle tool-source-scan-recursive">
-                  <input id="tool-source-scan-recursive" type="checkbox">
-                  <span class="toggle" aria-hidden="true"></span>
-                  <span>
-                    <strong>Include subfolders</strong>
-                    <small id="tool-source-scan-recursive-help">Scan nested tool files. This also controls recursive tool discovery.</small>
-                  </span>
-                </label>
-                <div class="button-row" role="group" aria-label="Selected source scan action">
-                  <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the selected source for matching tool files">Scan tools</button>
-                  <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the selected source for matching document files" hidden>Scan documents</button>
+                <div class="tool-scan-command-actions">
+                  <details id="tool-scan-options" class="tool-scan-options">
+                    <summary class="button action-browse">
+                      <span>Scan options</span>
+                      <small id="tool-scan-options-summary">Subfolders · 500 max</small>
+                    </summary>
+                    <div class="tool-scan-options-popover">
+                      <label class="toggle-row compact-toggle tool-source-scan-recursive">
+                        <input id="tool-source-scan-recursive" type="checkbox">
+                        <span class="toggle" aria-hidden="true"></span>
+                        <span>
+                          <strong>Include subfolders</strong>
+                          <small id="tool-source-scan-recursive-help">Scan nested tool files. This also controls recursive tool discovery.</small>
+                        </span>
+                      </label>
+                      <label class="tool-source-scan-limit">
+                        <span>Result limit</span>
+                        <input id="tool-source-scan-limit" type="number" min="1" max="5000" step="1" value="500" inputmode="numeric">
+                      </label>
+                    </div>
+                  </details>
+                  <div class="button-row tool-scan-run-actions" role="group" aria-label="Selected source scan action">
+                    <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the selected source for matching tool files">Scan tools</button>
+                    <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the selected source for matching document files" hidden>Scan documents</button>
+                  </div>
                 </div>
               </div>
               <div class="tool-grants-toolbar">
@@ -424,38 +451,50 @@
                   </select>
                 </div>
                 <div class="button-row">
-                  <button id="enable-visible-tool-grants" class="button action-add" type="button">Enable visible tools</button>
-                  <button id="disable-visible-tool-grants" class="button action-validate" type="button">Disable visible tools</button>
+                  <button id="enable-visible-tool-grants" class="button action-add" type="button">Enable</button>
+                  <button id="disable-visible-tool-grants" class="button action-validate" type="button">Disable</button>
+                  <button id="remove-visible-tool-grants" class="button action-danger" type="button">Remove matches</button>
                 </div>
               </div>
-              <div class="tool-grant-list-head" aria-hidden="true">
-                <span>Name</span><span>Path</span><span data-role="tool-grant-priority-heading">Priority</span><span>Status</span><span></span>
-              </div>
-              <div id="tool-grants-list" class="tool-grant-list" role="list"></div>
-              <p id="tool-grants-empty" class="empty-state" hidden>No saved tool grants exist for this source. Run Scan tools to review matching files.</p>
-              <p id="tool-grants-filter-empty" class="empty-state" hidden>No saved tool grants match this filter.</p>
-
-              <div id="tool-grant-editor" class="tool-grant-editor" hidden>
-                <div class="tool-grant-editor-heading">
-                  <div>
-                    <p class="step">SELECTED GRANT</p>
-                    <strong id="tool-grant-editor-title">Grant</strong>
+              <div class="tool-grant-workspace">
+                <div class="tool-grant-catalog">
+                  <div class="tool-grant-list-head" aria-hidden="true">
+                    <span>Name</span><span>Path</span><span data-role="tool-grant-priority-heading">Priority</span><span>Status</span><span></span>
                   </div>
-                  <button id="delete-tool-grant" class="button action-danger" type="button">Remove grant</button>
+                  <div id="tool-grants-list" class="tool-grant-list" role="list"></div>
+                  <nav id="tool-grant-pagination" class="tool-grant-pagination" aria-label="Scanned grant result pages" hidden>
+                    <span id="tool-grant-page-summary">1–6 of 100</span>
+                    <div class="button-row">
+                      <button id="previous-tool-grant-page" class="button action-browse" type="button" aria-label="Previous result page">Previous</button>
+                      <button id="next-tool-grant-page" class="button action-browse" type="button" aria-label="Next result page">Next</button>
+                    </div>
+                  </nav>
+                  <p id="tool-grants-empty" class="empty-state" hidden>No saved tool grants exist for this source. Run Scan tools to review matching files.</p>
+                  <p id="tool-grants-filter-empty" class="empty-state" hidden>No saved tool grants match this filter.</p>
                 </div>
-                <div class="tool-grant-editor-fields">
-                  <label class="field"><span>Name or alias</span><input id="tool-grant-editor-name" type="text" maxlength="200" required></label>
-                  <label id="tool-grant-editor-priority-field" class="field"><span>Priority</span><input id="tool-grant-editor-priority" type="number" min="-10000" max="10000"></label>
-                </div>
-                <div class="tool-grant-path-control">
-                  <code id="tool-grant-editor-path"></code>
-                  <button id="copy-tool-grant-path" class="button action-browse" type="button">Copy path</button>
-                </div>
-                <label class="toggle-row compact-toggle tool-grant-enabled-toggle">
-                  <input id="tool-grant-editor-enabled" type="checkbox">
-                  <span class="toggle" aria-hidden="true"></span>
-                  <span><strong>Grant enabled</strong><small>Disabled grants remain saved but are not exposed to the agent.</small></span>
-                </label>
+
+                <aside id="tool-grant-editor" class="tool-grant-editor" aria-label="Selected scanned grant" hidden>
+                  <div class="tool-grant-editor-heading">
+                    <div>
+                      <p class="step">SELECTED GRANT</p>
+                      <strong id="tool-grant-editor-title">Grant</strong>
+                    </div>
+                    <button id="delete-tool-grant" class="button action-danger" type="button">Remove grant</button>
+                  </div>
+                  <div class="tool-grant-editor-fields">
+                    <label class="field"><span>Name or alias</span><input id="tool-grant-editor-name" type="text" maxlength="200" required></label>
+                    <label id="tool-grant-editor-priority-field" class="field"><span>Priority</span><input id="tool-grant-editor-priority" type="number" min="-10000" max="10000"></label>
+                  </div>
+                  <div class="tool-grant-path-control">
+                    <code id="tool-grant-editor-path"></code>
+                    <button id="copy-tool-grant-path" class="button action-browse" type="button">Copy path</button>
+                  </div>
+                  <label class="toggle-row compact-toggle tool-grant-enabled-toggle">
+                    <input id="tool-grant-editor-enabled" type="checkbox">
+                    <span class="toggle" aria-hidden="true"></span>
+                    <span><strong>Grant enabled</strong><small>Disabled grants remain saved but are not exposed to the agent.</small></span>
+                  </label>
+                </aside>
               </div>
             </section>
 
@@ -467,51 +506,31 @@
               </label>
             </section>
           </div>
-        </aside>
-      </section>
 
-      <details id="tool-exact-grants" class="panel tool-exact-grants">
-        <summary>
-          <span>
-            <span class="step">EXACT TOOL GRANTS</span>
-            <strong>Direct files <span id="tool-exact-count" class="catalog-count">0 files</span></strong>
-          </span>
-          <span>Separate from source scans</span>
-        </summary>
-        <div class="tool-exact-body">
-          <div class="tool-exact-toolbar">
-            <p>Use direct files only when their parent folder should not be a searchable tool source.</p>
-            <div class="button-row">
-              <button id="pick-tool-file" class="button action-browse" type="button">Browse file</button>
-              <button id="add-tool-file" class="button action-add" type="button">Add exact tool</button>
-            </div>
-          </div>
-          <div class="tool-exact-workspace">
-            <section class="tool-exact-list-pane" aria-label="Exact tool grants">
-              <div id="tool-files-list" class="tool-exact-list" role="list"></div>
-              <p id="tool-files-empty" class="empty-state" hidden>No exact tool files are registered yet.</p>
-            </section>
-            <aside id="tool-exact-editor" class="tool-exact-editor" aria-labelledby="tool-exact-editor-heading">
-              <div id="tool-exact-editor-empty" class="tool-inspector-empty">
-                <span class="prompt-editor-empty-icon" aria-hidden="true">↗</span>
-                <div><strong id="tool-exact-editor-heading">Select an exact tool</strong><p>Its editable details open here.</p></div>
-              </div>
-              <div id="tool-exact-editor-body" hidden>
-                <div class="tool-grant-editor-heading">
-                  <div><p class="step">EXACT TOOL</p><strong id="tool-exact-editor-title">Exact tool</strong></div>
-                  <button id="delete-tool-exact" class="button action-danger" type="button">Remove tool</button>
+          <div id="tool-exact-grants" class="tool-catalog-exact-editor" hidden>
+            <div id="tool-exact-editor" class="tool-exact-editor">
+              <div id="tool-exact-editor-body">
+                <div class="tool-inspector-heading">
+                  <div>
+                    <p class="step">SELECTED GRANT</p>
+                    <h2 id="tool-exact-editor-title">Exact tool</h2>
+                    <p id="tool-exact-editor-meta">Direct file · Enabled</p>
+                  </div>
+                  <button id="delete-tool-exact" class="button action-danger" type="button">Delete grant</button>
                 </div>
+                <span class="document-editor-kind tool-editor-kind is-file">Exact file</span>
                 <div class="tool-grant-editor-fields">
                   <label class="field"><span>Name or alias</span><input id="tool-exact-editor-name" type="text" maxlength="200" required></label>
                   <label class="field"><span>Priority</span><input id="tool-exact-editor-priority" type="number" min="-10000" max="10000" required></label>
                 </div>
-                <label class="field tool-source-path-field"><span>File path</span><input id="tool-exact-editor-path" type="text" spellcheck="false" placeholder="C:\path\to\tool.py" required><small id="tool-exact-editor-path-state" class="field-path-state">Path status is shown after validation.</small></label>
-                <label class="toggle-row compact-toggle tool-grant-enabled-toggle"><input id="tool-exact-editor-enabled" type="checkbox"><span class="toggle" aria-hidden="true"></span><span><strong>Exact tool enabled</strong><small>Disabled files remain saved but are not exposed.</small></span></label>
+                <label class="field tool-source-path-field"><span>Exact tool path</span><input id="tool-exact-editor-path" type="text" spellcheck="false" placeholder="C:\path\to\tool.py" required><small id="tool-exact-editor-path-state" class="field-path-state">Path status is shown after validation.</small></label>
+                <label class="toggle-row compact-toggle tool-grant-enabled-toggle"><input id="tool-exact-editor-enabled" type="checkbox"><span class="toggle" aria-hidden="true"></span><span><strong>Grant enabled</strong><small>Disabled files remain saved but are not exposed to the agent.</small></span></label>
+                <p class="tool-source-scan-note"><strong>Direct file grant.</strong> Its parent folder is not scanned and no nearby files are exposed.</p>
               </div>
-            </aside>
+            </div>
           </div>
-        </div>
-      </details>
+        </aside>
+      </section>
 
       <details class="panel advanced tool-advanced-panel">
         <summary><span><span class="step">MATCHING</span><strong>Tool matching rules</strong></span><small>Advanced</small></summary>
@@ -923,18 +942,22 @@
   </template>
 
   <template id="tool-directory-row-template">
-    <article class="entry-row tool-source-entry" role="listitem">
+    <article class="entry-row tool-source-entry tool-catalog-entry" role="listitem">
       <input data-field="name" type="hidden">
       <input data-field="path" type="hidden">
       <input data-field="priority" type="hidden">
       <input data-field="recursive" type="checkbox" hidden>
       <input data-field="documentRecursive" type="checkbox" hidden>
+      <input data-field="scanLimit" type="number" min="1" max="5000" hidden>
       <input data-field="includeDocs" type="checkbox" hidden>
       <textarea data-role="folder-instruction" hidden></textarea>
       <button class="tool-source-select" data-action="select-source" type="button" aria-label="Edit tool source">
-        <span class="tool-source-name" data-role="tool-source-name"></span>
+        <span class="tool-catalog-identity">
+          <span class="tool-source-name" data-role="tool-source-name"></span>
+          <span class="tool-source-meta" data-role="tool-source-meta"></span>
+        </span>
+        <span class="tool-catalog-kind">Folder</span>
         <span class="tool-source-path" data-role="tool-source-path"></span>
-        <span class="tool-source-meta" data-role="tool-source-meta"></span>
         <span class="tool-source-validation" data-role="tool-source-validation"></span>
       </button>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable tool source" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
@@ -944,14 +967,18 @@
   </template>
 
   <template id="tool-file-row-template">
-    <article class="entry-row tool-exact-entry" role="listitem">
+    <article class="entry-row tool-exact-entry tool-catalog-entry" role="listitem">
       <input data-field="name" type="hidden">
       <input data-field="path" type="hidden">
       <input data-field="priority" type="hidden">
       <button class="tool-exact-select" data-action="select-exact-tool" type="button" aria-label="Edit exact tool file">
-        <span class="tool-exact-name" data-role="tool-exact-name"></span>
+        <span class="tool-catalog-identity">
+          <span class="tool-exact-name" data-role="tool-exact-name"></span>
+          <span class="tool-exact-meta" data-role="tool-exact-meta"></span>
+        </span>
+        <span class="tool-catalog-kind">Exact file</span>
         <span class="tool-exact-path" data-role="tool-exact-path"></span>
-        <span class="tool-exact-meta" data-role="tool-exact-meta"></span>
+        <span class="tool-source-validation" data-role="tool-exact-validation"></span>
       </button>
       <label class="entry-enabled"><input data-field="enabled" type="checkbox" aria-label="Enable exact tool file" checked><span class="entry-switch" aria-hidden="true"></span><span data-role="enabled-label">Enabled</span></label>
       <button class="icon-button" data-action="remove" type="button" aria-label="Remove exact tool file">×</button>

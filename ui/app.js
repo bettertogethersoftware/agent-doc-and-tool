@@ -90,6 +90,7 @@ const elements = {
   toolSourceCount: document.querySelector("#tool-source-count"),
   toolSourceEnabledCount: document.querySelector("#tool-source-enabled-count"),
   toolSourceFilter: document.querySelector("#tool-source-filter"),
+  toolSourceTypeFilter: document.querySelector("#tool-source-type-filter"),
   toolSourceStatusFilter: document.querySelector("#tool-source-status-filter"),
   toolSourceInspector: document.querySelector("#tool-source-inspector"),
   toolSourceInspectorEmpty: document.querySelector("#tool-source-inspector-empty"),
@@ -117,16 +118,23 @@ const elements = {
   toolSourceScanDocument: document.querySelector("#tool-source-scan-document"),
   toolSourceScanRecursive: document.querySelector("#tool-source-scan-recursive"),
   toolSourceScanRecursiveHelp: document.querySelector("#tool-source-scan-recursive-help"),
+  toolSourceScanLimit: document.querySelector("#tool-source-scan-limit"),
+  toolScanSummary: document.querySelector("#tool-scan-summary"),
+  toolScanOptions: document.querySelector("#tool-scan-options"),
+  toolScanOptionsSummary: document.querySelector("#tool-scan-options-summary"),
   toolGrantSectionStep: document.querySelector("#tool-grant-section-step"),
-  toolGrantSectionTitle: document.querySelector("#tool-grant-section-title"),
-  toolGrantSectionDescription: document.querySelector("#tool-grant-section-description"),
   toolGrantFilter: document.querySelector("#tool-grant-filter"),
   toolGrantStatusFilter: document.querySelector("#tool-grant-status-filter"),
   toolGrantsList: document.querySelector("#tool-grants-list"),
+  toolGrantPagination: document.querySelector("#tool-grant-pagination"),
+  toolGrantPageSummary: document.querySelector("#tool-grant-page-summary"),
+  previousToolGrantPage: document.querySelector("#previous-tool-grant-page"),
+  nextToolGrantPage: document.querySelector("#next-tool-grant-page"),
   toolGrantsEmpty: document.querySelector("#tool-grants-empty"),
   toolGrantsFilterEmpty: document.querySelector("#tool-grants-filter-empty"),
   enableVisibleToolGrants: document.querySelector("#enable-visible-tool-grants"),
   disableVisibleToolGrants: document.querySelector("#disable-visible-tool-grants"),
+  removeVisibleToolGrants: document.querySelector("#remove-visible-tool-grants"),
   toolGrantEditor: document.querySelector("#tool-grant-editor"),
   toolGrantEditorTitle: document.querySelector("#tool-grant-editor-title"),
   toolGrantEditorName: document.querySelector("#tool-grant-editor-name"),
@@ -137,13 +145,11 @@ const elements = {
   copyToolGrantPath: document.querySelector("#copy-tool-grant-path"),
   deleteToolGrant: document.querySelector("#delete-tool-grant"),
   toolFilesList: document.querySelector("#tool-files-list"),
-  toolFilesEmpty: document.querySelector("#tool-files-empty"),
   toolExactGrants: document.querySelector("#tool-exact-grants"),
-  toolExactCount: document.querySelector("#tool-exact-count"),
   toolExactEditor: document.querySelector("#tool-exact-editor"),
-  toolExactEditorEmpty: document.querySelector("#tool-exact-editor-empty"),
   toolExactEditorBody: document.querySelector("#tool-exact-editor-body"),
   toolExactEditorTitle: document.querySelector("#tool-exact-editor-title"),
+  toolExactEditorMeta: document.querySelector("#tool-exact-editor-meta"),
   toolExactEditorName: document.querySelector("#tool-exact-editor-name"),
   toolExactEditorPath: document.querySelector("#tool-exact-editor-path"),
   toolExactEditorPriority: document.querySelector("#tool-exact-editor-priority"),
@@ -241,6 +247,7 @@ const state = {
   toolSourceRowCounter: 0,
   activeToolSourceSection: "overview",
   selectedToolGrantId: null,
+  toolGrantPage: 1,
   selectedToolExactId: null,
   toolExactRowCounter: 0,
   selectedDocumentGrantId: null,
@@ -250,6 +257,7 @@ const state = {
 };
 
 const SIDEBAR_STATE_KEY = "agent-doc-sidebar-expanded";
+const TOOL_GRANT_PAGE_SIZE = 6;
 
 function setSidebarExpanded(expanded, { persist = true } = {}) {
   state.sidebarExpanded = Boolean(expanded);
@@ -912,11 +920,13 @@ function updateToolSourceEntrySummary(row) {
   const counts = sourceGrantCounts(row);
   const selection = row.querySelector('[data-action="select-source"]');
   const pathState = row.querySelector('[data-role="state"]');
+  const metaText = `${counts.tools} tool${counts.tools === 1 ? "" : "s"} · ${counts.documents} doc${counts.documents === 1 ? "" : "s"} · tools ${toolRecursive ? "deep" : "top"} · docs ${documentRecursive ? "deep" : "top"}${includeDocs ? " · docs on" : ""}`;
 
   row.querySelector('[data-role="tool-source-name"]').textContent = name || "Untitled source";
   row.querySelector('[data-role="tool-source-path"]').textContent = compactLocalPath(sourcePath);
   row.querySelector('[data-role="tool-source-path"]').title = sourcePath;
-  row.querySelector('[data-role="tool-source-meta"]').textContent = `${counts.tools} tool${counts.tools === 1 ? "" : "s"} · ${counts.documents} doc${counts.documents === 1 ? "" : "s"} · tools ${toolRecursive ? "deep" : "top"} · docs ${documentRecursive ? "deep" : "top"}${includeDocs ? " · docs on" : ""}`;
+  row.querySelector('[data-role="tool-source-meta"]').textContent = metaText;
+  row.querySelector('[data-role="tool-source-meta"]').title = metaText;
   row.querySelector('[data-role="tool-source-validation"]').textContent = toolSourceStatusText(row);
   row.querySelector('[data-role="tool-source-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit tool source ${name || "untitled source"}`);
@@ -931,12 +941,17 @@ function updateToolExactEntrySummary(row) {
   const priority = row.querySelector('[data-field="priority"]').value;
   const enabled = row.querySelector('[data-field="enabled"]').checked;
   const selection = row.querySelector('[data-action="select-exact-tool"]');
+  const pathState = row.querySelector('[data-role="state"]');
 
   row.querySelector('[data-role="tool-exact-name"]').textContent = name || "Untitled exact tool";
   row.querySelector('[data-role="tool-exact-path"]').textContent = compactLocalPath(filePath);
   row.querySelector('[data-role="tool-exact-path"]').title = filePath;
-  row.querySelector('[data-role="tool-exact-meta"]').textContent = `Priority ${priority || "—"} · ${toolSourceStatusText(row)}`;
+  row.querySelector('[data-role="tool-exact-meta"]').textContent = `Priority ${priority || "—"}`;
+  row.querySelector('[data-role="tool-exact-validation"]').textContent = toolSourceStatusText(row);
+  row.querySelector('[data-role="tool-exact-validation"]').dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
   selection.setAttribute("aria-label", `Edit exact tool ${name || "untitled exact tool"}`);
+  row.dataset.toolExactSearch = `${name}\n${filePath}`.toLocaleLowerCase();
+  row.classList.toggle("is-empty-path", !filePath);
   row.classList.toggle("is-disabled", !enabled);
 }
 
@@ -956,6 +971,38 @@ function activeToolGrantKind() {
   return state.activeToolSourceSection === "documents" ? "document" : "tool";
 }
 
+function updateToolScanSummary(source, kind) {
+  const scan = source
+    ? state.folderScanResults.get(source.dataset.folderScanKey)?.[kind]
+    : null;
+  delete elements.toolScanSummary.dataset.state;
+  const label = kind === "document" ? "document" : "tool";
+  if (!scan) {
+    elements.toolScanSummary.textContent = `Ready to scan matching ${label} files.`;
+    return;
+  }
+
+  const count = scan.entries.length;
+  const meta = scan.payload.meta ?? {};
+  if (meta.persisted) {
+    elements.toolScanSummary.textContent = `${count} saved ${label} grant${count === 1 ? "" : "s"} loaded from this configuration.`;
+    return;
+  }
+  if (meta.hasMore) {
+    const limit = meta.resultLimit ?? count;
+    elements.toolScanSummary.dataset.state = "warning";
+    elements.toolScanSummary.textContent = `${count} ${label} result${count === 1 ? "" : "s"} shown. The ${limit}-result limit was reached; increase Result limit and scan again to review more.`;
+    return;
+  }
+  if (meta.truncated) {
+    elements.toolScanSummary.dataset.state = "warning";
+    elements.toolScanSummary.textContent = scan.payload.warnings?.[0]?.message ?? `The ${label} scan stopped before it finished.`;
+    return;
+  }
+  const elapsed = Number.isFinite(meta.elapsedMs) ? ` in ${meta.elapsedMs} ms` : "";
+  elements.toolScanSummary.textContent = `${count} matching ${label}${count === 1 ? "" : "s"} found${elapsed}.`;
+}
+
 function updateToolGrantSection(kind = activeToolGrantKind()) {
   const isDocument = kind === "document";
   const label = isDocument ? "Documents" : "Tools";
@@ -966,28 +1013,35 @@ function updateToolGrantSection(kind = activeToolGrantKind()) {
 
   elements.toolSourceResourceGrants.dataset.grantKind = kind;
   elements.toolSourceResourceGrants.setAttribute("aria-labelledby", tab.id);
-  elements.toolGrantSectionStep.textContent = isDocument ? "DOCUMENT SCANS" : "TOOL SCANS";
-  elements.toolGrantSectionTitle.textContent = `${label} grants`;
-  elements.toolGrantSectionDescription.textContent = isDocument
-    ? "Review matching documentation files from this source."
-    : "Review matching executable and script files from this source.";
+  elements.toolGrantSectionStep.textContent = isDocument ? "DOCUMENT SCAN" : "TOOL SCAN";
   elements.toolGrantFilter.placeholder = `Filter ${singular}s`;
   elements.toolGrantsEmpty.textContent = `No saved ${singular} grants exist for this source. Run Scan ${singular}s to review matching files.`;
   elements.toolGrantsFilterEmpty.textContent = `No saved ${singular} grants match this filter.`;
-  elements.enableVisibleToolGrants.textContent = `Enable visible ${singular}s`;
-  elements.disableVisibleToolGrants.textContent = `Disable visible ${singular}s`;
+  elements.enableVisibleToolGrants.textContent = "Enable";
+  elements.disableVisibleToolGrants.textContent = "Disable";
+  elements.enableVisibleToolGrants.setAttribute("aria-label", `Enable shown ${singular}s`);
+  elements.disableVisibleToolGrants.setAttribute("aria-label", `Disable shown ${singular}s`);
   elements.toolSourceScanTool.hidden = isDocument;
   elements.toolSourceScanDocument.hidden = !isDocument;
   elements.toolSourceScanRecursive.checked = source?.querySelector(`[data-field="${recursiveField}"]`)?.checked ?? true;
+  elements.toolSourceScanLimit.value = source?.querySelector('[data-field="scanLimit"]')?.value || "500";
+  elements.toolScanOptionsSummary.textContent = `${elements.toolSourceScanRecursive.checked ? "Subfolders" : "Current folder"} · ${elements.toolSourceScanLimit.value} max`;
   elements.toolSourceScanRecursive.setAttribute("aria-label", `Include subfolders when scanning ${singular}s`);
   elements.toolSourceScanRecursiveHelp.textContent = isDocument
     ? "Scan nested documents only. It does not broaden documentation discovery."
     : "Scan nested tool files. This also controls recursive tool discovery.";
+  updateToolScanSummary(source, kind);
 }
 
 function setToolSourceSection(section, focus = false) {
   const selected = ["overview", "tools", "documents", "instruction"].includes(section) ? section : "overview";
+  const previous = elements.toolSourceInspector.dataset.activeSection;
+  if (previous !== selected && ["tools", "documents"].includes(selected)) {
+    state.toolGrantPage = 1;
+    state.selectedToolGrantId = null;
+  }
   state.activeToolSourceSection = selected;
+  elements.toolSourceInspector.dataset.activeSection = selected;
   const sections = {
     overview: { tab: elements.toolSourceOverviewTab, panel: elements.toolSourceOverview },
     tools: { tab: elements.toolSourceToolsTab, panel: elements.toolSourceResourceGrants },
@@ -1007,42 +1061,72 @@ function setToolSourceSection(section, focus = false) {
     updateToolGrantSection();
     renderToolSourceGrants();
   }
+  if (previous && previous !== selected) {
+    elements.toolScanOptions.removeAttribute("open");
+    const activePanel = sections[selected].panel;
+    activePanel.classList.remove("is-section-entering");
+    requestAnimationFrame(() => activePanel.classList.add("is-section-entering"));
+  }
   if (focus) {
     sections[selected].tab.focus();
   }
 }
 
 function refreshToolSourceInspector() {
-  const selectedRow = toolSourceRowById();
+  const selectedSource = toolSourceRowById();
+  const selectedExact = selectedSource ? null : toolExactRowById();
+  const selectedRow = selectedSource ?? selectedExact;
   elements.toolSourceInspectorEmpty.hidden = Boolean(selectedRow);
-  elements.toolSourceInspectorBody.hidden = !selectedRow;
+  elements.toolSourceInspectorBody.hidden = !selectedSource;
+  elements.toolExactGrants.hidden = !selectedExact;
+  elements.toolExactEditorBody.hidden = !selectedExact;
   elements.toolSourceInspector.classList.toggle("has-selection", Boolean(selectedRow));
 
   for (const row of toolSourceRows()) {
-    const selected = row === selectedRow;
+    const selected = row === selectedSource;
     row.classList.toggle("is-selected", selected);
     row.querySelector('[data-action="select-source"]').setAttribute("aria-pressed", String(selected));
+  }
+  for (const row of toolExactRows()) {
+    const selected = row === selectedExact;
+    row.classList.toggle("is-selected", selected);
+    row.querySelector('[data-action="select-exact-tool"]').setAttribute("aria-pressed", String(selected));
   }
 
   if (!selectedRow) {
     return;
   }
 
-  elements.toolSourceEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
-  elements.toolSourceEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
-  elements.toolSourceEditorPriority.value = selectedRow.querySelector('[data-field="priority"]').value;
-  elements.toolSourceEditorIncludeDocs.checked = selectedRow.querySelector('[data-field="includeDocs"]').checked;
-  elements.toolSourceEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
-  elements.toolSourceEditorInstruction.value = selectedRow.querySelector('[data-role="folder-instruction"]').value;
-  updateToolSourceInspectorHeader(selectedRow);
-  setToolSourceSection(state.activeToolSourceSection);
+  if (selectedSource) {
+    elements.toolSourceEditorName.value = selectedSource.querySelector('[data-field="name"]').value;
+    elements.toolSourceEditorPath.value = selectedSource.querySelector('[data-field="path"]').value;
+    elements.toolSourceEditorPriority.value = selectedSource.querySelector('[data-field="priority"]').value;
+    elements.toolSourceEditorIncludeDocs.checked = selectedSource.querySelector('[data-field="includeDocs"]').checked;
+    elements.toolSourceEditorEnabled.checked = selectedSource.querySelector('[data-field="enabled"]').checked;
+    elements.toolSourceEditorInstruction.value = selectedSource.querySelector('[data-role="folder-instruction"]').value;
+    updateToolSourceInspectorHeader(selectedSource);
+    setToolSourceSection(state.activeToolSourceSection);
+    return;
+  }
+
+  const pathState = selectedExact.querySelector('[data-role="state"]');
+  elements.toolExactEditorName.value = selectedExact.querySelector('[data-field="name"]').value;
+  elements.toolExactEditorPath.value = selectedExact.querySelector('[data-field="path"]').value;
+  elements.toolExactEditorPriority.value = selectedExact.querySelector('[data-field="priority"]').value;
+  elements.toolExactEditorEnabled.checked = selectedExact.querySelector('[data-field="enabled"]').checked;
+  elements.toolExactEditorTitle.textContent = elements.toolExactEditorName.value || "Untitled exact tool";
+  elements.toolExactEditorMeta.textContent = `Direct file · ${elements.toolExactEditorEnabled.checked ? "Enabled" : "Disabled"}`;
+  elements.toolExactEditorPathState.textContent = toolSourceStatusText(selectedExact);
+  elements.toolExactEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
 }
 
 function selectToolSource(row, { focus = false, section = "overview" } = {}) {
-  const changed = state.selectedToolSourceId !== row?.dataset.toolSourceId;
+  const changed = state.selectedToolSourceId !== row?.dataset.toolSourceId || Boolean(state.selectedToolExactId);
   state.selectedToolSourceId = row?.dataset.toolSourceId ?? null;
+  state.selectedToolExactId = null;
   if (changed) {
     state.selectedToolGrantId = null;
+    state.toolGrantPage = 1;
     state.activeToolSourceSection = section;
   }
   refreshToolSourceInspector();
@@ -1054,17 +1138,27 @@ function selectToolSource(row, { focus = false, section = "overview" } = {}) {
 
 function updateToolSourceCatalog() {
   const query = elements.toolSourceFilter.value.trim().toLocaleLowerCase();
+  const type = elements.toolSourceTypeFilter.value;
   const status = elements.toolSourceStatusFilter.value;
-  const rows = toolSourceRows();
+  const records = [
+    ...toolSourceRows().map((row) => ({ row, kind: "directory" })),
+    ...toolExactRows().map((row) => ({ row, kind: "file" }))
+  ];
   let visibleCount = 0;
   let enabledCount = 0;
 
-  for (const row of rows) {
-    updateToolSourceEntrySummary(row);
+  for (const { row, kind } of records) {
+    if (kind === "directory") {
+      updateToolSourceEntrySummary(row);
+    } else {
+      updateToolExactEntrySummary(row);
+    }
     const enabled = row.querySelector('[data-field="enabled"]').checked;
-    const matchesText = matchesOperatorFilter(row.dataset.toolSourceSearch, query);
+    const searchText = kind === "directory" ? row.dataset.toolSourceSearch : row.dataset.toolExactSearch;
+    const matchesText = matchesOperatorFilter(searchText, query);
+    const matchesType = type === "all" || type === kind;
     const matchesStatus = status === "all" || (status === "enabled" ? enabled : !enabled);
-    row.hidden = !matchesText || !matchesStatus;
+    row.hidden = !matchesText || !matchesType || !matchesStatus;
     if (!row.hidden) {
       visibleCount += 1;
     }
@@ -1073,19 +1167,27 @@ function updateToolSourceCatalog() {
     }
   }
 
-  const total = rows.length;
-  const label = total === 1 ? "1 source" : `${total} sources`;
+  const total = records.length;
+  const label = total === 1 ? "1 grant" : `${total} grants`;
   elements.toolSourceCount.textContent = visibleCount === total ? label : `${visibleCount}/${total} shown`;
   elements.toolSourceEnabledCount.textContent = `${enabledCount} enabled`;
   elements.toolDirectoriesEmpty.hidden = total > 0;
   elements.toolSourcesFilterEmpty.hidden = total === 0 || visibleCount > 0;
   elements.toolsPanel.classList.toggle("is-empty-catalog", total === 0);
 
-  const selectedRow = toolSourceRowById();
-  if (selectedRow?.hidden) {
-    state.selectedToolSourceId = rows.find((row) => !row.hidden)?.dataset.toolSourceId ?? null;
-    state.selectedToolGrantId = null;
-    refreshToolSourceInspector();
+  const selectedRow = toolSourceRowById() ?? toolExactRowById();
+  if (!selectedRow || selectedRow.hidden) {
+    const next = records.find(({ row }) => !row.hidden);
+    if (next?.kind === "directory") {
+      selectToolSource(next.row);
+    } else if (next) {
+      selectToolExact(next.row);
+    } else {
+      state.selectedToolSourceId = null;
+      state.selectedToolExactId = null;
+      state.selectedToolGrantId = null;
+      refreshToolSourceInspector();
+    }
   }
 }
 
@@ -1144,9 +1246,33 @@ function syncToolSourceScanRecursive() {
   markDirty();
 }
 
+function syncToolSourceScanLimit({ announce = true } = {}) {
+  const row = toolSourceRowById();
+  if (!row) {
+    return false;
+  }
+  const limit = Number(elements.toolSourceScanLimit.value);
+  const minimum = Number(elements.toolSourceScanLimit.min);
+  const maximum = Number(elements.toolSourceScanLimit.max);
+  if (!Number.isInteger(limit) || limit < minimum || limit > maximum) {
+    elements.toolSourceScanLimit.setAttribute("aria-invalid", "true");
+    if (announce) {
+      showToast(`Result limit must be an integer from ${minimum} to ${maximum}.`, "error");
+    }
+    return false;
+  }
+  elements.toolSourceScanLimit.removeAttribute("aria-invalid");
+  row.querySelector('[data-field="scanLimit"]').value = String(limit);
+  updateToolGrantSection();
+  markDirty();
+  return true;
+}
+
 function selectToolExact(row, { focus = false } = {}) {
+  state.selectedToolSourceId = null;
+  state.selectedToolGrantId = null;
   state.selectedToolExactId = row?.dataset.toolExactId ?? null;
-  refreshToolExactEditor();
+  refreshToolSourceInspector();
   if (focus && row) {
     elements.toolExactEditorName.focus();
     elements.toolExactEditorName.select();
@@ -1154,44 +1280,12 @@ function selectToolExact(row, { focus = false } = {}) {
 }
 
 function updateToolExactCatalog() {
-  const rows = toolExactRows();
-  let enabledCount = 0;
-  for (const row of rows) {
-    updateToolExactEntrySummary(row);
-    if (row.querySelector('[data-field="enabled"]').checked) {
-      enabledCount += 1;
-    }
-  }
-  const total = rows.length;
-  elements.toolExactCount.textContent = total === 1 ? "1 file" : `${total} files`;
-  elements.toolFilesEmpty.hidden = total > 0;
-  elements.toolExactGrants.dataset.enabledCount = String(enabledCount);
-  if (!toolExactRowById()) {
-    state.selectedToolExactId = rows[0]?.dataset.toolExactId ?? null;
-  }
-  refreshToolExactEditor();
+  updateToolSourceCatalog();
+  refreshToolSourceInspector();
 }
 
 function refreshToolExactEditor() {
-  const selectedRow = toolExactRowById();
-  elements.toolExactEditorEmpty.hidden = Boolean(selectedRow);
-  elements.toolExactEditorBody.hidden = !selectedRow;
-  for (const row of toolExactRows()) {
-    const selected = row === selectedRow;
-    row.classList.toggle("is-selected", selected);
-    row.querySelector('[data-action="select-exact-tool"]').setAttribute("aria-pressed", String(selected));
-  }
-  if (!selectedRow) {
-    return;
-  }
-  const pathState = selectedRow.querySelector('[data-role="state"]');
-  elements.toolExactEditorName.value = selectedRow.querySelector('[data-field="name"]').value;
-  elements.toolExactEditorPath.value = selectedRow.querySelector('[data-field="path"]').value;
-  elements.toolExactEditorPriority.value = selectedRow.querySelector('[data-field="priority"]').value;
-  elements.toolExactEditorEnabled.checked = selectedRow.querySelector('[data-field="enabled"]').checked;
-  elements.toolExactEditorTitle.textContent = elements.toolExactEditorName.value || "Untitled exact tool";
-  elements.toolExactEditorPathState.textContent = toolSourceStatusText(selectedRow);
-  elements.toolExactEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  refreshToolSourceInspector();
 }
 
 function syncToolExactEditor() {
@@ -1222,8 +1316,10 @@ function syncToolExactEditor() {
   refreshEntryEnabledState(row, pathState);
   updateToolExactEntrySummary(row);
   elements.toolExactEditorTitle.textContent = nameInput.value.trim() || "Untitled exact tool";
+  elements.toolExactEditorMeta.textContent = `Direct file · ${enabledInput.checked ? "Enabled" : "Disabled"}`;
   elements.toolExactEditorPathState.textContent = toolSourceStatusText(row);
   elements.toolExactEditorPathState.dataset.validationStatus = pathState?.dataset.activeStatus ?? "idle";
+  updateToolSourceCatalog();
   markDirty();
 }
 
@@ -1257,6 +1353,7 @@ function selectedToolGrantRecord() {
 function updateToolGrantEditor() {
   const record = selectedToolGrantRecord();
   elements.toolGrantEditor.hidden = !record;
+  elements.toolSourceResourceGrants.classList.toggle("has-grant-selection", Boolean(record));
   if (!record) {
     return;
   }
@@ -1281,20 +1378,40 @@ function renderToolSourceGrants() {
   if (!source) {
     elements.toolGrantsEmpty.hidden = false;
     elements.toolGrantsFilterEmpty.hidden = true;
+    elements.toolGrantPagination.hidden = true;
+    for (const button of [elements.enableVisibleToolGrants, elements.disableVisibleToolGrants, elements.removeVisibleToolGrants]) {
+      button.disabled = true;
+    }
     updateToolGrantEditor();
     return;
   }
   const records = toolGrantRecords(source).filter((record) => record.kind === kind);
   const visibleRecords = records.filter((record) => toolGrantMatchesFilters(record, kind));
+  const pageCount = Math.max(1, Math.ceil(visibleRecords.length / TOOL_GRANT_PAGE_SIZE));
+  state.toolGrantPage = Math.min(Math.max(1, state.toolGrantPage), pageCount);
+  const pageStart = (state.toolGrantPage - 1) * TOOL_GRANT_PAGE_SIZE;
+  const pageRecords = visibleRecords.slice(pageStart, pageStart + TOOL_GRANT_PAGE_SIZE);
+  const label = kind === "document" ? "documents" : "tools";
   elements.toolGrantsEmpty.hidden = records.length > 0;
   elements.toolGrantsFilterEmpty.hidden = records.length === 0 || visibleRecords.length > 0;
+  elements.toolGrantPagination.hidden = visibleRecords.length <= TOOL_GRANT_PAGE_SIZE;
+  elements.toolGrantPageSummary.textContent = visibleRecords.length === 0
+    ? "No matches"
+    : `${pageStart + 1}–${pageStart + pageRecords.length} of ${visibleRecords.length}`;
+  elements.previousToolGrantPage.disabled = state.toolGrantPage === 1;
+  elements.nextToolGrantPage.disabled = state.toolGrantPage === pageCount;
+  elements.enableVisibleToolGrants.disabled = visibleRecords.length === 0;
+  elements.disableVisibleToolGrants.disabled = visibleRecords.length === 0;
+  elements.removeVisibleToolGrants.disabled = visibleRecords.length === 0;
+  elements.removeVisibleToolGrants.textContent = `Remove matches (${visibleRecords.length})`;
+  elements.removeVisibleToolGrants.setAttribute("aria-label", `Remove all ${visibleRecords.length} matching ${label}`);
 
   const selected = selectedToolGrantRecord();
-  if (!selected || !visibleRecords.some((record) => record.id === selected.id)) {
-    state.selectedToolGrantId = visibleRecords[0]?.id ?? null;
+  if (!selected || !pageRecords.some((record) => record.id === selected.id)) {
+    state.selectedToolGrantId = pageRecords[0]?.id ?? null;
   }
 
-  for (const record of visibleRecords) {
+  for (const record of pageRecords) {
     const row = document.createElement("article");
     row.className = "tool-grant-entry";
     row.dataset.grantId = record.id;
@@ -1412,6 +1529,44 @@ function setVisibleToolGrantsEnabled(enabled) {
   }
 }
 
+function removeVisibleToolGrants() {
+  const source = toolSourceRowById();
+  if (!source) {
+    return;
+  }
+  const kind = activeToolGrantKind();
+  const visibleRecords = toolGrantRecords(source).filter((record) => toolGrantMatchesFilters(record, kind));
+  if (visibleRecords.length === 0) {
+    return;
+  }
+
+  const removedPaths = new Set(visibleRecords.map((record) => scanFileKey(record.entry.path)));
+  const folderResults = state.folderScanResults.get(source.dataset.folderScanKey);
+  const scan = folderResults?.[kind];
+  if (!scan) {
+    return;
+  }
+  scan.entries = scan.entries.filter((entry) => !removedPaths.has(scanFileKey(entry.path)));
+  scan.payload.results = scan.payload.results.filter((entry) => !removedPaths.has(scanFileKey(entry.path)));
+  if (scan.entries.length === 0) {
+    delete folderResults[kind];
+    if (!folderResults.tool && !folderResults.document) {
+      state.folderScanResults.delete(source.dataset.folderScanKey);
+    }
+  }
+  if (visibleRecords.some((record) => record.id === state.selectedToolGrantId)) {
+    state.selectedToolGrantId = null;
+  }
+
+  updateToolSourceEntrySummary(source);
+  updateToolSourceInspectorHeader(source);
+  updateToolGrantSection(kind);
+  renderToolSourceGrants();
+  markDirty();
+  const label = kind === "document" ? "document" : "tool";
+  showToast(`${visibleRecords.length} matching ${label} grant${visibleRecords.length === 1 ? "" : "s"} removed. Rescan to restore them.`, "success");
+}
+
 async function copyLocalPath(value) {
   try {
     await navigator.clipboard.writeText(value);
@@ -1429,6 +1584,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   const priorityInput = row.querySelector('[data-field="priority"]');
   const recursiveInput = row.querySelector('[data-field="recursive"]');
   const documentRecursiveInput = row.querySelector('[data-field="documentRecursive"]');
+  const scanLimitInput = row.querySelector('[data-field="scanLimit"]');
   const includeDocsInput = row.querySelector('[data-field="includeDocs"]');
   const enabledInput = row.querySelector('[data-field="enabled"]');
   const pathState = row.querySelector('[data-role="state"]');
@@ -1444,6 +1600,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   priorityInput.value = normalized.priority ?? 0;
   recursiveInput.checked = normalized.recursive !== false;
   documentRecursiveInput.checked = normalized.documentRecursive ?? recursiveInput.checked;
+  scanLimitInput.value = normalized.scanLimit ?? 500;
   includeDocsInput.checked = normalized.includeDocs !== false;
   instructionInput.value = normalized.instruction ?? normalized.humanNote ?? "";
   applyEntryAvailability(row, pathState, availability, "directory");
@@ -1488,6 +1645,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
     row.remove();
     if (wasSelected) {
       state.selectedToolSourceId = next?.dataset.toolSourceId ?? null;
+      state.selectedToolExactId = state.selectedToolSourceId ? null : (toolExactRows()[0]?.dataset.toolExactId ?? null);
       state.selectedToolGrantId = null;
     }
     updateEmptyStates();
@@ -1498,7 +1656,7 @@ function appendToolDirectory(directory = {}, availability = undefined) {
   elements.toolDirectoriesList.append(row);
   updateToolSourceEntrySummary(row);
   updateEmptyStates();
-  if (!state.selectedToolSourceId) {
+  if (!state.selectedToolSourceId && !state.selectedToolExactId) {
     selectToolSource(row);
   }
   return row;
@@ -1531,7 +1689,7 @@ function persistedFolderScan(kind, entries) {
     payload: {
       kind,
       results: entries.map((entry) => ({ path: entry.path })),
-      meta: { hasMore: false, truncated: false },
+      meta: { persisted: true, resultLimit: entries.length, hasMore: false, truncated: false },
       warnings: []
     },
     entries
@@ -1628,133 +1786,6 @@ function storeFolderScanResult(folderRow, payload) {
   folderRow.dataset.folderScanKey = key;
 }
 
-function scanContentIsVisible(scan) {
-  return Boolean(scan && (scan.payload.results.length === 0 || scan.entries.length > 0));
-}
-
-function removeScannedFilePreview(folderRow, kind, filePath) {
-  const folderKey = folderRow.dataset.folderScanKey || folderScanKey(folderRow.querySelector('[data-field="path"]').value);
-  const scan = state.folderScanResults.get(folderKey)?.[kind];
-  if (!scan) {
-    return;
-  }
-  scan.entries = scan.entries.filter((entry) => scanFileKey(entry.path) !== scanFileKey(filePath));
-  renderFolderScanResults(folderRow);
-  markDirty();
-}
-
-function createScannedFileRow(folderRow, entry, kind, toolPriority) {
-  const row = document.createElement("article");
-  row.className = kind === "tool" ? "scan-exact-row scan-tool-file-grid" : "scan-exact-row scan-document-file-grid";
-  row.setAttribute("role", "listitem");
-  row.setAttribute(
-    "aria-label",
-    kind === "tool"
-      ? "Saved scanned tool selection. This file is registered as an exact tool file when the configuration is saved."
-      : "Saved scanned document selection. This file is registered as an exact document file when the configuration is saved."
-  );
-
-  const name = document.createElement("input");
-  name.className = "scan-exact-field scan-exact-name";
-  name.type = "text";
-  name.maxLength = 200;
-  name.value = entry.name ?? friendlyPathName(entry.path, kind === "tool" ? "tool-file" : "document-file");
-  name.setAttribute("aria-label", kind === "tool" ? "Scanned tool name or alias" : "Scanned document name or alias");
-  name.title = "Unique name or alias";
-  name.addEventListener("input", () => {
-    entry.name = name.value;
-    markDirty();
-  });
-
-  const filePath = document.createElement("div");
-  filePath.className = "scan-exact-field scan-exact-path";
-  filePath.textContent = entry.path;
-  filePath.title = entry.path;
-
-  row.append(name, filePath);
-
-  if (kind === "tool") {
-    const priority = document.createElement("input");
-    priority.className = "scan-exact-field scan-exact-priority";
-    priority.type = "number";
-    priority.min = "-10000";
-    priority.max = "10000";
-    priority.value = String(Number.isInteger(entry.priority) ? entry.priority : Number(toolPriority));
-    priority.setAttribute("aria-label", "Scanned tool priority");
-    priority.title = "Individual tool priority";
-    priority.addEventListener("input", () => {
-      entry.priority = Number(priority.value);
-      markDirty();
-    });
-    row.append(priority);
-  }
-
-  const enabled = document.createElement("label");
-  enabled.className = "entry-enabled scan-entry-enabled";
-  const enabledInput = document.createElement("input");
-  enabledInput.type = "checkbox";
-  enabledInput.dataset.field = "enabled";
-  enabledInput.setAttribute("aria-label", `Enable scanned ${kind} file ${entry.path}`);
-  const enabledSwitch = document.createElement("span");
-  enabledSwitch.className = "entry-switch";
-  enabledSwitch.setAttribute("aria-hidden", "true");
-  const enabledLabel = document.createElement("span");
-  enabledLabel.dataset.role = "enabled-label";
-  enabled.append(enabledInput, enabledSwitch, enabledLabel);
-
-  const remove = document.createElement("button");
-  remove.className = "icon-button scan-remove-button";
-  remove.type = "button";
-  remove.setAttribute("aria-label", `Remove scanned ${kind} file ${entry.path}`);
-  remove.textContent = "×";
-  remove.addEventListener("click", () => removeScannedFilePreview(folderRow, kind, entry.path));
-  row.append(enabled, remove);
-  initializeEntryToggle(row, null, entry.enabled);
-  enabledInput.addEventListener("change", () => {
-    entry.enabled = enabledInput.checked;
-    markDirty();
-  });
-  return row;
-}
-
-function renderFolderScanResultContent(folderRow, content, scan, kind, toolPriority) {
-  content.replaceChildren();
-  if (!scanContentIsVisible(scan)) {
-    content.hidden = true;
-    return;
-  }
-  content.hidden = false;
-  const { payload, entries } = scan;
-
-  if (payload.meta.hasMore) {
-    const warning = document.createElement("p");
-    warning.className = "folder-scan-warning";
-    warning.textContent = "Showing the first 100 matching results. Additional matches were found; refine the matching rules or scan a more specific folder.";
-    content.append(warning);
-  } else if (payload.meta.truncated) {
-    const warning = document.createElement("p");
-    warning.className = "folder-scan-warning";
-    warning.textContent = payload.warnings[0]?.message ?? "The scan stopped before it could finish.";
-    content.append(warning);
-  }
-
-  if (payload.results.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = `No matching ${payload.kind === "tool" ? "tools" : "documents"} were found in this folder.`;
-    content.append(empty);
-    return;
-  }
-
-  const files = document.createElement("div");
-  files.className = "scan-exact-list";
-  files.setAttribute("role", "list");
-  for (const entry of entries) {
-    files.append(createScannedFileRow(folderRow, entry, kind, toolPriority));
-  }
-  content.append(files);
-}
-
 function renderFolderScanResults(row) {
   updateToolSourceEntrySummary(row);
   updateToolSourceCatalog();
@@ -1800,6 +1831,8 @@ function appendToolFile(toolFile = {}, availability = undefined) {
     row.remove();
     if (wasSelected) {
       state.selectedToolExactId = next?.dataset.toolExactId ?? null;
+      state.selectedToolSourceId = state.selectedToolExactId ? null : (toolSourceRows()[0]?.dataset.toolSourceId ?? null);
+      state.selectedToolGrantId = null;
     }
     updateEmptyStates();
     refreshToolExactEditor();
@@ -1809,7 +1842,7 @@ function appendToolFile(toolFile = {}, availability = undefined) {
   elements.toolFilesList.append(row);
   updateToolExactEntrySummary(row);
   updateEmptyStates();
-  if (!state.selectedToolExactId) {
+  if (!state.selectedToolExactId && !state.selectedToolSourceId) {
     selectToolExact(row);
   }
   return row;
@@ -2275,7 +2308,6 @@ function appendPrompt(prompt = {}, { select = false, focusEditor = false } = {})
 function updateEmptyStates() {
   updateDocumentGrantCatalog();
   updateToolSourceCatalog();
-  updateToolExactCatalog();
   elements.promptsEmpty.hidden = elements.promptsList.children.length > 0;
   updateSecretCatalog();
   updatePromptCatalog();
@@ -2417,6 +2449,8 @@ async function validatePathTargets(targets, announce = false) {
     if (selectedDocumentRow) {
       updateDocumentGrantInspectorHeader(selectedDocumentRow);
     }
+    updateToolSourceCatalog();
+    refreshToolSourceInspector();
     updateSecretCatalog();
     const selectedSecretRow = secretRowById();
     if (selectedSecretRow) {
@@ -2443,6 +2477,8 @@ async function validatePathTargets(targets, announce = false) {
     if (selectedDocumentRow) {
       updateDocumentGrantInspectorHeader(selectedDocumentRow);
     }
+    updateToolSourceCatalog();
+    refreshToolSourceInspector();
     updateSecretCatalog();
     const selectedSecretRow = secretRowById();
     if (selectedSecretRow) {
@@ -2594,8 +2630,6 @@ function applySavedConfigurationState(config, check) {
   refreshDocumentGrantInspector();
   updateToolSourceCatalog();
   refreshToolSourceInspector();
-  updateToolExactCatalog();
-  refreshToolExactEditor();
   updateSecretCatalog();
   refreshSecretInspector();
   updateConfigurationStatus(config, check, source, { saved: true });
@@ -2621,6 +2655,7 @@ function renderConfig(config, check) {
   state.toolSourceRowCounter = 0;
   state.activeToolSourceSection = "overview";
   state.selectedToolGrantId = null;
+  state.toolGrantPage = 1;
   state.selectedToolExactId = null;
   state.toolExactRowCounter = 0;
   state.selectedDocumentGrantId = null;
@@ -2633,6 +2668,7 @@ function renderConfig(config, check) {
   elements.secretCatalogFilter.value = "";
   elements.secretStatusFilter.value = "all";
   elements.toolSourceFilter.value = "";
+  elements.toolSourceTypeFilter.value = "all";
   elements.toolSourceStatusFilter.value = "all";
   elements.toolGrantFilter.value = "";
   elements.toolGrantStatusFilter.value = "all";
@@ -2813,8 +2849,9 @@ function collectConfig() {
       const name = row.querySelector('[data-field="name"]').value.trim();
       const folderPath = row.querySelector('[data-field="path"]').value.trim();
       const priority = Number(row.querySelector('[data-field="priority"]').value);
-      if (!name || !folderPath || !Number.isInteger(priority)) {
-        throw new Error(`Tool folder ${index + 1} needs a name, path, and integer priority.`);
+      const scanLimit = Number(row.querySelector('[data-field="scanLimit"]').value);
+      if (!name || !folderPath || !Number.isInteger(priority) || !Number.isInteger(scanLimit) || scanLimit < 1 || scanLimit > 5_000) {
+        throw new Error(`Tool folder ${index + 1} needs a name, path, integer priority, and scan limit from 1 to 5000.`);
       }
       const directory = {
         name,
@@ -2822,6 +2859,7 @@ function collectConfig() {
         priority,
         recursive: row.querySelector('[data-field="recursive"]').checked,
         documentRecursive: row.querySelector('[data-field="documentRecursive"]').checked,
+        scanLimit,
         includeDocs: row.querySelector('[data-field="includeDocs"]').checked,
         enabled: row.querySelector('[data-field="enabled"]').checked
       };
@@ -3014,6 +3052,7 @@ async function pickPath(kind, target = "documents") {
       await inspectAndAppendSecretFile(payload.path);
     } else if (target === "tools" && kind === "directory") {
       elements.toolSourceFilter.value = "";
+      elements.toolSourceTypeFilter.value = "all";
       elements.toolSourceStatusFilter.value = "all";
       const row = appendToolDirectory({
         name: uniqueToolDirectoryName(friendlyPathName(payload.path, "tool-folder")),
@@ -3024,12 +3063,14 @@ async function pickPath(kind, target = "documents") {
       });
       selectToolSource(row, { focus: true });
     } else if (target === "tools") {
+      elements.toolSourceFilter.value = "";
+      elements.toolSourceTypeFilter.value = "all";
+      elements.toolSourceStatusFilter.value = "all";
       const row = appendToolFile({
         name: uniqueToolFileName(friendlyPathName(payload.path, "tool-file")),
         path: payload.path,
         priority: 100
       });
-      elements.toolExactGrants.open = true;
       selectToolExact(row, { focus: true });
     } else if (kind === "directory") {
       elements.documentGrantFilter.value = "";
@@ -3098,6 +3139,9 @@ function addDroppedItems(items, errors = []) {
 }
 
 function addDroppedToolItems(items, errors = []) {
+  elements.toolSourceFilter.value = "";
+  elements.toolSourceTypeFilter.value = "all";
+  elements.toolSourceStatusFilter.value = "all";
   const existingFolders = new Set([...elements.toolDirectoriesList.querySelectorAll('[data-field="path"]')]
     .map((input) => comparableLocalPath(input.value)));
   const existingFiles = new Set([...elements.toolFilesList.querySelectorAll('[data-field="path"]')]
@@ -3417,6 +3461,10 @@ async function runFolderScan(row, kind) {
   if (!button) {
     return;
   }
+  if (!syncToolSourceScanLimit()) {
+    elements.toolSourceScanLimit.focus();
+    return;
+  }
 
   let config;
   try {
@@ -3437,6 +3485,8 @@ async function runFolderScan(row, kind) {
         config
       }
     });
+    state.toolGrantPage = 1;
+    state.selectedToolGrantId = null;
     storeFolderScanResult(row, payload);
     renderFolderScanResults(row);
     markDirty();
@@ -3749,6 +3799,7 @@ elements.secretsInstruction.addEventListener("input", () => {
   updateInstructionSummary(elements.secretsInstruction, elements.secretsInstructionSummary);
 });
 elements.toolSourceFilter.addEventListener("input", updateToolSourceCatalog);
+elements.toolSourceTypeFilter.addEventListener("change", updateToolSourceCatalog);
 elements.toolSourceStatusFilter.addEventListener("change", updateToolSourceCatalog);
 for (const input of [
   elements.toolSourceEditorName,
@@ -3765,6 +3816,7 @@ for (const input of [
   input.addEventListener("change", syncToolSourceEditor);
 }
 elements.toolSourceScanRecursive.addEventListener("change", syncToolSourceScanRecursive);
+elements.toolSourceScanLimit.addEventListener("change", () => syncToolSourceScanLimit());
 elements.toolSourceOverviewTab.addEventListener("click", () => setToolSourceSection("overview"));
 elements.toolSourceToolsTab.addEventListener("click", () => setToolSourceSection("tools"));
 elements.toolSourceDocumentsTab.addEventListener("click", () => setToolSourceSection("documents"));
@@ -3802,8 +3854,22 @@ for (const [index, tab] of [
   });
 }
 for (const input of [elements.toolGrantFilter, elements.toolGrantStatusFilter]) {
-  input.addEventListener(input.tagName === "SELECT" ? "change" : "input", renderToolSourceGrants);
+  input.addEventListener(input.tagName === "SELECT" ? "change" : "input", () => {
+    state.toolGrantPage = 1;
+    state.selectedToolGrantId = null;
+    renderToolSourceGrants();
+  });
 }
+elements.previousToolGrantPage.addEventListener("click", () => {
+  state.toolGrantPage -= 1;
+  state.selectedToolGrantId = null;
+  renderToolSourceGrants();
+});
+elements.nextToolGrantPage.addEventListener("click", () => {
+  state.toolGrantPage += 1;
+  state.selectedToolGrantId = null;
+  renderToolSourceGrants();
+});
 for (const input of [elements.toolGrantEditorName, elements.toolGrantEditorPriority]) {
   input.addEventListener("input", syncToolGrantEditor);
 }
@@ -3813,6 +3879,7 @@ elements.toolGrantEditorEnabled.addEventListener("change", () => {
 });
 elements.enableVisibleToolGrants.addEventListener("click", () => setVisibleToolGrantsEnabled(true));
 elements.disableVisibleToolGrants.addEventListener("click", () => setVisibleToolGrantsEnabled(false));
+elements.removeVisibleToolGrants.addEventListener("click", removeVisibleToolGrants);
 elements.copyToolGrantPath.addEventListener("click", () => {
   const record = selectedToolGrantRecord();
   if (record) {
@@ -3930,6 +3997,7 @@ elements.addFile.addEventListener("click", () => {
 });
 elements.addToolFolder.addEventListener("click", () => {
   elements.toolSourceFilter.value = "";
+  elements.toolSourceTypeFilter.value = "all";
   elements.toolSourceStatusFilter.value = "all";
   const name = uniqueToolDirectoryName(`tool-folder-${elements.toolDirectoriesList.children.length + 1}`);
   const row = appendToolDirectory({ name, path: "", priority: 100, recursive: true, includeDocs: true });
@@ -3937,9 +4005,11 @@ elements.addToolFolder.addEventListener("click", () => {
   markDirty();
 });
 elements.addToolFile.addEventListener("click", () => {
+  elements.toolSourceFilter.value = "";
+  elements.toolSourceTypeFilter.value = "all";
+  elements.toolSourceStatusFilter.value = "all";
   const name = uniqueToolFileName(`tool-file-${elements.toolFilesList.children.length + 1}`);
   const row = appendToolFile({ name, path: "", priority: 100 });
-  elements.toolExactGrants.open = true;
   selectToolExact(row, { focus: true });
   markDirty();
 });
@@ -3999,7 +4069,7 @@ for (const resourceAddMenu of document.querySelectorAll(".resource-add-menu")) {
 }
 
 document.addEventListener("pointerdown", (event) => {
-  for (const disclosure of document.querySelectorAll(".resource-add-menu[open], .actionbar-config[open]")) {
+  for (const disclosure of document.querySelectorAll(".resource-add-menu[open], .actionbar-config[open], .tool-scan-options[open]")) {
     if (!disclosure.contains(event.target)) {
       disclosure.removeAttribute("open");
     }
@@ -4010,7 +4080,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") {
     return;
   }
-  const disclosure = document.querySelector(".resource-add-menu[open], .actionbar-config[open]");
+  const disclosure = document.querySelector(".resource-add-menu[open], .actionbar-config[open], .tool-scan-options[open]");
   if (!disclosure) {
     return;
   }

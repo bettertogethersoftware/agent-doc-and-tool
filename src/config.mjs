@@ -22,6 +22,8 @@ const DEFAULT_LIMITS = {
 };
 
 export const DEFAULT_TOOL_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ".ps1", ".py", ".js", ".mjs", ".cjs"];
+export const DEFAULT_TOOL_SCAN_LIMIT = 500;
+export const MAX_TOOL_SCAN_LIMIT = 5_000;
 export const DEFAULT_SECRET_MAX_FILE_BYTES = 256_000;
 export const MAX_PROMPT_NAME_CHARS = 200;
 export const MAX_PROMPT_CONTENT_CHARS = 200_000;
@@ -100,8 +102,9 @@ const ToolDirectoryEntrySchema = z.union([
     // Accept the former field when loading an existing private configuration.
     // The UI writes only "instruction" going forward.
     humanNote: InstructionTextSchema.optional(),
-    scannedToolFiles: z.array(ScannedToolFileEntrySchema).max(100).default([]),
-    scannedDocumentFiles: z.array(ScannedDocumentFileEntrySchema).max(100).default([])
+    scanLimit: z.number().int().min(1).max(MAX_TOOL_SCAN_LIMIT).default(DEFAULT_TOOL_SCAN_LIMIT),
+    scannedToolFiles: z.array(ScannedToolFileEntrySchema).max(MAX_TOOL_SCAN_LIMIT).default([]),
+    scannedDocumentFiles: z.array(ScannedDocumentFileEntrySchema).max(MAX_TOOL_SCAN_LIMIT).default([])
   }).strict()
 ]);
 
@@ -321,7 +324,7 @@ function normalizeTools(rawTools, configDirectory) {
   const directoryNames = new Set();
   const directories = rawTools.directories.map((entry, index) => {
     const directory = typeof entry === "string"
-      ? { path: entry, priority: 0, recursive: true, includeDocs: true }
+      ? { path: entry, priority: 0, recursive: true, includeDocs: true, scanLimit: DEFAULT_TOOL_SCAN_LIMIT }
       : entry;
     const name = directory.name ?? `tool-directory-${index + 1}`;
     const comparableName = name.toLowerCase();
@@ -339,6 +342,7 @@ function normalizeTools(rawTools, configDirectory) {
       priority: directory.priority ?? 0,
       recursive,
       documentRecursive: directory.documentRecursive ?? recursive,
+      scanLimit: directory.scanLimit ?? DEFAULT_TOOL_SCAN_LIMIT,
       includeDocs: directory.includeDocs !== false,
       enabled: directory.enabled !== false,
       instruction: (directory.instruction ?? directory.humanNote ?? "").trim(),

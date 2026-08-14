@@ -140,6 +140,12 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(stylesText, /\.document-grant-list\s*\{/);
   assert.match(stylesText, /#document-editor-priority-field\[hidden\]/);
   assert.match(stylesText, /\.button\.primary\.action-save\.is-dirty\s*\{/);
+  assert.match(stylesText, /\.tool-grant-list\s*\{[^}]*max-block-size:\s*none;[^}]*overflow:\s*visible;[^}]*contain:\s*none;/s);
+  assert.match(stylesText, /\.tool-grant-workspace\s*\{/);
+  assert.match(stylesText, /\.tool-grant-pagination\s*\{/);
+  assert.match(stylesText, /\.tool-source-inspector\.has-selection\s*\{[^}]*min-block-size:\s*clamp\([^}]*overflow:\s*visible/s);
+  assert.match(stylesText, /\.tool-source-resource-grants\.has-grant-selection \.tool-grant-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(350px, 1\.45fr\) minmax\(300px, 0\.82fr\)/s);
+  assert.match(stylesText, /\.tool-scan-options-popover\s*\{[^}]*position:\s*absolute/s);
   assert.match(stylesText, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
   assert.doesNotMatch(pageText, /human-readme-panel|README for every catalog|human-note/);
   for (const [catalog, method] of [["documents", "list"], ["tools", "list_tool"], ["prompts", "list_prompt"], ["secrets", "list_secret"]]) {
@@ -243,9 +249,24 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="ignore-file-state"/);
   assert.match(pageText, /id="tool-source-inspector"/);
   assert.match(pageText, /id="tool-source-filter"/);
+  assert.match(pageText, /id="tool-source-type-filter"/);
+  assert.match(pageText, /id="tool-catalog-list"/);
+  assert.match(toolsPanelText, /Tool grants/);
+  assert.match(toolsPanelText, /Grant catalog/);
+  assert.doesNotMatch(toolsPanelText, /Exact tool grants/);
+  assert.ok(toolsPanelText.indexOf('id="tool-directories-list"') < toolsPanelText.indexOf('id="tool-files-list"'));
   assert.match(pageText, /id="tool-source-scan-tool"/);
   assert.match(pageText, /id="tool-source-scan-document"/);
   assert.match(pageText, /id="tool-source-scan-recursive"/);
+  assert.match(pageText, /id="tool-source-scan-limit"[^>]*min="1"[^>]*max="5000"[^>]*value="500"/);
+  assert.match(pageText, /id="tool-scan-summary"[^>]*aria-live="polite"/);
+  assert.match(pageText, /id="tool-scan-options" class="tool-scan-options"/);
+  assert.match(pageText, /id="tool-scan-options-summary"/);
+  assert.match(pageText, /id="remove-visible-tool-grants"/);
+  assert.match(pageText, /id="tool-grant-pagination"[^>]*aria-label="Scanned grant result pages"/);
+  assert.match(pageText, /id="previous-tool-grant-page"/);
+  assert.match(pageText, /id="next-tool-grant-page"/);
+  assert.match(pageText, /class="tool-grant-workspace"/);
   assert.match(pageText, /id="tool-source-tools-tab"/);
   assert.match(pageText, /id="tool-source-documents-tab"/);
   assert.match(pageText, /id="tool-source-resource-grants"/);
@@ -258,6 +279,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /Saved with this source and returned as its nested <code>instruction<\/code> by/);
   assert.match(pageText, /data-field="recursive"/);
   assert.match(pageText, /data-field="documentRecursive"/);
+  assert.match(pageText, /data-field="scanLimit"[^>]*min="1"[^>]*max="5000"/);
   assert.doesNotMatch(pageText, /id="tool-source-editor-recursive"/);
   assert.doesNotMatch(pageText, /UI preview only for now/);
   assert.doesNotMatch(pageText, /Scan results for this folder/);
@@ -270,6 +292,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /function activeToolGrantKind\(\)/);
   assert.match(appText, /function syncToolSourceEditor\(\)/);
   assert.match(appText, /function syncToolSourceScanRecursive\(\)/);
+  assert.match(appText, /function syncToolSourceScanLimit\(/);
+  assert.match(appText, /function removeVisibleToolGrants\(\)/);
+  assert.match(appText, /const TOOL_GRANT_PAGE_SIZE = 6/);
+  assert.match(appText, /Remove matches \(\$\{visibleRecords\.length\}\)/);
   assert.match(appText, /documentRecursive/);
   assert.match(appText, /function matchesOperatorFilter\(/);
 
@@ -432,7 +458,7 @@ test("configuration UI classifies dropped files and folders", async (t) => {
   assert.equal(payload.errors[0].code, "PATH_NOT_ABSOLUTE");
 });
 
-test("configuration UI gives attached tool and document scans independent recursive scopes, bypasses global ignores, and caps only after a 101st match", async (t) => {
+test("configuration UI gives attached scans independent recursive scopes, bypasses global ignores, and uses each source's result limit", async (t) => {
   const fixture = await createUiFixture(t);
   const scanRoot = path.join(path.dirname(fixture.configPath), "attached scan folder");
   const toolDirectory = path.join(scanRoot, "bin");
@@ -455,6 +481,7 @@ test("configuration UI gives attached tool and document scans independent recurs
     path: scanRoot,
     priority: 100,
     recursive: false,
+    scanLimit: 250,
     includeDocs: false,
     enabled: true
   }];
@@ -475,7 +502,7 @@ test("configuration UI gives attached tool and document scans independent recurs
   assert.equal(toolResponse.status, 200);
   assert.equal(toolPayload.ok, true);
   assert.equal(toolPayload.meta.recursive, false);
-  assert.equal(toolPayload.meta.resultLimit, 100);
+  assert.equal(toolPayload.meta.resultLimit, 250);
   assert.deepEqual(toolPayload.results.map((entry) => entry.path), [rootToolPath]);
   assert.equal(toolPayload.meta.hasMore, false);
   assert.equal(toolPayload.meta.truncated, false);
@@ -529,6 +556,19 @@ test("configuration UI gives attached tool and document scans independent recurs
   assert.deepEqual(topLevelDocumentPayload.results.map((entry) => entry.path), [readmePath]);
 
   await fs.writeFile(path.join(toolDirectory, "tool-099.exe"), "fixture\n", "utf8");
+  const expandedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
+    method: "POST",
+    headers: apiHeaders(fixture.ui, true),
+    body: JSON.stringify({ kind: "tool", directoryPath: scanRoot, config: draftConfig })
+  });
+  const expandedPayload = await expandedResponse.json();
+  assert.equal(expandedResponse.status, 200);
+  assert.equal(expandedPayload.results.length, 101);
+  assert.equal(expandedPayload.meta.resultLimit, 250);
+  assert.equal(expandedPayload.meta.hasMore, false);
+  assert.equal(expandedPayload.meta.truncated, false);
+
+  draftConfig.tools.directories[0].scanLimit = 40;
   const limitedResponse = await fetch(new URL("api/scan-attached-folder", fixture.ui.url), {
     method: "POST",
     headers: apiHeaders(fixture.ui, true),
@@ -536,7 +576,8 @@ test("configuration UI gives attached tool and document scans independent recurs
   });
   const limitedPayload = await limitedResponse.json();
   assert.equal(limitedResponse.status, 200);
-  assert.equal(limitedPayload.results.length, 100);
+  assert.equal(limitedPayload.results.length, 40);
+  assert.equal(limitedPayload.meta.resultLimit, 40);
   assert.equal(limitedPayload.meta.hasMore, true);
   assert.equal(limitedPayload.meta.truncated, true);
   assert.ok(limitedPayload.warnings.some((warning) => warning.code === "SCAN_RESULT_LIMIT_REACHED"));

@@ -2813,7 +2813,8 @@ input.scan-exact-field:focus {
 .tool-grant-list {
   max-block-size: min(38vh, 380px);
   padding-right: 3px;
-  overflow: auto;
+  overflow: hidden auto;
+  contain: layout paint;
 }
 
 .tool-grant-entry {
@@ -7602,4 +7603,425 @@ textarea::placeholder {
 
 .tool-test-panel summary .step {
   margin: 0;
+}
+
+/* Unified top-level Tools catalog. Source folders and direct files now share
+   the same registry, filters, selection model, and detail pane as Documents. */
+.tool-add-menu .resource-add-section:first-of-type .resource-add-options .button:last-child {
+  grid-column: 1 / -1;
+}
+
+.tool-catalog-list-head {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.9fr) 60px minmax(100px, 1.35fr) minmax(70px, 0.75fr);
+  gap: 6px;
+  width: calc(100% - 86px);
+  box-sizing: border-box;
+  padding: 0 7px 5px;
+  color: #768493;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.tool-catalog-list-part {
+  display: contents;
+}
+
+.tool-catalog-entry {
+  grid-template-columns: minmax(0, 1fr) 58px 28px;
+  min-height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border-color: #293c3d;
+  border-radius: 6px;
+  background: #0b1117;
+}
+
+.tool-catalog-entry:hover {
+  border-color: #3d5555;
+  background: #10191a;
+}
+
+.tool-catalog-entry .tool-source-select,
+.tool-catalog-entry .tool-exact-select {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.9fr) 60px minmax(100px, 1.35fr) minmax(70px, 0.75fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 8px;
+}
+
+.tool-catalog-entry .tool-source-select > span,
+.tool-catalog-entry .tool-exact-select > span {
+  min-width: 0;
+}
+
+.tool-catalog-identity {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.tool-catalog-identity .tool-source-name,
+.tool-catalog-identity .tool-exact-name,
+.tool-catalog-identity .tool-source-meta,
+.tool-catalog-identity .tool-exact-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-catalog-identity .tool-source-name,
+.tool-catalog-identity .tool-exact-name {
+  font-size: 11.5px;
+}
+
+.tool-catalog-identity .tool-source-meta,
+.tool-catalog-identity .tool-exact-meta {
+  color: #7f8f99;
+  font-size: 9.5px;
+}
+
+.tool-catalog-kind,
+.tool-editor-kind {
+  justify-self: start;
+  padding: 2px 5px;
+  border: 1px solid #3c6964;
+  border-radius: 999px;
+  color: #9de0d5;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tool-exact-entry .tool-catalog-kind,
+.tool-editor-kind.is-file {
+  border-color: #6a5a96;
+  color: #d0c0ff;
+}
+
+.tool-catalog-entry .tool-source-path,
+.tool-catalog-entry .tool-exact-path,
+.tool-catalog-entry .tool-source-validation {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-catalog-entry .tool-source-path,
+.tool-catalog-entry .tool-exact-path {
+  color: #afbecb;
+}
+
+.tool-editor-kind {
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.tool-source-inspector > .tool-catalog-exact-editor .tool-exact-editor {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.tool-source-inspector > .tool-catalog-exact-editor .tool-grant-editor-fields {
+  margin-top: 0;
+}
+
+@media (min-width: 1101px) {
+  .tool-console {
+    --workspace-master-width: 46%;
+    grid-template-columns: minmax(300px, min(var(--workspace-master-width), calc(100% - 424px))) 14px minmax(410px, 1fr);
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1180px) {
+  .tool-registry-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(108px, 0.38fr));
+    width: 100%;
+  }
+
+  .tool-registry-controls input,
+  .tool-registry-controls select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .tool-catalog-list-head {
+    display: none;
+  }
+
+  .tool-catalog-entry .tool-source-select,
+  .tool-catalog-entry .tool-exact-select {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-block: 6px;
+  }
+
+  .tool-catalog-entry .tool-source-path,
+  .tool-catalog-entry .tool-exact-path,
+  .tool-catalog-entry .tool-source-validation {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Folder-source tabs keep one desktop work surface instead of resizing the
+   entire page whenever Overview, Tools, or Documents has more content. */
+.tool-source-inspector {
+  container-type: inline-size;
+}
+
+.tool-inspector-section.is-section-entering {
+  animation: tool-section-enter 140ms ease-out;
+}
+
+@keyframes tool-section-enter {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tool-scan-commandbar {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  margin-bottom: 8px;
+  padding: 6px 7px;
+  border: 1px solid #294b47;
+  border-radius: 7px;
+  background: linear-gradient(90deg, rgb(20 78 73 / 16%), rgb(10 20 23 / 32%));
+}
+
+.tool-source-resource-grants[data-grant-kind="document"] .tool-scan-commandbar {
+  border-color: #31566d;
+  background: linear-gradient(90deg, rgb(35 99 137 / 16%), rgb(10 20 23 / 32%));
+}
+
+.tool-scan-command-summary {
+  min-width: 0;
+}
+
+.tool-scan-command-summary .step {
+  margin: 0;
+  color: #91e6d8;
+  font-size: 8px;
+}
+
+.tool-source-resource-grants[data-grant-kind="document"] .tool-scan-command-summary .step {
+  color: #93d7f6;
+}
+
+.tool-scan-command-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.tool-scan-run-actions {
+  flex-wrap: nowrap;
+}
+
+.tool-scan-run-actions .button[hidden] {
+  display: none;
+}
+
+.tool-scan-options {
+  position: relative;
+}
+
+.tool-scan-options > summary {
+  gap: 7px;
+  min-height: 30px;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.tool-scan-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-scan-options > summary::after {
+  color: #86a69f;
+  content: "⌄";
+  font-size: 10px;
+  transition: transform 120ms ease;
+}
+
+.tool-scan-options[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.tool-scan-options > summary small {
+  color: #8ba8a2;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.tool-scan-options-popover {
+  position: absolute;
+  z-index: 25;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  width: min(380px, calc(100vw - 48px));
+  grid-template-columns: minmax(220px, 1fr) 92px;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid #3c5c58;
+  border-radius: 8px;
+  background: #101a1e;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 38%);
+}
+
+.tool-source-scan-limit {
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  color: #aab8c3;
+  font-size: 9px;
+  font-weight: 680;
+}
+
+.tool-source-scan-limit input {
+  width: 84px;
+  min-height: 30px;
+  padding: 4px 7px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 10px;
+}
+
+.tool-source-scan-limit input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px rgb(240 111 103 / 24%);
+}
+
+.tool-scan-summary {
+  overflow: hidden;
+  max-width: min(58ch, 42vw);
+  margin: 2px 0 0;
+  padding: 0;
+  color: #9bc8be;
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-scan-summary[data-state="warning"] {
+  color: #e5c986;
+}
+
+.tool-grant-workspace {
+  display: grid;
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+}
+
+.tool-grant-catalog {
+  min-width: 0;
+}
+
+.tool-grant-workspace > .tool-grant-editor {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.tool-grant-list {
+  max-block-size: none;
+  padding-right: 0;
+  overflow: visible;
+  contain: none;
+}
+
+.tool-grant-pagination {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 30px;
+  margin-top: 2px;
+  padding-top: 5px;
+  border-top: 1px solid #263944;
+  color: #8ea4ae;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+}
+
+.tool-grant-pagination[hidden] {
+  display: none;
+}
+
+.tool-grant-pagination .button-row {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.tool-grant-pagination .button {
+  min-height: 25px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+.tool-grant-pagination .button:disabled {
+  cursor: default;
+  opacity: 0.36;
+}
+
+@container (min-width: 670px) {
+  .tool-source-resource-grants.has-grant-selection .tool-grant-workspace {
+    grid-template-columns: minmax(350px, 1.45fr) minmax(300px, 0.82fr);
+  }
+
+  .tool-source-resource-grants.has-grant-selection .tool-grant-editor {
+    position: sticky;
+    top: 0;
+  }
+
+  .tool-source-resource-grants.has-grant-selection .tool-grant-list {
+    max-block-size: none;
+  }
+}
+
+@media (min-width: 1101px) {
+  .tool-source-inspector.has-selection {
+    min-block-size: clamp(430px, calc(100vh - 320px), 660px);
+    overflow: visible;
+  }
+}
+
+@media (max-width: 1320px) {
+  .tool-scan-options > summary small {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-inspector-section.is-section-entering {
+    animation: none;
+  }
 }
