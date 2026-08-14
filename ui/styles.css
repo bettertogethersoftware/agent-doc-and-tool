@@ -3719,7 +3719,8 @@ input.scan-exact-field:focus {
 }
 
 .tool-source-document-location {
-  margin-bottom: 8px;
+  margin-top: 10px;
+  margin-bottom: 0;
   padding: 9px 10px;
   border: 1px solid #31566d;
   border-radius: 8px;
@@ -3748,11 +3749,25 @@ input.scan-exact-field:focus {
   font-size: 0.65rem;
 }
 
+.tool-source-documents-workspace {
+  min-width: 0;
+}
+
 .tool-source-document-path-control {
+  display: block;
+}
+
+.tool-source-document-path-field > label {
+  color: #d9dde3;
+  font-size: 0.65rem;
+  font-weight: 680;
+}
+
+.tool-source-document-path-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: end;
+  align-items: center;
 }
 
 .tool-source-document-path-control .button {

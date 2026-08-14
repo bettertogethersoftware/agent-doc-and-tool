@@ -454,6 +454,98 @@
             </section>
 
             <section id="tool-source-resource-grants" class="tool-inspector-section tool-source-resource-grants" role="tabpanel" aria-labelledby="tool-source-tools-tab" hidden>
+              <section id="tool-source-documents-workspace" class="tool-source-documents-workspace" aria-label="Tool documents">
+                <div class="tool-scan-commandbar">
+                  <div class="tool-scan-command-summary">
+                    <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
+                    <p id="tool-scan-summary" class="tool-scan-summary" role="status" aria-live="polite">Ready to scan matching tool files.</p>
+                    <p class="tool-scan-path"><span>Scan folder</span><code id="tool-scan-path">No folder selected</code></p>
+                  </div>
+                  <div class="tool-scan-command-actions">
+                    <details id="tool-scan-options" class="tool-scan-options">
+                      <summary class="button action-browse">
+                        <span>Scan options</span>
+                        <small id="tool-scan-options-summary">Subfolders · 500 max</small>
+                      </summary>
+                      <div class="tool-scan-options-popover">
+                        <label class="toggle-row compact-toggle tool-source-scan-recursive">
+                          <input id="tool-source-scan-recursive" type="checkbox">
+                          <span class="toggle" aria-hidden="true"></span>
+                          <span>
+                            <strong>Include subfolders</strong>
+                            <small id="tool-source-scan-recursive-help">Scan nested tool files. This also controls recursive tool discovery.</small>
+                          </span>
+                        </label>
+                        <label class="tool-source-scan-limit">
+                          <span>Result limit</span>
+                          <input id="tool-source-scan-limit" type="number" min="1" max="5000" step="1" value="500" inputmode="numeric">
+                        </label>
+                      </div>
+                    </details>
+                    <div class="button-row tool-scan-run-actions" role="group" aria-label="Selected source scan action">
+                      <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the Tool path for matching tool files">Scan tools</button>
+                      <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the documentation path for matching document files; if none is set, scan the Tool path" hidden>Scan documents</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="tool-grants-toolbar">
+                  <div class="tool-grants-controls">
+                    <label class="sr-only" for="tool-grant-filter">Filter selected source results</label>
+                    <input id="tool-grant-filter" type="search" maxlength="500" placeholder="Filter tools">
+                    <label class="sr-only" for="tool-grant-status-filter">Filter selected source grants by status</label>
+                    <select id="tool-grant-status-filter" aria-label="Filter grants by status">
+                      <option value="all">All statuses</option>
+                      <option value="enabled">Enabled</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
+                  </div>
+                  <div class="button-row">
+                    <button id="enable-visible-tool-grants" class="button action-add" type="button">Enable</button>
+                    <button id="disable-visible-tool-grants" class="button action-validate" type="button">Disable</button>
+                    <button id="remove-visible-tool-grants" class="button action-danger" type="button">Remove matches</button>
+                  </div>
+                </div>
+                <div class="tool-grant-workspace">
+                  <div class="tool-grant-catalog">
+                    <div class="tool-grant-list-head" aria-hidden="true">
+                      <span>Name</span><span>Path</span><span data-role="tool-grant-priority-heading">Priority</span><span>Status</span><span></span>
+                    </div>
+                    <div id="tool-grants-list" class="tool-grant-list" role="list"></div>
+                    <nav id="tool-grant-pagination" class="tool-grant-pagination" aria-label="Scanned grant result pages" hidden>
+                      <span id="tool-grant-page-summary">1–6 of 100</span>
+                      <div class="button-row">
+                        <button id="previous-tool-grant-page" class="button action-browse" type="button" aria-label="Previous result page">Previous</button>
+                        <button id="next-tool-grant-page" class="button action-browse" type="button" aria-label="Next result page">Next</button>
+                      </div>
+                    </nav>
+                    <p id="tool-grants-empty" class="empty-state" hidden>No saved tool grants exist for this source. Run Scan tools to review matching files.</p>
+                    <p id="tool-grants-filter-empty" class="empty-state" hidden>No saved tool grants match this filter.</p>
+                  </div>
+
+                  <aside id="tool-grant-editor" class="tool-grant-editor" aria-label="Selected scanned grant" hidden>
+                    <div class="tool-grant-editor-heading">
+                      <div>
+                        <p class="step">SELECTED GRANT</p>
+                        <strong id="tool-grant-editor-title">Grant</strong>
+                      </div>
+                      <button id="delete-tool-grant" class="button action-danger" type="button">Remove grant</button>
+                    </div>
+                    <div class="tool-grant-editor-fields">
+                      <label class="field"><span>Name or alias</span><input id="tool-grant-editor-name" type="text" maxlength="200" required></label>
+                      <label id="tool-grant-editor-priority-field" class="field"><span>Priority</span><input id="tool-grant-editor-priority" type="number" min="-10000" max="10000"></label>
+                    </div>
+                    <div class="tool-grant-path-control">
+                      <code id="tool-grant-editor-path"></code>
+                      <button id="copy-tool-grant-path" class="button action-browse" type="button">Copy path</button>
+                    </div>
+                    <label class="toggle-row compact-toggle tool-grant-enabled-toggle">
+                      <input id="tool-grant-editor-enabled" type="checkbox">
+                      <span class="toggle" aria-hidden="true"></span>
+                      <span><strong>Grant enabled</strong><small>Disabled grants remain saved but are not exposed to the agent.</small></span>
+                    </label>
+                  </aside>
+                </div>
+              </section>
               <section id="tool-source-document-location" class="tool-source-document-location" aria-labelledby="tool-source-document-location-title" hidden>
                 <div class="tool-source-document-location-heading">
                   <div>
@@ -463,105 +555,17 @@
                   <span class="folder-matching-badge">Documents tab</span>
                 </div>
                 <div class="tool-source-document-path-control">
-                  <label class="field">
-                    <span>Documentation folder</span>
-                    <input id="tool-source-document-path" type="text" spellcheck="false" placeholder="Leave blank to use the Tool source path">
+                  <div class="field tool-source-document-path-field">
+                    <label for="tool-source-document-path">Documentation folder</label>
+                    <div class="tool-source-document-path-input-row">
+                      <input id="tool-source-document-path" type="text" spellcheck="false" placeholder="Leave blank to use the Tool source path">
+                      <button id="pick-tool-source-document-path" class="button action-browse" type="button">Browse</button>
+                    </div>
                     <small id="tool-source-document-path-state" class="field-path-state">Using the Tool source path.</small>
-                  </label>
-                  <button id="pick-tool-source-document-path" class="button action-browse" type="button">Browse</button>
+                  </div>
                 </div>
                 <p id="tool-source-document-location-help">This Tool grant keeps its Tool path and documentation path together. Scan documents uses this folder; when it is blank, it uses the Tool source path.</p>
               </section>
-              <div class="tool-scan-commandbar">
-                <div class="tool-scan-command-summary">
-                  <p id="tool-grant-section-step" class="step">TOOL SCAN</p>
-                  <p id="tool-scan-summary" class="tool-scan-summary" role="status" aria-live="polite">Ready to scan matching tool files.</p>
-                  <p class="tool-scan-path"><span>Scan folder</span><code id="tool-scan-path">No folder selected</code></p>
-                </div>
-                <div class="tool-scan-command-actions">
-                  <details id="tool-scan-options" class="tool-scan-options">
-                    <summary class="button action-browse">
-                      <span>Scan options</span>
-                      <small id="tool-scan-options-summary">Subfolders · 500 max</small>
-                    </summary>
-                    <div class="tool-scan-options-popover">
-                      <label class="toggle-row compact-toggle tool-source-scan-recursive">
-                        <input id="tool-source-scan-recursive" type="checkbox">
-                        <span class="toggle" aria-hidden="true"></span>
-                        <span>
-                          <strong>Include subfolders</strong>
-                          <small id="tool-source-scan-recursive-help">Scan nested tool files. This also controls recursive tool discovery.</small>
-                        </span>
-                      </label>
-                      <label class="tool-source-scan-limit">
-                        <span>Result limit</span>
-                        <input id="tool-source-scan-limit" type="number" min="1" max="5000" step="1" value="500" inputmode="numeric">
-                      </label>
-                    </div>
-                  </details>
-                  <div class="button-row tool-scan-run-actions" role="group" aria-label="Selected source scan action">
-                    <button id="tool-source-scan-tool" class="button action-scan" type="button" title="Scan the Tool path for matching tool files">Scan tools</button>
-                    <button id="tool-source-scan-document" class="button action-scan" type="button" title="Scan the documentation path for matching document files; if none is set, scan the Tool path" hidden>Scan documents</button>
-                  </div>
-                </div>
-              </div>
-              <div class="tool-grants-toolbar">
-                <div class="tool-grants-controls">
-                  <label class="sr-only" for="tool-grant-filter">Filter selected source results</label>
-                  <input id="tool-grant-filter" type="search" maxlength="500" placeholder="Filter tools">
-                  <label class="sr-only" for="tool-grant-status-filter">Filter selected source grants by status</label>
-                  <select id="tool-grant-status-filter" aria-label="Filter grants by status">
-                    <option value="all">All statuses</option>
-                    <option value="enabled">Enabled</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </div>
-                <div class="button-row">
-                  <button id="enable-visible-tool-grants" class="button action-add" type="button">Enable</button>
-                  <button id="disable-visible-tool-grants" class="button action-validate" type="button">Disable</button>
-                  <button id="remove-visible-tool-grants" class="button action-danger" type="button">Remove matches</button>
-                </div>
-              </div>
-              <div class="tool-grant-workspace">
-                <div class="tool-grant-catalog">
-                  <div class="tool-grant-list-head" aria-hidden="true">
-                    <span>Name</span><span>Path</span><span data-role="tool-grant-priority-heading">Priority</span><span>Status</span><span></span>
-                  </div>
-                  <div id="tool-grants-list" class="tool-grant-list" role="list"></div>
-                  <nav id="tool-grant-pagination" class="tool-grant-pagination" aria-label="Scanned grant result pages" hidden>
-                    <span id="tool-grant-page-summary">1–6 of 100</span>
-                    <div class="button-row">
-                      <button id="previous-tool-grant-page" class="button action-browse" type="button" aria-label="Previous result page">Previous</button>
-                      <button id="next-tool-grant-page" class="button action-browse" type="button" aria-label="Next result page">Next</button>
-                    </div>
-                  </nav>
-                  <p id="tool-grants-empty" class="empty-state" hidden>No saved tool grants exist for this source. Run Scan tools to review matching files.</p>
-                  <p id="tool-grants-filter-empty" class="empty-state" hidden>No saved tool grants match this filter.</p>
-                </div>
-
-                <aside id="tool-grant-editor" class="tool-grant-editor" aria-label="Selected scanned grant" hidden>
-                  <div class="tool-grant-editor-heading">
-                    <div>
-                      <p class="step">SELECTED GRANT</p>
-                      <strong id="tool-grant-editor-title">Grant</strong>
-                    </div>
-                    <button id="delete-tool-grant" class="button action-danger" type="button">Remove grant</button>
-                  </div>
-                  <div class="tool-grant-editor-fields">
-                    <label class="field"><span>Name or alias</span><input id="tool-grant-editor-name" type="text" maxlength="200" required></label>
-                    <label id="tool-grant-editor-priority-field" class="field"><span>Priority</span><input id="tool-grant-editor-priority" type="number" min="-10000" max="10000"></label>
-                  </div>
-                  <div class="tool-grant-path-control">
-                    <code id="tool-grant-editor-path"></code>
-                    <button id="copy-tool-grant-path" class="button action-browse" type="button">Copy path</button>
-                  </div>
-                  <label class="toggle-row compact-toggle tool-grant-enabled-toggle">
-                    <input id="tool-grant-editor-enabled" type="checkbox">
-                    <span class="toggle" aria-hidden="true"></span>
-                    <span><strong>Grant enabled</strong><small>Disabled grants remain saved but are not exposed to the agent.</small></span>
-                  </label>
-                </aside>
-              </div>
               <section id="tool-source-document-matching" class="folder-matching-editor tool-source-document-matching" hidden>
                 <div class="folder-matching-heading">
                   <div>
@@ -945,47 +949,47 @@
       <section class="panel help-overview" aria-labelledby="guide-heading">
         <div class="help-overview-copy">
           <p class="step">AGENT ACCESS GUIDE</p>
-          <h2 id="guide-heading">Configure, validate, save, then test</h2>
-          <p>Use this console to define the local resources an agent can discover. A saved configuration is the boundary; catalog instructions add context but never grant extra access.</p>
+          <h2 id="guide-heading">Configure, validate, save, then plan</h2>
+          <p>Use this console to define the local resources an agent can discover. Catalog instructions add context only; successful MCP responses are discovery-only and a dry-run plan never runs a Tool.</p>
         </div>
         <ol class="guide-workflow" aria-label="Recommended configuration workflow">
           <li><span>1</span><strong>Configure</strong><small>Add only the local grants the agent needs.</small></li>
-          <li><span>2</span><strong>Validate</strong><small>Check paths and fix unavailable entries.</small></li>
+          <li><span>2</span><strong>Validate</strong><small>Check paths and matching rules.</small></li>
           <li><span>3</span><strong>Save</strong><small>Publish the reviewed local configuration.</small></li>
-          <li><span>4</span><strong>Test</strong><small>Use the read-only check from the relevant tab.</small></li>
+          <li><span>4</span><strong>Plan</strong><small>Run read-only checks, then prepare the dry run.</small></li>
         </ol>
-        <div class="guide-boundary"><strong>Current request stays in control</strong><span>Stored prompts and instructions cannot override higher-priority instructions or authorize unrelated actions.</span></div>
+        <div class="guide-boundary"><strong>Current request stays in control</strong><span>Stored prompts and instructions cannot override higher-priority instructions or authorize unrelated actions. Discovery responses carry <code>meta.executed: false</code>; use <code>agent-dry-run-plan</code> before a separate authorized execution channel verifies the real result.</span></div>
       </section>
 
       <section class="help-catalog-grid" aria-label="Catalog reference">
         <article class="panel guide-card prompt-intro" aria-labelledby="prompt-help-heading">
           <p class="step">PROMPTS</p>
           <h2 id="prompt-help-heading">Use reusable prompts safely</h2>
-          <p>Store named reusable text. The catalog exposes names and keywords first; full text is retrieved only for the chosen prompt.</p>
-          <p class="guide-methods"><code>list_prompt</code><span>→</span><code>find_prompt</code><span>→</span><code>read_prompt</code></p>
+          <p>Start with <code>list_prompt</code> to select by name or keywords, then preview and read only the chosen prompt after confirmation. Use <code>find_prompt</code> only as a fallback; prompt text is context, not permission.</p>
+          <p class="guide-methods"><code>list_prompt</code><span>→</span><code>read_prompt</code><span>→</span><code>dry-run plan</code></p>
           <button class="button action-browse" type="button" data-guide-tab="prompts">Open Prompts</button>
         </article>
 
         <article class="panel guide-card document-intro" aria-labelledby="document-help-heading">
           <p class="step">DOCUMENTS</p>
           <h2 id="document-help-heading">Search only approved local documents</h2>
-          <p>Register recursive folders or exact files. Search and fetch stay inside enabled grants; registered secret files are excluded.</p>
-          <p class="guide-methods"><code>list</code><span>→</span><code>search</code><span>→</span><code>fetch</code></p>
+          <p>Use <code>list</code> for the enabled document catalog, or skip it when <code>list_tool</code> already returned an exact sibling document alias. Keep <code>search</code> scoped to approved grants, then <code>fetch</code> the selected file; registered secret files stay excluded.</p>
+          <p class="guide-methods"><code>list</code><span>conditional</span><code>search</code><span>→</span><code>fetch</code></p>
           <button class="button action-browse" type="button" data-guide-tab="documents">Open Documents</button>
         </article>
 
         <article class="panel guide-card tool-intro" aria-labelledby="tool-help-heading">
           <p class="step">TOOLS</p>
           <h2 id="tool-help-heading">Discover tools before running them</h2>
-          <p>Register reviewed paths and nearby documentation. A saved Tool is returned with invocation metadata; use an exact sibling manual alias directly when it is available, and use <code>list</code> only for broader or unresolved document scope. Use fallback discovery only for an unselected Tool or fresh verification. Neither path launches a program or changes the system environment.</p>
-          <p class="guide-methods"><code>list_tool</code><span>→</span><code>saved Tool</code><span>→</span><code>find_tool fallback</code></p>
+          <p>Start with <code>list_tool</code> and keep the selected Tool with its exact path, invocation metadata, and sibling documentation. Use <code>find_tool</code> only for an unselected Tool or fresh verification. Discovery never launches a program; prepare a dry-run plan before authorized execution.</p>
+          <p class="guide-methods"><code>list_tool</code><span>→</span><code>saved Tool</code><span>→</span><code>agent-dry-run-plan</code></p>
           <button class="button action-browse" type="button" data-guide-tab="tools">Open Tools</button>
         </article>
 
         <article class="panel guide-card secret-intro" aria-labelledby="secret-help-heading">
           <p class="step">SECRETS</p>
           <h2 id="secret-help-heading">Grant exact credential files carefully</h2>
-          <p>Exact files only. Discovery returns safe metadata; reading a secret requires an explicitly requested field.</p>
+          <p>Grant exact files only. <code>list_secret</code> and <code>find_secret</code> return safe metadata; use <code>read_secret</code> only for the minimum explicitly requested field.</p>
           <p class="guide-methods"><code>list_secret</code><span>→</span><code>find_secret</code><span>→</span><code>read_secret</code></p>
           <button class="button action-browse" type="button" data-guide-tab="secrets">Open Secrets</button>
         </article>

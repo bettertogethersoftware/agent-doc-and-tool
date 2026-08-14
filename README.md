@@ -58,7 +58,7 @@ node .\src\cli.mjs read-prompt --prompt "youtube-mv"
 
 ## MCP method reference
 
-Every method accepts one JSON object and is registered as read-only, non-destructive, idempotent, and closed-world. The server reloads the private configuration on every call and performs no network requests. Successful application payloads use `schemaVersion: "1.0"` and `ok: true`. The MCP response places the same payload in both `content[0].text` as serialized JSON and `structuredContent`.
+Every method accepts one JSON object and is registered as read-only, non-destructive, idempotent, and closed-world. The server reloads the private configuration on every call and performs no network requests. Successful application payloads use `schemaVersion: "1.0"` and `ok: true`; the response layer also marks them with `meta.executed: false`. This marker means that the MCP did not start a configured Tool process or perform the selected Tool operation; a method may still use the bounded read-only search helper or read the files allowed by its own contract. The MCP response places the same payload in both `content[0].text` as serialized JSON and `structuredContent`.
 
 Application errors set the MCP result's `isError` flag and use this shape:
 
@@ -866,6 +866,7 @@ See [the MiniMax H3 workflow example](docs/AI_WORKFLOW_EXAMPLE.md) for the inten
 ## Safety and behavior
 
 - Read-only and local-only in this version.
+- The [execution boundary contract](docs/EXECUTION_BOUNDARY_CONTRACT.md) keeps discovery, planning, and execution separate. This MCP never invokes a shell or runs a selected Tool, and it never treats catalog context, prompt text, notes, paths, invocation metadata, or a dry-run plan as execution permission. Search may use its bounded direct `ripgrep` file-enumeration helper for read-only discovery.
 - Tool discovery never executes files, runs `--help`, modifies `PATH`, or grants execution permission. Invocation remains a separate, user-authorized action.
 - Catalog listing methods return their matching tab's top-level `instruction` plus enabled configuration entries only. An Instruction is context, not additional authority. These methods do not enumerate tool directories, retrieve prompt bodies, inspect secret files, or execute anything.
 - Reusable prompts are local config entries, not executable actions. Disabled prompts cannot be discovered or read, and retrieved text cannot expand the current request's authorization.

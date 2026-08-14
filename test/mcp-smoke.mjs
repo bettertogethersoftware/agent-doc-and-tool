@@ -27,6 +27,10 @@ const instructions = {
 };
 let client;
 
+function assertDiscoveryPayload(payload) {
+  assert.equal(payload.meta?.executed, false, "MCP discovery responses must report executed: false");
+}
+
 try {
   await Promise.all([
     fs.mkdir(docsRoot, { recursive: true }),
@@ -118,6 +122,12 @@ try {
   const listed = await client.listTools();
   assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), ["fetch", "find_prompt", "find_secret", "find_tool", "list", "list_prompt", "list_secret", "list_tool", "read_prompt", "read_secret", "search"]);
   const toolsByName = new Map(listed.tools.map((tool) => [tool.name, tool]));
+  for (const tool of listed.tools) {
+    assert.equal(tool.annotations?.readOnlyHint, true, `${tool.name} must be read-only`);
+    assert.equal(tool.annotations?.destructiveHint, false, `${tool.name} must be non-destructive`);
+    assert.equal(tool.annotations?.idempotentHint, true, `${tool.name} must be idempotent`);
+    assert.equal(tool.annotations?.openWorldHint, false, `${tool.name} must remain closed-world`);
+  }
   for (const catalogName of ["list", "list_tool", "list_prompt", "list_secret"]) {
     assert.match(toolsByName.get(catalogName).description, /top-level instruction/i);
     assert.doesNotMatch(toolsByName.get(catalogName).description, /humanNote/);
@@ -136,6 +146,7 @@ try {
     arguments: {}
   });
   const listPayload = JSON.parse(listCall.content[0].text);
+  assertDiscoveryPayload(listPayload);
   assert.equal(listPayload.ok, true);
   assert.equal(listPayload.instruction, instructions.documents);
   assert.equal(listCall.structuredContent.instruction, instructions.documents);
@@ -163,6 +174,7 @@ try {
     arguments: {}
   });
   const listToolPayload = JSON.parse(listToolCall.content[0].text);
+  assertDiscoveryPayload(listToolPayload);
   assert.equal(listToolPayload.instruction, instructions.tools);
   assert.equal(listToolCall.structuredContent.instruction, instructions.tools);
   assert.equal(Object.hasOwn(listToolPayload, "humanNote"), false);
@@ -241,6 +253,7 @@ try {
     arguments: {}
   });
   const listPromptPayload = JSON.parse(listPromptCall.content[0].text);
+  assertDiscoveryPayload(listPromptPayload);
   assert.equal(listPromptPayload.instruction, instructions.prompts);
   assert.equal(listPromptCall.structuredContent.instruction, instructions.prompts);
   assert.equal(Object.hasOwn(listPromptPayload, "humanNote"), false);
@@ -256,6 +269,7 @@ try {
     arguments: {}
   });
   const listSecretPayload = JSON.parse(listSecretCall.content[0].text);
+  assertDiscoveryPayload(listSecretPayload);
   assert.equal(listSecretPayload.instruction, instructions.secrets);
   assert.equal(listSecretCall.structuredContent.instruction, instructions.secrets);
   assert.equal(Object.hasOwn(listSecretPayload, "humanNote"), false);
@@ -269,6 +283,7 @@ try {
     arguments: { query: "minimax h3" }
   });
   const searchPayload = JSON.parse(searchCall.content[0].text);
+  assertDiscoveryPayload(searchPayload);
   assert.equal(searchPayload.ok, true);
   assert.equal(Object.hasOwn(searchPayload, "instruction"), false);
   assert.equal(Object.hasOwn(searchPayload, "humanNote"), false);
@@ -294,6 +309,7 @@ try {
     }
   });
   const scopedSearchPayload = JSON.parse(scopedSearchCall.content[0].text);
+  assertDiscoveryPayload(scopedSearchPayload);
   assert.equal(scopedSearchPayload.ok, true);
   assert.equal(scopedSearchPayload.scope.mode, "selected");
   assert.deepEqual(scopedSearchPayload.scope.directories, [{ name: "smoke", path: docsRoot, priority: 100 }]);
@@ -345,6 +361,7 @@ try {
     arguments: { path: searchPayload.results[0].path }
   });
   const fetchPayload = JSON.parse(fetchCall.content[0].text);
+  assertDiscoveryPayload(fetchPayload);
   assert.equal(fetchPayload.ok, true);
   assert.equal(Object.hasOwn(fetchPayload, "source"), false);
   assert.equal(Object.hasOwn(fetchCall.structuredContent, "source"), false);
@@ -355,6 +372,7 @@ try {
     arguments: { query: "stable audio 3" }
   });
   const toolPayload = JSON.parse(toolCall.content[0].text);
+  assertDiscoveryPayload(toolPayload);
   assert.equal(toolPayload.ok, true);
   assert.equal(toolPayload.meta.executed, false);
   assert.equal(toolPayload.results[0].path, toolPath);
@@ -379,6 +397,7 @@ try {
     arguments: { query: "smoke video inspector" }
   });
   const exactToolPayload = JSON.parse(exactToolCall.content[0].text);
+  assertDiscoveryPayload(exactToolPayload);
   assert.equal(exactToolPayload.ok, true);
   assert.deepEqual(exactToolPayload.results.map((entry) => entry.path), [manualToolPath]);
   assert.equal(exactToolPayload.results[0].verified, true);
@@ -389,6 +408,7 @@ try {
     arguments: { query: "short mv" }
   });
   const promptFindPayload = JSON.parse(promptFindCall.content[0].text);
+  assertDiscoveryPayload(promptFindPayload);
   assert.equal(promptFindPayload.ok, true);
   assert.deepEqual(promptFindPayload.results.map((entry) => entry.name), ["short mv"]);
   assert.deepEqual(promptFindPayload.results[0].matchedFields, ["name"]);
@@ -400,6 +420,7 @@ try {
     arguments: { prompt: "youtube-mv" }
   });
   const promptReadPayload = JSON.parse(promptReadCall.content[0].text);
+  assertDiscoveryPayload(promptReadPayload);
   assert.equal(promptReadPayload.ok, true);
   assert.match(promptReadPayload.content, /cinematic YouTube music video/);
 
@@ -408,6 +429,7 @@ try {
     arguments: { query: "password" }
   });
   const secretFindPayload = JSON.parse(secretFindCall.content[0].text);
+  assertDiscoveryPayload(secretFindPayload);
   assert.equal(secretFindPayload.ok, true);
   assert.equal(secretFindPayload.results[0].name, "smoke-ftp");
   assert.deepEqual(secretFindPayload.results[0].fields, ["hostname", "password"]);
@@ -418,6 +440,7 @@ try {
     arguments: { secret: "smoke-ftp", keys: ["hostname", "password"] }
   });
   const secretReadPayload = JSON.parse(secretReadCall.content[0].text);
+  assertDiscoveryPayload(secretReadPayload);
   assert.equal(secretReadPayload.ok, true);
   assert.equal(secretReadPayload.sensitive, true);
   assert.equal(secretReadPayload.values.hostname, "ftp.example.test");
@@ -428,6 +451,7 @@ try {
     arguments: { query: "mcp fixture password" }
   });
   const secretSearchPayload = JSON.parse(secretSearchCall.content[0].text);
+  assertDiscoveryPayload(secretSearchPayload);
   assert.equal(secretSearchPayload.results.length, 0);
 
   process.stdout.write(`${JSON.stringify({

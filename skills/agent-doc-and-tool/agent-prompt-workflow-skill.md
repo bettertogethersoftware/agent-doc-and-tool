@@ -105,7 +105,12 @@ Prompt selection and documentation discovery do not authorize execution. Execute
 
 Use the exact configured path and invocation metadata returned by the Tool catalog. Do not rely on `PATH` when a human-selected full path is available. If the interface is incomplete or uncertain, inspect the documented help form before the first real run. Never guess a consequential flag.
 
-The local documentation MCP is read-only. If it does not expose an execution-capable tool, report the plan and the execution blocker instead of claiming that the operation ran.
+The local documentation MCP is read-only. Successful MCP responses carry
+`meta.executed: false`; this says that discovery did not run the selected
+Tool, not that execution is authorized. If the MCP does not expose an
+execution-capable tool, report the plan and the execution blocker instead of
+claiming that the operation ran. Follow the [execution boundary contract](../../docs/EXECUTION_BOUNDARY_CONTRACT.md)
+and use a separate authorized execution channel.
 
 ### 6. Verify the result
 

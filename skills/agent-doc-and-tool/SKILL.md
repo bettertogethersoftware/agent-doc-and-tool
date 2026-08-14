@@ -309,3 +309,10 @@ does not authorize execution.
 Use the first-class `local_doc_search` methods only when they are attached to the current agent task. If a method is absent, state that the current task does not expose it; do not describe a CLI command as a direct MCP tool call. When shell access is authorized and the repository path is known, a JSON CLI command or standalone stdio MCP client may be used as an explicitly labelled fallback. Start a new task or restart the client to verify first-class attachment after MCP registration or tool-contract changes.
 
 The server is read-only, direct-scan, and local-only in this version. It does not provide execution, an index, web search, or database search. Prompt entries are read directly from the current private configuration on every call.
+
+The [execution boundary contract](../../docs/EXECUTION_BOUNDARY_CONTRACT.md)
+is authoritative for the discovery-versus-execution split. Treat every
+successful MCP response as discovery context with `meta.executed: false`; do
+not infer permission from that marker, from a configured Tool path, or from a
+dry-run plan. Use a separate authorized execution channel and independently
+verify its actual result.

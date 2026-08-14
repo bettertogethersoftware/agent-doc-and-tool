@@ -1,9 +1,26 @@
 import { errorPayload } from "./errors.mjs";
 
-export function successToolResult(payload) {
+function discoveryPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload.meta?.executed === true) {
+    throw new Error("Discovery MCP responses cannot report executed work.");
+  }
   return {
-    content: [{ type: "text", text: JSON.stringify(payload) }],
-    structuredContent: payload
+    ...payload,
+    meta: {
+      ...(payload.meta ?? {}),
+      executed: false
+    }
+  };
+}
+
+export function successToolResult(payload) {
+  const result = discoveryPayload(payload);
+  return {
+    content: [{ type: "text", text: JSON.stringify(result) }],
+    structuredContent: result
   };
 }
 

@@ -1,6 +1,6 @@
 # MCP Workflow Efficiency Priorities
 
-Status: Priorities 0, 1, 2, and 3 and the `find_tool` fallback optimization are implemented; the execution priority remains proposed.
+Status: Priorities 0 through 4 and the `find_tool` fallback optimization are implemented; the remaining execution capability itself remains separate and proposed.
 
 ## Decision
 
@@ -8,7 +8,9 @@ The highest-priority MCP change is to make `list_tool` a complete,
 self-sufficient Tool bundle and update the MCP guidance so an agent does not
 call `find_tool` after an already-selected Tool has been returned.
 
-This is the bridge between discovering the correct capability and constructing+a reproducible invocation. It was implemented before optimizing fallback+discovery and remains a prerequisite for adding any execution capability.
+This is the bridge between discovering the correct capability and constructing
+a reproducible invocation. It was implemented before optimizing fallback
+discovery and remains a prerequisite for adding any execution capability.
 
 ## Implemented foundation
 
@@ -281,10 +283,12 @@ after an unsuccessful query. Retry once with a shorter query while preserving
 the same exact scope, then report that the configured documentation was
 insufficient.
 
-### Priority 4: keep execution separate from discovery
+### Priority 4: keep execution separate from discovery (implemented)
 
-The local documentation MCP should remain read-only. Its responsibility is to
-provide:
+The local documentation MCP remains read-only and now exposes an explicit
+machine-readable boundary. The complete contract is documented in
+[EXECUTION_BOUNDARY_CONTRACT.md](EXECUTION_BOUNDARY_CONTRACT.md). Its
+responsibility is to provide:
 
 ```text
 prompt selection
@@ -292,6 +296,14 @@ tool selection
 documentation discovery
 invocation planning
 ```
+
+Every successful MCP response carries `meta.executed: false`. The response
+layer rejects a service payload that tries to report `executed: true`, and all
+registered MCP methods are annotated read-only, non-destructive, idempotent,
+and closed-world. Search may use the bounded direct `ripgrep` helper for
+read-only file enumeration; `find_tool` may perform the documented bounded
+filesystem verification fallback. Neither helper launches a configured Tool
+or invokes a shell.
 
 A separate authorized execution channel should handle:
 
@@ -301,8 +313,12 @@ creating or modifying files
 publishing or uploading results
 ```
 
-Prompt selection and human notes must never silently become permission to run
-an arbitrary script.
+Prompt selection, Catalog Instructions, folder notes, fetched documentation,
+Tool paths, invocation metadata, and dry-run plans never silently become
+permission to run an arbitrary script. A separate authorized execution channel
+must independently confirm the user request, prompt confirmation, interface,
+inputs, environment, credentials, paths, and side effects, then verify the
+actual result after execution.
 
 ### Priority 5: optimize `find_tool` fallback behavior (implemented as Phase 2 of the simplification plan)
 
@@ -334,7 +350,7 @@ the agent searches that alias with directories: [] and files: [alias]
 the agent does not call list merely to rediscover that exact alias
 the agent calls list only when a broader or unresolved document scope is needed
 the agent does not call find_tool
-no process is executed during discovery
+no configured Tool process is executed during discovery
 the agent returns kind: agent-dry-run-plan
 the plan has execution.mode: dry-run and execution.performed: false
 the plan has sideEffects.performed: []

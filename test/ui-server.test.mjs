@@ -217,7 +217,8 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.doesNotMatch(promptsPanelText, /PROMPT HELP/);
   assert.doesNotMatch(secretsPanelText, /SECRET HELP/);
   assert.match(helpPanelText, /AGENT ACCESS GUIDE/);
-  assert.match(helpPanelText, /Configure, validate, save, then test/);
+  assert.match(helpPanelText, /Configure, validate, save, then plan/);
+  assert.match(helpPanelText, /successful MCP responses are discovery-only/);
   assert.match(helpPanelText, /data-guide-tab="prompts"/);
   assert.match(helpPanelText, /data-guide-tab="documents"/);
   assert.match(helpPanelText, /data-guide-tab="tools"/);
@@ -225,10 +226,12 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(helpPanelText, /Use reusable prompts safely/);
   assert.match(helpPanelText, /Search only approved local documents/);
   assert.match(helpPanelText, /Discover tools before running them/);
-  assert.match(helpPanelText, /<code>list_tool<\/code><span>→<\/span><code>saved Tool<\/code><span>→<\/span><code>find_tool fallback<\/code>/);
-  assert.doesNotMatch(helpPanelText, /<code>list_tool<\/code><span>→<\/span><code>find_tool<\/code>/);
+  assert.match(helpPanelText, /Discovery responses carry <code>meta\.executed: false<\/code>/);
+  assert.match(helpPanelText, /<code>agent-dry-run-plan<\/code>/);
+  assert.match(helpPanelText, /<code>list_tool<\/code><span>→<\/span><code>saved Tool<\/code><span>→<\/span><code>agent-dry-run-plan<\/code>/);
+  assert.match(helpPanelText, /<code>list_prompt<\/code><span>→<\/span><code>read_prompt<\/code><span>→<\/span><code>dry-run plan<\/code>/);
   assert.match(helpPanelText, /Grant exact credential files carefully/);
-  assert.match(helpPanelText, /<code>list<\/code><span>→<\/span><code>search<\/code><span>→<\/span><code>fetch<\/code>/);
+  assert.match(helpPanelText, /<code>list<\/code><span>conditional<\/span><code>search<\/code><span>→<\/span><code>fetch<\/code>/);
   assert.doesNotMatch(pageText, /Register tools without running them/);
   assert.doesNotMatch(pageText, /Keep reusable prompts close to your agent/);
   assert.doesNotMatch(pageText, /Register exact credential files/);
@@ -295,7 +298,9 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(pageText, /id="tool-source-tools-tab"/);
   assert.match(pageText, /id="tool-source-documents-tab"/);
   assert.match(toolsPanelText, /id="tool-source-document-location"/);
+  assert.match(toolsPanelText, /id="tool-source-documents-workspace"/);
   assert.match(toolsPanelText, /id="tool-source-document-path"/);
+  assert.match(toolsPanelText, /class="tool-source-document-path-input-row"/);
   assert.match(toolsPanelText, /id="pick-tool-source-document-path"/);
   assert.match(toolsPanelText, /Documentation folder for this Tool/);
   assert.match(toolsPanelText, /Scan documents uses this folder; when it is blank, it uses the Tool source path/);
@@ -303,9 +308,10 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(toolsPanelText, /id="tool-source-document-matching"/);
   assert.match(toolsPanelText, /id="tool-source-document-matching-mode"/);
   assert.match(toolsPanelText, /Folder document rules/);
-  assert.ok(toolsPanelText.indexOf('id="tool-source-document-location"') < toolsPanelText.indexOf('class="tool-scan-commandbar"'));
+  assert.ok(toolsPanelText.indexOf('id="tool-source-documents-workspace"') < toolsPanelText.indexOf('class="tool-scan-commandbar"'));
   assert.ok(toolsPanelText.indexOf('class="tool-scan-commandbar"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
-  assert.ok(toolsPanelText.indexOf('class="tool-grant-workspace"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
+  assert.ok(toolsPanelText.indexOf('class="tool-grant-workspace"') < toolsPanelText.indexOf('id="tool-source-document-location"'));
+  assert.ok(toolsPanelText.indexOf('id="tool-source-document-location"') < toolsPanelText.indexOf('id="tool-source-document-matching"'));
   assert.match(pageText, /id="tool-source-resource-grants"/);
   assert.match(pageText, /id="tool-grants-list"/);
   assert.match(pageText, /id="tool-exact-grants"/);
@@ -362,6 +368,7 @@ test("configuration UI serves locally and protects its API", async (t) => {
   assert.match(appText, /documentRecursive/);
   assert.match(appText, /function matchesOperatorFilter\(/);
   assert.match(stylesText, /\.tool-source-document-location\s*\{/);
+  assert.match(stylesText, /\.tool-source-document-path-input-row\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*align-items:\s*center/);
 
   const forbidden = await fetch(new URL("api/config", fixture.ui.url));
   assert.equal(forbidden.status, 403);

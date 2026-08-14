@@ -1,7 +1,7 @@
 interface:
   display_name: "Agent Docs & Tools"
   short_description: "Find approved local docs, tools, prompts, secrets"
-  default_prompt: "Use $agent-doc-and-tool to route explicit agent-doc, agent-tool, and agent-prompt requests through list_tool and list_prompt first; use list when document scope is unknown, but search exact sibling documentation aliases from list_tool directly; inspect approved documentation and configured tool paths, confirm prompt selection before action, and return the versioned agent-dry-run-plan contract with execution.performed false before any authorized execution."
+  default_prompt: "Use $agent-doc-and-tool to route explicit agent-doc, agent-tool, and agent-prompt requests through list_tool and list_prompt first; use list when document scope is unknown, but search exact sibling documentation aliases from list_tool directly; inspect approved documentation and configured tool paths, confirm prompt selection before action, return the versioned agent-dry-run-plan contract with execution.performed false, and require a separate authorized execution channel."
 
 dependencies:
   tools:
